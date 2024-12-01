@@ -1,23 +1,26 @@
-import bcrypt from 'bcrypt'
-import { StatusCodes } from 'http-status-codes'
-import { model, Schema, Types } from 'mongoose'
-import config from '../../../config'
-import { USER_ROLES } from '../../../enums/user'
-import ApiError from '../../../errors/ApiError'
-import { IUser, UserModel } from './user.interface'
+import bcrypt from 'bcrypt';
+import { StatusCodes } from 'http-status-codes';
+import { model, Schema, Types } from 'mongoose';
+import config from '../../../config';
+import { USER_ROLES } from '../../../enums/user';
+import ApiError from '../../../errors/ApiError';
+import { IUser, UserModel } from './user.interface';
 
 const userSchema = new Schema<IUser, UserModel>(
   {
-    id: {
+    name: {
       type: String,
       required: true,
-      unique: true,
     },
     email: {
       type: String,
       required: true,
       unique: true,
       lowercase: true,
+    },
+    contact: {
+      type: String,
+      required: true,
     },
     password: {
       type: String,
@@ -56,10 +59,6 @@ const userSchema = new Schema<IUser, UserModel>(
       type: Boolean,
       default: true,
     },
-    approvedByAdmin: {
-      type: Boolean,
-      default: false,
-    },
     verified: {
       type: Boolean,
       default: false,
@@ -91,42 +90,42 @@ const userSchema = new Schema<IUser, UserModel>(
   },
   {
     timestamps: true,
-  }
-)
+  },
+);
 
 //exist user check
 userSchema.statics.isExistUserById = async (id: string) => {
-  const isExist = await User.findById(id)
-  return isExist
-}
+  const isExist = await User.findById({ _id: id, status: 'active' });
+  return isExist;
+};
 
 userSchema.statics.isExistUserByEmail = async (email: string) => {
-  const isExist = await User.findOne({ email })
-  return isExist
-}
+  const isExist = await User.findOne({ email, status: 'active' });
+  return isExist;
+};
 
 //is match password
 userSchema.statics.isMatchPassword = async (
   password: string,
-  hashPassword: string
+  hashPassword: string,
 ): Promise<boolean> => {
-  return await bcrypt.compare(password, hashPassword)
-}
+  return await bcrypt.compare(password, hashPassword);
+};
 
 //check user
 userSchema.pre('save', async function (next) {
   //check user
-  const isExist = await User.findOne({ email: this.email })
+  const isExist = await User.findOne({ email: this.email });
   if (isExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Email already exist!')
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Email already exist!');
   }
 
   //password hash
   this.password = await bcrypt.hash(
     this.password,
-    Number(config.bcrypt_salt_rounds)
-  )
-  next()
-})
+    Number(config.bcrypt_salt_rounds),
+  );
+  next();
+});
 
-export const User = model<IUser, UserModel>('User', userSchema)
+export const User = model<IUser, UserModel>('User', userSchema);

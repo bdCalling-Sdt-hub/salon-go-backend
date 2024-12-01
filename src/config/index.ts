@@ -1,7 +1,7 @@
 /* eslint-disable no-undef */
-import dotenv from 'dotenv'
-import path from 'path'
-dotenv.config({ path: path.join(process.cwd(), '.env') })
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.join(process.cwd(), '.env') });
 
 export default {
   ip_address: process.env.IP_ADDRESS,
@@ -28,4 +28,4 @@ export default {
     host: process.env.EMAIL_HOST,
     pass: process.env.EMAIL_PASS,
   },
-}
+};
