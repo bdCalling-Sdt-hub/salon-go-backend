@@ -1,0 +1,113 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { paginationFields } from './../../../types/pagination'
+import { StatusCodes } from 'http-status-codes'
+import catchAsync from '../../../shared/catchAsync'
+
+import { Request, Response } from 'express'
+
+import pick from '../../../shared/pick'
+import sendResponse from '../../../shared/sendResponse'
+import { professionalFilterableFields } from './professional.constants'
+import { IProfessional } from './professional.interface'
+import { ProfessionalService } from './professional.service'
+
+const updateProfessionalProfile = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user
+
+    let profileImg
+    if (req.files && 'image' in req.files && req.files.image[0]) {
+      profileImg = `/images/${req.files.image[0].filename}`
+    }
+
+    const data = {
+      profileImg,
+      ...req.body,
+    }
+
+    const result = await ProfessionalService.updateProfessionalProfile(
+      user,
+      data
+    )
+
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Vendor profile updated successfully',
+      data: result,
+    })
+  }
+)
+
+const getBusinessInformationForProfessional = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user
+    const { ...vendorData } = req.body
+
+    const result =
+      await ProfessionalService.getBusinessInformationForProfessional(
+        user,
+        vendorData
+      )
+
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Business information updated successfully',
+      data: result,
+    })
+  }
+)
+
+const getProfessionalProfile = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user
+
+    const result = await ProfessionalService.getProfessionalProfile(user)
+
+    sendResponse<IProfessional | null>(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Vendor profile retrieved successfully',
+      data: result,
+    })
+  }
+)
+
+const deleteProfessionalProfile = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user
+    const result = await ProfessionalService.deleteProfessionalProfile(user)
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Profile deleted successfully',
+      data: result,
+    })
+  }
+)
+
+//get all vendor
+const getAllProfessional = catchAsync(async (req: Request, res: Response) => {
+  const filters = pick(req.query, professionalFilterableFields)
+  const paginationOptions = pick(req.query, paginationFields)
+  const result = await ProfessionalService.getAllProfessional(
+    filters,
+    paginationOptions
+  )
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'All vendor retrieved successfully',
+    meta: result.meta,
+    data: result.data,
+  })
+})
+
+export const ProfessionalController = {
+  updateProfessionalProfile,
+  getBusinessInformationForProfessional,
+  getProfessionalProfile,
+  deleteProfessionalProfile,
+  getAllProfessional,
+}
