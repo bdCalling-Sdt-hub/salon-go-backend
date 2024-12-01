@@ -1,22 +1,35 @@
 import path from 'path'
 import { createLogger, format, transports } from 'winston'
 import DailyRotateFile from 'winston-daily-rotate-file'
+import fs from 'fs'
 
-//custom log format
+// Function to create the necessary directories if they don't exist
+const createLogDirs = () => {
+  const dirs = ['logs/winston/successes', 'logs/winston/errors']
+  dirs.forEach(dir => {
+    if (!fs.existsSync(path.join(process.cwd(), dir))) {
+      fs.mkdirSync(path.join(process.cwd(), dir), { recursive: true })
+    }
+  })
+}
+
+// Custom log format
 const { combine, timestamp, label, printf } = format
 
 const myFormat = printf(({ level, message, label, timestamp }) => {
   const date = new Date(timestamp)
-  const hour = date.getHours()
-  const minutes = date.getMinutes()
-  const seconds = date.getSeconds()
+  const hour = date.getHours().toString().padStart(2, '0')
+  const minutes = date.getMinutes().toString().padStart(2, '0')
+  const seconds = date.getSeconds().toString().padStart(2, '0')
   return `{${date.toDateString()} ${hour}:${minutes}:${seconds}} [${label}] ${level}: ${message}`
 })
 
+createLogDirs() // Ensure directories exist
+
+// Success logger
 const logger = createLogger({
   level: 'info',
-  format: combine(label({ label: 'EB 🚀' }), timestamp(), myFormat),
-
+  format: combine(label({ label: 'SG 🚀' }), timestamp(), myFormat),
   transports: [
     new transports.Console(),
     new DailyRotateFile({
@@ -25,7 +38,7 @@ const logger = createLogger({
         'logs',
         'winston',
         'successes',
-        'phu-%DATE%-success.log'
+        'sg-%DATE%-success.log'
       ),
       datePattern: 'YYYY-MM-DD-HH',
       zippedArchive: true,
@@ -35,9 +48,10 @@ const logger = createLogger({
   ],
 })
 
+// Error logger
 const errorLogger = createLogger({
-  level: 'error',
-  format: combine(label({ label: 'EB 🐞' }), timestamp(), myFormat),
+  level: 'error', // This ensures that only error-level messages are logged
+  format: combine(label({ label: 'SG 🐞' }), timestamp(), myFormat),
   transports: [
     new transports.Console(),
     new DailyRotateFile({
@@ -46,7 +60,7 @@ const errorLogger = createLogger({
         'logs',
         'winston',
         'errors',
-        'phu-%DATE%-error.log'
+        'sg-%DATE%-error.log'
       ),
       datePattern: 'YYYY-MM-DD-HH',
       zippedArchive: true,
@@ -57,7 +71,3 @@ const errorLogger = createLogger({
 })
 
 export { logger, errorLogger }
-
-//logs/winston
-//successes ->success.log
-//errors->error.log
