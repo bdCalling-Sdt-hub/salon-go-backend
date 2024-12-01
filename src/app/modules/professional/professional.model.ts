@@ -1,41 +1,8 @@
-import { model, Schema } from 'mongoose'
-import { IProfessional, ProfessionalModel } from './professional.interface'
+import { model, Schema } from 'mongoose';
+import { IProfessional, ProfessionalModel } from './professional.interface';
 
 const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
   {
-    id: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    name: {
-      type: String,
-      required: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    contact: {
-      type: String,
-      default: '',
-    },
-    profileImg: {
-      type: String,
-      default: '',
-    },
-    address: {
-      _id: false,
-      type: {
-        street: { type: String, required: true },
-        apartmentOrSuite: { type: String },
-        city: { type: String, required: true },
-        state: { type: String, required: true },
-        zip: { type: String, required: true },
-        country: { type: String, required: true, default: 'United States' },
-      },
-    },
     rating: {
       type: Number,
       default: 0,
@@ -161,10 +128,11 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
   },
   {
     timestamps: true,
-  }
-)
-professionalSchema.index({ location: '2dsphere' })
+  },
+);
+professionalSchema.index({ location: '2dsphere' });
 
 export const Professional = model<IProfessional, ProfessionalModel>(
-  'Professional'
-)
+  'Professional',
+  professionalSchema,
+);
