@@ -42,17 +42,17 @@ const getCustomerProfile = async (user: JwtPayload) => {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const updateCustomerProfile = async (id: Types.ObjectId, payload: any) => {
-  const { address, ...restData } = payload;
-  let updatedData = { ...restData };
-  if (address && Object.keys(address).length > 0) {
-    updatedData = handleObjectUpdate(address, restData, 'address');
-  }
+  // const { address, ...restData } = payload;
+  // let updatedData = { ...restData };
+  // if (address && Object.keys(address).length > 0) {
+  //   updatedData = handleObjectUpdate(address, restData, 'address');
+  // }
 
   const isUserExist = await User.findById(id);
   if (!isUserExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
-  const result = await Customer.findOneAndUpdate({ auth: id }, updatedData, {
+  const result = await Customer.findOneAndUpdate({ auth: id }, payload, {
     new: true,
   });
   if (!result) {
