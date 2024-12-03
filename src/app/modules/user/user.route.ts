@@ -8,8 +8,8 @@ const router = express.Router();
 
 //get user profile
 router.get(
-  '/profile/:id',
-  auth(USER_ROLES.ADMIN),
+  '/profile',
+  auth(USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
   UserController.getUserProfile,
 );
 

@@ -3,9 +3,9 @@ import { AdminModel, IAdmin } from './admin.interface';
 
 const adminSchema = new Schema<IAdmin, AdminModel>(
   {
-    name: {
-      type: String,
-      required: true,
+    auth: {
+      type: Schema.Types.ObjectId,
+      ref: 'Auth',
     },
   },
   {
