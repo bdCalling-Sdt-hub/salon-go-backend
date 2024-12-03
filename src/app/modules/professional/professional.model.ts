@@ -1,4 +1,4 @@
-import { model, Schema } from 'mongoose';
+import { model, Schema, Types } from 'mongoose';
 import { IProfessional, ProfessionalModel } from './professional.interface';
 
 const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
@@ -12,11 +12,11 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: String,
     },
     target_audience: {
-      type: [String],
+      type: String,
       enum: ['men', 'women'],
     },
     services_type: {
-      type: [String],
+      type: String,
       enum: ['home', 'in-place'],
     },
     travel_fee: {
@@ -34,8 +34,16 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: String,
     },
     categories: {
-      type: [Schema.Types.ObjectId],
+      type: [Types.ObjectId],
       ref: 'Category',
+    },
+    subCategories: {
+      type: [Types.ObjectId],
+      ref: 'SubCategory',
+    },
+    isFreelancer: {
+      type: Boolean,
+      default: false,
     },
     team_size: {
       _id: false,
@@ -53,25 +61,27 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       ref: 'Schedule',
     },
 
+    // address: {
+    //   _id: false,
+    //   street: {
+    //     type: String,
+    //   },
+    //   city: {
+    //     type: String,
+    //   },
+    //   state: {
+    //     type: String,
+    //   },
+    //   zip_code: {
+    //     type: String,
+    //   },
+    //   country: {
+    //     type: String,
+    //   },
+    // },
     address: {
-      _id: false,
-      street: {
-        type: String,
-      },
-      city: {
-        type: String,
-      },
-      state: {
-        type: String,
-      },
-      zip_code: {
-        type: String,
-      },
-      country: {
-        type: String,
-      },
+      type: String,
     },
-
     location: {
       type: { type: String, default: 'Point', enum: ['Point'] },
       coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude] // Default to [0, 0] if coordinates are not provided

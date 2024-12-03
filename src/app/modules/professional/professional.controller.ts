@@ -43,7 +43,7 @@ const getBusinessInformationForProfessional = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
     const { ...vendorData } = req.body;
-
+    console.log(vendorData);
     const result =
       await ProfessionalService.getBusinessInformationForProfessional(
         user,

@@ -30,10 +30,10 @@ type ITravelFee = {
 export type IProfessional = {
   auth: Types.ObjectId;
   business_name: string;
-  target_audience: ('men' | 'women')[];
-  services_type: ('home' | 'in-place')[];
+  target_audience: 'men' | 'women';
+  services_type: 'home' | 'in-place';
   travel_fee: ITravelFee;
-  categories: Types.ObjectId[];
+  isFreelancer: boolean;
   team_size: {
     min: number;
     max: number;
@@ -44,12 +44,15 @@ export type IProfessional = {
   profile: string;
   social_links: ISocialLink;
   rating: number;
-  address: IAddress;
+  address: string;
   location: Point;
+  categories: Types.ObjectId[];
+  subCategories: Types.ObjectId[];
   total_reviews: number;
   total_service_provided: number;
   is_available: boolean;
   previously_used_tools: boolean;
+  portfolio: string[];
   helping_tags: string[];
 };
 

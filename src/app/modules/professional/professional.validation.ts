@@ -84,28 +84,35 @@ const updateProfessionalProfileZodSchema = z.object({
 });
 
 const storeProfessionalBusinessZodSchema = z.object({
-  business_name: z.string({ required_error: 'Business name is required' }),
-  target_audience: z.array(z.enum(['men', 'women']), {
-    required_error: 'Target audience is required',
+  body: z.object({
+    business_name: z.string({ required_error: 'Business name is required' }),
+    target_audience: z.enum(['men', 'women'], {
+      required_error: 'Target audience is required',
+    }),
+    services_type: z.enum(['home', 'in-place'], {
+      required_error: 'Services type is required',
+    }),
+    travel_fee: travelFeeSchema,
+    description: z.string({ required_error: 'Description is required' }),
+    team_size: teamSizeSchema,
+    schedule_id: z.string().optional(),
+    // address: addressSchema,
+    address: z.string({ required_error: 'Address is required' }),
+    categories: z.array(z.string({ required_error: 'Category is required' })),
+    subCategories: z.array(
+      z.string({ required_error: 'Subcategory is required' }),
+    ),
+    location: z.object(
+      {
+        type: z.literal('Point').default('Point'),
+        coordinates: z.array(z.number()).length(2), // [longitude, latitude]
+      },
+      { required_error: 'Location is required' },
+    ),
+    license: z.string().optional(),
+    social_links: socialLinksSchema,
+    helping_tags: z.array(z.string().optional()).optional(),
   }),
-  services_type: z.array(z.enum(['home', 'in-place']), {
-    required_error: 'Services type is required',
-  }),
-  travel_fee: travelFeeSchema,
-  description: z.string({ required_error: 'Description is required' }),
-  categories: z.array(z.string({ required_error: 'Category is required' })),
-  team_size: teamSizeSchema,
-  schedule_id: z.string({ required_error: 'Schedule ID is required' }),
-  address: addressSchema,
-  location: z.object(
-    {
-      type: z.literal('Point').default('Point'),
-      coordinates: z.array(z.number()).length(2), // [longitude, latitude]
-    },
-    { required_error: 'Location is required' },
-  ),
-  license: z.string(),
-  social_links: socialLinksSchema,
 });
 
 export const ProfessionalValidation = {

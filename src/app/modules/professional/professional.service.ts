@@ -15,7 +15,22 @@ const updateProfessionalProfile = async (
 const getBusinessInformationForProfessional = async (
   user: JwtPayload,
   payload: Partial<IProfessional>,
-) => {};
+) => {
+  const result = await Professional.findOneAndUpdate(
+    { auth: user.id },
+    payload,
+    {
+      new: true,
+    },
+  );
+  if (!result) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to update business information',
+    );
+  }
+  return result;
+};
 
 const getProfessionalProfile = async (
   user: JwtPayload,

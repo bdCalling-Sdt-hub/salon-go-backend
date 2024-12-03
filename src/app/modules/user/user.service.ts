@@ -18,9 +18,6 @@ import { Admin } from '../admin/admin.model';
 import { Customer } from '../customer/customer.model';
 import { Professional } from '../professional/professional.model';
 import { JwtPayload } from 'jsonwebtoken';
-import { ICustomer } from '../customer/customer.interface';
-import { IProfessional } from '../professional/professional.interface';
-import { IAdmin } from '../admin/admin.interface';
 
 type IPayload = Pick<IUser, 'email' | 'password' | 'name' | 'role' | 'contact'>;
 
@@ -132,7 +129,7 @@ const getUserProfileFromDB = async (user: JwtPayload) => {
     )
       .populate({
         path: 'auth',
-        select: { name: 1, email: 1, role: 1, status: 1 },
+        select: { name: 1, email: 1, role: 1, status: 1, needInformation: 1 },
       })
       .lean();
     if (!userData) {
@@ -141,7 +138,7 @@ const getUserProfileFromDB = async (user: JwtPayload) => {
   } else if (user.role === USER_ROLES.PROFESSIONAL) {
     userData = await Professional.findOne({ auth: user.id }).populate({
       path: 'auth',
-      select: { name: 1, email: 1, role: 1, status: 1 },
+      select: { name: 1, email: 1, role: 1, status: 1, needInformation: 1 },
     });
     console.log(userData);
     if (!userData) {
