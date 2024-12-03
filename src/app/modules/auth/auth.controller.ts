@@ -20,16 +20,25 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
   const { ...loginData } = req.body;
   const result = await AuthService.loginUserFromDB(loginData);
 
+  const { refreshToken, ...others } = result;
+
+  const cookieOptions = {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+  };
+
+  res.cookie('refreshToken', refreshToken, cookieOptions);
+
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'User login successfully',
-    data: result,
+    data: others,
   });
 });
 
 const refreshToken = catchAsync(async (req: Request, res: Response) => {
-  const { refreshToken } = req.body;
+  const { refreshToken } = req.cookies;
   const result = await AuthService.refreshToken(refreshToken);
 
   sendResponse(res, {

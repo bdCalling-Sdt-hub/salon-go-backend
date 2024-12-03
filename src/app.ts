@@ -1,37 +1,38 @@
-import cors from 'cors'
-import express, { Request, Response } from 'express'
-import { StatusCodes } from 'http-status-codes'
+import cors from 'cors';
+import express, { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 
-import router from './routes'
-import helmet from 'helmet'
-import { Morgan } from './shared/morgan'
-import globalErrorHandler from './app/middlewares/globalErrorHandler'
-const app = express()
+import router from './routes';
+import helmet from 'helmet';
+import { Morgan } from './shared/morgan';
+import globalErrorHandler from './app/middlewares/globalErrorHandler';
+import cookieParser from 'cookie-parser';
+const app = express();
 
 //morgan
-app.use(Morgan.successHandler)
-app.use(Morgan.errorHandler)
-app.use(helmet())
+app.use(Morgan.successHandler);
+app.use(Morgan.errorHandler);
+app.use(helmet());
 //body parser
-app.use(cors())
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
-
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 //file retrieve
-app.use(express.static('uploads'))
+app.use(express.static('uploads'));
 
 //router
-app.use('/api/v1', router)
+app.use('/api/v1', router);
 
 //live response
 app.get('/', (req: Request, res: Response) => {
   res.send(
-    '<h1 style="text-align:center; color:#A55FEF; font-family:Verdana;">Hey, How can I assist you today!</h1>'
-  )
-})
+    '<h1 style="text-align:center; color:#A55FEF; font-family:Verdana;">Hey, How can I assist you today!</h1>',
+  );
+});
 
 //global error handle
-app.use(globalErrorHandler)
+app.use(globalErrorHandler);
 
 //handle not found route;
 app.use((req, res) => {
@@ -44,7 +45,7 @@ app.use((req, res) => {
         message: "API DOESN'T EXIST",
       },
     ],
-  })
-})
+  });
+});
 
-export default app
+export default app;
