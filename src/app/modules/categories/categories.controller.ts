@@ -147,10 +147,12 @@ const deleteSubSubCategory = catchAsync(async (req: Request, res: Response) => {
 const addSubCategoryToCategory = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { subCategory } = req.body;
+
+    const { subCategories } = req.body;
+
     const result = await CategoriesServices.addSubCategoryToCategory(
       new Types.ObjectId(id),
-      subCategory,
+      subCategories,
     );
     sendResponse(res, {
       success: true,
@@ -164,10 +166,10 @@ const addSubCategoryToCategory = catchAsync(
 const removeSubCategoryFromCategory = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { subCategory } = req.body;
+    const { subCategories } = req.body;
     const result = await CategoriesServices.removeSubCategoryFromCategory(
       new Types.ObjectId(id),
-      subCategory,
+      subCategories,
     );
     sendResponse(res, {
       success: true,
@@ -181,10 +183,10 @@ const removeSubCategoryFromCategory = catchAsync(
 const addSubSubCategoryToSubCategory = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { subSubCategory } = req.body;
+    const { subSubCategories } = req.body;
     const result = await CategoriesServices.addSubSubCategoryToSubCategory(
       new Types.ObjectId(id),
-      subSubCategory,
+      subSubCategories,
     );
     sendResponse(res, {
       success: true,
@@ -198,10 +200,10 @@ const addSubSubCategoryToSubCategory = catchAsync(
 const removeSubSubCategoryFromSubCategory = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { subSubCategory } = req.body;
+    const { subSubCategories } = req.body;
     const result = await CategoriesServices.removeSubSubCategoryFromSubCategory(
       new Types.ObjectId(id),
-      subSubCategory,
+      subSubCategories,
     );
     sendResponse(res, {
       success: true,

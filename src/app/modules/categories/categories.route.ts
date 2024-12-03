@@ -8,9 +8,11 @@ import validateRequest from '../../middlewares/validateRequest';
 
 const router = express.Router();
 
+router.get('/', CategoriesController.getAllCategories);
+
 router.post(
   '/category',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
     if (req.body.data) {
@@ -24,8 +26,8 @@ router.post(
 );
 
 router.patch(
-  '/',
-  auth(USER_ROLES.ADMIN),
+  '/category/:id',
+  // auth(USER_ROLES.ADMIN),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
     if (req.body.data) {
@@ -40,7 +42,7 @@ router.patch(
 
 router.delete(
   '/category/:id',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   CategoriesController.deleteCategory,
 );
 
@@ -48,21 +50,21 @@ router.delete(
 
 router.post(
   '/sub-category',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(CategoriesValidations.createSubCategorySchema),
   CategoriesController.createSubCategory,
 );
 
 router.patch(
   '/sub-category/:id',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(CategoriesValidations.updateSubCategorySchema),
   CategoriesController.updateSubCategory,
 );
 
 router.delete(
   '/sub-category/:id',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   CategoriesController.deleteSubCategory,
 );
 
@@ -70,42 +72,42 @@ router.delete(
 
 router.post(
   '/sub-sub-category',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(CategoriesValidations.createSubSubCategorySchema),
   CategoriesController.createSubSubCategory,
 );
 
 router.patch(
   '/sub-sub-category/:id',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(CategoriesValidations.updateSubSubCategorySchema),
   CategoriesController.updateSubSubCategory,
 );
 
 router.delete(
   '/sub-sub-category/:id',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   CategoriesController.deleteSubSubCategory,
 );
 
 //manage add and remove sub category and sub sub category
 router.patch(
   '/add-sub-category-to-category/:id',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(CategoriesValidations.addSubCategoryToCategoryZodSchema),
   CategoriesController.addSubCategoryToCategory,
 );
 
 router.patch(
   '/remove-sub-category-from-category/:id',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(CategoriesValidations.removeSubCategoryFromCategoryZodSchema),
   CategoriesController.removeSubCategoryFromCategory,
 );
 
 router.patch(
   '/add-sub-sub-category-to-sub-category/:id',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(
     CategoriesValidations.addSubSubCategoryToSubCategoryZodSchema,
   ),
@@ -114,7 +116,7 @@ router.patch(
 
 router.patch(
   '/remove-sub-sub-category-from-sub-category/:id',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(
     CategoriesValidations.removeSubSubCategoryFromSubCategoryZodSchema,
   ),
