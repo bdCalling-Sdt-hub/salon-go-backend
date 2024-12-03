@@ -13,6 +13,7 @@ const categorySchema = new Schema<ICategory, CategoriesModel>(
     name: {
       type: String,
       required: true,
+      unique: true,
     },
     description: {
       type: String,
@@ -36,14 +37,15 @@ const subCategorySchema = new Schema<ISubCategory, SubCategoriesModel>(
     name: {
       type: String,
       required: true,
+      unique: true,
     },
     description: {
       type: String,
     },
-    category: {
-      type: Schema.Types.ObjectId,
-      ref: 'Category',
-    },
+    // category: {
+    //   type: Schema.Types.ObjectId,
+    //   ref: 'Category',
+    // },
     subSubCategories: {
       type: [Schema.Types.ObjectId],
       ref: 'SubSubCategory',
@@ -60,14 +62,15 @@ const subSubCategorySchema = new Schema<ISubSubCategory, SubSubCategoriesModel>(
     name: {
       type: String,
       required: true,
+      unique: true,
     },
     description: {
       type: String,
     },
-    subCategory: {
-      type: Schema.Types.ObjectId,
-      ref: 'SubCategory',
-    },
+    // subCategory: {
+    //   type: Schema.Types.ObjectId,
+    //   ref: 'SubCategory',
+    // },
   },
   {
     timestamps: true,

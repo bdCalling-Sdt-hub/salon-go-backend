@@ -9,10 +9,12 @@ import { Category, SubCategory, SubSubCategory } from './categories.model';
 import mongoose, { Types } from 'mongoose';
 
 const getAllCategories = async (): Promise<ICategory[]> => {
-  const result = await Category.find().populate({
-    path: 'subSubCategories',
-    populate: { path: 'subSubCategories' },
-  });
+  const result = await Category.find()
+    .populate('subCategories')
+    .populate({
+      path: 'subCategories',
+      populate: { path: 'subSubCategories' },
+    });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get categories');
   }
@@ -51,29 +53,14 @@ const deleteCategoryToDB = async (id: string): Promise<ICategory> => {
 const createSubCategoryToDB = async (
   payload: ISubCategory,
 ): Promise<ISubCategory> => {
-  const session = await mongoose.startSession();
-  try {
-    session.startTransaction();
-    const newSubCategory = await SubCategory.create([payload], { session });
-    if (!newSubCategory?.length) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Failed to create sub category',
-      );
-    }
-    const category = await Category.findOneAndUpdate(
-      { _id: payload.category },
-      { $push: { subCategories: newSubCategory[0]._id } },
-      { new: true },
+  const newSubCategory = await SubCategory.create([payload]);
+  if (!newSubCategory?.length) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to create sub category',
     );
-    await session.commitTransaction();
-    await session.endSession();
-    return newSubCategory[0];
-  } catch (error) {
-    await session.abortTransaction();
-    await session.endSession();
-    throw error;
   }
+  return newSubCategory[0];
 };
 
 const updateSubCategoryToDB = async (
@@ -92,60 +79,56 @@ const updateSubCategoryToDB = async (
   return result;
 };
 
-const deleteSubCategoryToDB = async (id: string): Promise<ISubCategory> => {
+export const deleteSubCategoryToDB = async (
+  id: string,
+): Promise<ISubCategory | null> => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
-    const result = await SubCategory.findOneAndDelete({ _id: id });
-    if (!result) {
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid subCategory ID');
+    }
+
+    const category = await Category.findOneAndUpdate(
+      { subCategories: id },
+      { $pull: { subCategories: id } },
+      { new: true, session },
+    );
+
+    const subCategory = await SubCategory.findOneAndDelete(
+      { _id: id },
+      { session },
+    );
+
+    if (!subCategory) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        'Failed to delete sub category',
+        'Failed to delete subCategory',
       );
     }
-    await Category.findOneAndUpdate(
-      { _id: result?.category },
-      { $pull: { subCategories: result?._id } },
-      { new: true },
-    );
+
     await session.commitTransaction();
-    await session.endSession();
-    return result;
+    return subCategory;
   } catch (error) {
     await session.abortTransaction();
-    await session.endSession();
     throw error;
+  } finally {
+    session.endSession();
   }
 };
 
 const createSubSubCategoryToDB = async (
   payload: ISubCategory,
 ): Promise<ISubSubCategory> => {
-  const session = await mongoose.startSession();
-  try {
-    session.startTransaction();
-    const newSubSubCategory = await SubSubCategory.create([payload], {
-      session,
-    });
-    if (!newSubSubCategory?.length) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Failed to create sub sub category',
-      );
-    }
-    const subCategory = await SubCategory.findOneAndUpdate(
-      { _id: payload.subSubCategories[0] },
-      { $push: { subSubCategories: newSubSubCategory[0]._id } },
-      { new: true },
+  const newSubSubCategory = await SubSubCategory.create([payload]);
+  if (!newSubSubCategory?.length) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to create sub sub category',
     );
-    await session.commitTransaction();
-    await session.endSession();
-    return newSubSubCategory[0];
-  } catch (error) {
-    await session.abortTransaction();
-    await session.endSession();
-    throw error;
   }
+  return newSubSubCategory[0];
 };
 
 const updateSubSubCategoryToDB = async (
@@ -164,31 +147,49 @@ const updateSubSubCategoryToDB = async (
   return result;
 };
 
-const deleteSubSubCategoryToDB = async (
+export const deleteSubSubCategoryToDB = async (
   id: string,
-): Promise<ISubSubCategory> => {
+): Promise<ISubSubCategory | null> => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
-    const result = await SubSubCategory.findOneAndDelete({ _id: id });
-    if (!result) {
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid subCategory ID');
+    }
+
+    const subCategory = await SubCategory.findOneAndUpdate(
+      { subSubCategories: id },
+      { $pull: { subSubCategories: id } },
+      { new: true, session },
+    );
+
+    if (!subCategory) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        'Failed to delete sub sub category',
+        'SubCategory not associated with any Category',
       );
     }
-    await SubCategory.findOneAndUpdate(
-      { _id: result?.subCategory },
-      { $pull: { subSubCategories: result?._id } },
-      { new: true },
+
+    const subSubCategory = await SubSubCategory.findOneAndDelete(
+      { _id: id },
+      { session },
     );
+
+    if (!subSubCategory) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to delete subCategory',
+      );
+    }
+
     await session.commitTransaction();
-    await session.endSession();
-    return result;
+    return subCategory;
   } catch (error) {
     await session.abortTransaction();
-    await session.endSession();
     throw error;
+  } finally {
+    session.endSession();
   }
 };
 
@@ -200,17 +201,6 @@ const addSubCategoryToCategory = async (
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
-
-    // Validate subCategory ObjectIds
-    const isValidObjectIdArray = subCategories.every((id) =>
-      mongoose.Types.ObjectId.isValid(id),
-    );
-    if (!isValidObjectIdArray) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Invalid subCategory IDs provided',
-      );
-    }
 
     // Add subcategories to the category, ensuring no duplicates
     await Category.findOneAndUpdate(
@@ -233,31 +223,20 @@ const removeSubCategoryFromCategory = async (
   category: Types.ObjectId,
   subCategories: Types.ObjectId[],
 ) => {
-  const session = await mongoose.startSession();
-  try {
-    session.startTransaction();
+  const result = await Category.findOneAndUpdate(
+    { _id: category },
+    { $pull: { subCategories: { $in: subCategories } } }, // Use $in to remove multiple subCategories
+    { new: true },
+  );
 
-    const areValidObjectIds = subCategories.every((id) =>
-      mongoose.Types.ObjectId.isValid(id),
+  if (!result) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to remove subCategory from category',
     );
-
-    if (!areValidObjectIds) {
-      throw new Error('One or more subCategory IDs are invalid');
-    }
-
-    await Category.findOneAndUpdate(
-      { _id: category },
-      { $pull: { subCategories: { $in: subCategories } } }, // Use $in to remove multiple subCategories
-      { new: true, session },
-    );
-
-    await session.commitTransaction();
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
   }
+
+  return result;
 };
 
 // Add a subSubCategory to a subCategory (without duplicates)
@@ -265,67 +244,42 @@ const addSubSubCategoryToSubCategory = async (
   subCategory: Types.ObjectId,
   subSubCategories: Types.ObjectId[], // Expecting an array of subSubCategory IDs
 ) => {
-  const session = await mongoose.startSession();
-  try {
-    session.startTransaction();
+  // Add multiple subSubCategories to the subCategory, ensuring no duplicates
+  const result = await SubCategory.findOneAndUpdate(
+    { _id: subCategory },
+    { $addToSet: { subSubCategories: { $each: subSubCategories } } }, // Use $addToSet with $each for multiple IDs
+    { new: true },
+  );
 
-    // Validate if all subSubCategory IDs are valid ObjectIds
-    const areValidObjectIds = subSubCategories.every((id) =>
-      mongoose.Types.ObjectId.isValid(id),
+  if (!result) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to add subSubCategory to subCategory',
     );
-
-    if (!areValidObjectIds) {
-      throw new Error('One or more subSubCategory IDs are invalid');
-    }
-
-    // Add multiple subSubCategories to the subCategory, ensuring no duplicates
-    await SubCategory.findOneAndUpdate(
-      { _id: subCategory },
-      { $addToSet: { subSubCategories: { $each: subSubCategories } } }, // Use $addToSet with $each for multiple IDs
-      { new: true, session },
-    );
-
-    await session.commitTransaction();
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
   }
+
+  return result;
 };
 
 // Remove a subSubCategory from a subCategory
 const removeSubSubCategoryFromSubCategory = async (
   subCategory: Types.ObjectId,
-  subSubCategories: Types.ObjectId[], // Expecting an array of subSubCategory IDs
+  subSubCategories: Types.ObjectId[],
 ) => {
-  const session = await mongoose.startSession();
-  try {
-    session.startTransaction();
+  const result = await SubCategory.findOneAndUpdate(
+    { _id: subCategory },
+    { $pull: { subSubCategories: { $in: subSubCategories } } },
+    { new: true },
+  );
 
-    // Validate if all subSubCategory IDs are valid ObjectIds
-    const areValidObjectIds = subSubCategories.every((id) =>
-      mongoose.Types.ObjectId.isValid(id),
+  if (!result) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to remove subSubCategory from subCategory',
     );
-
-    if (!areValidObjectIds) {
-      throw new Error('One or more subSubCategory IDs are invalid');
-    }
-
-    // Remove multiple subSubCategories from the subCategory
-    await SubCategory.findOneAndUpdate(
-      { _id: subCategory },
-      { $pull: { subSubCategories: { $in: subSubCategories } } }, // Use $in to remove multiple subSubCategories
-      { new: true, session },
-    );
-
-    await session.commitTransaction();
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
   }
+
+  return result;
 };
 export const CategoriesServices = {
   getAllCategories,

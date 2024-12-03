@@ -10,7 +10,7 @@ const createSubCategorySchema = z.object({
   body: z.object({
     name: z.string().min(1, 'Name is required'),
     description: z.string().optional(),
-    category: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid ObjectId'),
+    // category: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid ObjectId'),
   }),
 });
 
@@ -41,7 +41,7 @@ const updateSubSubCategorySchema = z.object({
 // Zod schema for adding subSubCategories to a subCategory
 const addSubCategoryToCategoryZodSchema = z.object({
   body: z.object({
-    subSubCategories: z
+    subCategories: z
       .array(
         z.string().refine((val) => mongoose.Types.ObjectId.isValid(val), {
           message: 'Invalid subSubCategory ID',
@@ -53,7 +53,7 @@ const addSubCategoryToCategoryZodSchema = z.object({
 
 const removeSubCategoryFromCategoryZodSchema = z.object({
   body: z.object({
-    subSubCategories: z
+    subCategories: z
       .array(
         z.string().refine((val) => mongoose.Types.ObjectId.isValid(val), {
           message: 'Invalid subSubCategory ID',

@@ -10,14 +10,14 @@ export type ICategory = {
 export type ISubCategory = {
   name: string;
   description: string;
-  category: Types.ObjectId;
+  // category: Types.ObjectId;
   subSubCategories: Types.ObjectId[];
 };
 
 export type ISubSubCategory = {
   name: string;
   description: string;
-  subCategory: Types.ObjectId;
+  // subCategory: Types.ObjectId;
 };
 
 export type CategoriesModel = Model<ICategory>;
