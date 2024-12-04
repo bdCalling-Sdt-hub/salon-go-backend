@@ -16,6 +16,25 @@ const getBusinessInformationForProfessional = async (
   user: JwtPayload,
   payload: Partial<IProfessional>,
 ) => {
+  // Find the existing professional document
+  const existingProfessional = await Professional.findOne({ auth: user.id });
+  if (!existingProfessional) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional not found!');
+  }
+
+  // Track updated fields
+  const updatedFields: string[] = [];
+  for (const key in payload) {
+    if (
+      Object.prototype.hasOwnProperty.call(payload, key) &&
+      existingProfessional[key as keyof IProfessional] !==
+        payload[key as keyof IProfessional]
+    ) {
+      updatedFields.push(key);
+    }
+  }
+
+  // Update the professional's information
   const result = await Professional.findOneAndUpdate(
     { auth: user.id },
     payload,
@@ -23,13 +42,22 @@ const getBusinessInformationForProfessional = async (
       new: true,
     },
   );
+
   if (!result) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Failed to update business information',
     );
   }
-  return result;
+
+  result.informationCount += 1;
+  await result.save();
+
+  return {
+    updatedFields,
+    informationCount: result.informationCount,
+    result,
+  };
 };
 
 const getProfessionalProfile = async (
