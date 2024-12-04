@@ -46,6 +46,7 @@ export type IProfessional = {
   rating: number;
   address: string;
   location: Point;
+  informationCount: number;
   categories: Types.ObjectId[];
   subCategories: Types.ObjectId[];
   total_reviews: number;
