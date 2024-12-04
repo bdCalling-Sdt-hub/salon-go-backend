@@ -4,6 +4,7 @@ import { UserRoutes } from '../app/modules/user/user.route';
 import { AuthRoutes } from '../app/modules/auth/auth.route';
 import { CustomerRoutes } from '../app/modules/customer/customer.route';
 import { CategoriesRoutes } from '../app/modules/categories/categories.route';
+import { ChatRoutes } from '../app/modules/chat/chat.route';
 
 const router = express.Router();
 
@@ -24,6 +25,10 @@ export const apiRoutes: { path: string; route: any }[] = [
   {
     path: '/categories',
     route: CategoriesRoutes,
+  },
+  {
+    path: '/chat',
+    route: ChatRoutes,
   },
 ];
 
