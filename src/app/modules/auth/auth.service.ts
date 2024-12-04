@@ -62,8 +62,10 @@ const loginUserFromDB = async (
   }
 
   // Match the password
-  const isMatch = await User.isMatchPassword(password, isExistUser.password);
-  if (!isMatch) {
+  if (
+    password &&
+    !(await User.isMatchPassword(password, isExistUser.password))
+  ) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!');
   }
 
