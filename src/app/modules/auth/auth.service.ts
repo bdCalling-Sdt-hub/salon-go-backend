@@ -19,6 +19,10 @@ import { User } from '../user/user.model';
 import { ILoginResponse, IRefreshTokenResponse } from '../../../types/response';
 import { ResetToken } from '../resetToken/resetToken.model';
 import cryptoToken from '../../../utils/cryptoToken';
+import { USER_ROLES } from '../../../enums/user';
+import { Admin } from '../admin/admin.model';
+import { Professional } from '../professional/professional.model';
+import { Customer } from '../customer/customer.model';
 
 //login
 const loginUserFromDB = async (
@@ -29,8 +33,20 @@ const loginUserFromDB = async (
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
+  let authUser;
+  if (isExistUser.role === USER_ROLES.ADMIN) {
+    authUser = await Admin.findOne({ auth: isExistUser._id });
+  } else if (isExistUser.role === USER_ROLES.PROFESSIONAL) {
+    authUser = await Professional.findOne({ auth: isExistUser._id });
+  } else {
+    authUser = await Customer.findOne({ auth: isExistUser._id });
+  }
 
-  //check verified and status
+  if (!authUser) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'User details is not found!');
+  }
+
+  // Check verified and status
   if (!isExistUser.verified) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -38,23 +54,23 @@ const loginUserFromDB = async (
     );
   }
 
-  //check user status
   if (isExistUser.status === 'delete') {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'You don’t have permission to access this content.It looks like your account has been deactivated.',
+      'You don’t have permission to access this content. It looks like your account has been deactivated.',
     );
   }
 
-  //check match password
-  if (password && !User.isMatchPassword(password, isExistUser.password)) {
+  // Match the password
+  const isMatch = await User.isMatchPassword(password, isExistUser.password);
+  if (!isMatch) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!');
   }
 
-  //create accessToken token
   const accessToken = jwtHelper.createToken(
     {
-      id: isExistUser._id, //user collection id
+      id: isExistUser._id, //authId
+      userId: authUser._id,
       role: isExistUser.role,
       email: isExistUser.email,
     },
@@ -64,7 +80,7 @@ const loginUserFromDB = async (
 
   const refreshToken = jwtHelper.createToken(
     {
-      id: isExistUser._id, //user collection id
+      id: isExistUser._id,
       role: isExistUser.role,
       email: isExistUser.email,
     },
@@ -161,6 +177,7 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
 
     //create token ;
     const createToken = cryptoToken();
+
     await ResetToken.create({
       user: isExistUser._id,
       token: createToken,
@@ -213,6 +230,7 @@ const resetPasswordToDB = async (
   const isExistUser = await User.findById(isExistToken.user).select(
     '+authentication',
   );
+
   if (!isExistUser?.authentication?.isResetPassword) {
     throw new ApiError(
       StatusCodes.UNAUTHORIZED,
@@ -249,9 +267,17 @@ const resetPasswordToDB = async (
     },
   };
 
-  await User.findOneAndUpdate({ _id: isExistToken.user }, updateData, {
-    new: true,
-  });
+  const result = await User.findOneAndUpdate(
+    { _id: isExistToken.user },
+    updateData,
+    {
+      new: true,
+    },
+  );
+
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to reset password');
+  }
 };
 
 const changePasswordToDB = async (
