@@ -17,8 +17,11 @@ import generateOTP from '../../../utils/generateOtp';
 import { Admin } from '../admin/admin.model';
 import { Customer } from '../customer/customer.model';
 import { Professional } from '../professional/professional.model';
+import { JwtPayload } from 'jsonwebtoken';
 
-const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
+type IPayload = Pick<IUser, 'email' | 'password' | 'name' | 'role' | 'contact'>;
+
+const createUserToDB = async (payload: IPayload): Promise<IUser> => {
   const { ...user } = payload;
 
   let newUserData = null;
@@ -29,44 +32,29 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   try {
     session.startTransaction();
 
-    if (user?.role === USER_ROLES.ADMIN) {
-      createdUser = await Admin.create([user], { session });
-      if (!createdUser?.length) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Admin');
-      }
-
-      //assign admin mongoDB id to user
-      user.admin = createdUser[0]._id;
-    } else if (user?.role === USER_ROLES.USER) {
-      createdUser = await Customer.create([user], { session });
-      if (!createdUser?.length) {
-        throw new ApiError(
-          StatusCodes.BAD_REQUEST,
-          'Failed to create Customer',
-        );
-      }
-
-      //assign customer mongoDB id to user
-      user.customer = createdUser[0]._id;
-    } else if (user?.role === USER_ROLES.PROFESSIONAL) {
-      createdUser = await Professional.create([user], { session });
-      if (!createdUser?.length) {
-        throw new ApiError(
-          StatusCodes.BAD_REQUEST,
-          'Failed to create professional',
-        );
-      }
-
-      //assign professional mongoDB id to user
-      user.professional = createdUser[0]._id;
-    }
-
     const newUser = await User.create([user], { session });
     if (!newUser?.length) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create User');
     }
 
+    if (user.role === USER_ROLES.ADMIN) {
+      createdUser = await Admin.create([{ auth: newUser[0]._id }], { session });
+    } else if (user.role === USER_ROLES.PROFESSIONAL) {
+      createdUser = await Professional.create([{ auth: newUser[0]._id }], {
+        session,
+      });
+    } else {
+      createdUser = await Customer.create([{ auth: newUser[0]._id }], {
+        session,
+      });
+    }
+
+    if (!createdUser.length) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create User');
+    }
+
     newUserData = newUser[0];
+    console.log(newUserData);
 
     await session.commitTransaction();
     session.endSession();
@@ -77,16 +65,13 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   }
 
   if (newUserData) {
-    newUserData = await User.findOne({ _id: newUserData._id })
-      .populate('admin')
-      .populate('customer')
-      .populate('professional');
+    newUserData = await User.findOne({ _id: newUserData._id });
   }
 
   //send email
   const otp = generateOTP();
   const values = {
-    name: createdUser![0].name,
+    name: newUserData!.name,
     otp: otp,
     email: newUserData!.email!,
   };
@@ -123,17 +108,47 @@ const updateUser = async (
   return updateDoc;
 };
 
-const getUserProfileFromDB = async (id: string): Promise<Partial<IUser>> => {
-  const isExistUser = await User.findOne({ id: id })
-    .populate('admin')
-    .populate('customer')
-    .populate('professional')
-    .lean();
-  if (!isExistUser) {
+const getUserProfileFromDB = async (user: JwtPayload) => {
+  let userData = null;
+
+  const isUserExists = await User.findOne({ _id: user.id, status: 'active' });
+  if (!isUserExists) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
+  console.log(user.role);
+  console.log(isUserExists, 'isUserExists');
+  if (user.role === USER_ROLES.ADMIN) {
+    userData = await Admin.findOne({ auth: user.id }).lean();
+    if (!userData) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "Admin doesn't exist!");
+    }
+  } else if (user.role === USER_ROLES.USER) {
+    userData = await Customer.findOne(
+      { auth: user.id },
+      { address: 1, gender: 1, dob: 1, receivePromotionalNotification: 1 },
+    )
+      .populate({
+        path: 'auth',
+        select: { name: 1, email: 1, role: 1, status: 1, needInformation: 1 },
+      })
+      .lean();
+    if (!userData) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "Customer doesn't exist!");
+    }
+  } else if (user.role === USER_ROLES.PROFESSIONAL) {
+    userData = await Professional.findOne({ auth: user.id }).populate({
+      path: 'auth',
+      select: { name: 1, email: 1, role: 1, status: 1, needInformation: 1 },
+    });
+    console.log(userData);
+    if (!userData) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "Professional doesn't exist!");
+    }
+  } else {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid user role!');
+  }
 
-  return isExistUser;
+  return userData;
 };
 
 const getAllUser = async (
