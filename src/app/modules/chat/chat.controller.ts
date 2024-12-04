@@ -6,6 +6,7 @@ import { ChatService } from './chat.service';
 
 const accessChat = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
+
   const { ...data } = req.body;
   const result = await ChatService.accessChat(user, data);
   sendResponse(res, {
