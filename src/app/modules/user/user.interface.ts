@@ -1,19 +1,12 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-unused-vars */
 import { Model, Types } from 'mongoose';
-import { ICustomer } from '../customer/customer.interface';
-import { IAdmin } from '../admin/admin.interface';
+
 import { USER_ROLES } from '../../../enums/user';
-import { IProfessional } from '../professional/professional.interface';
 
 export type IUser = {
   name: string;
   email: string;
   contact: string;
   password: string;
-  customer?: Types.ObjectId | ICustomer;
-  professional?: Types.ObjectId | IProfessional;
-  admin?: Types.ObjectId | IAdmin;
   role: USER_ROLES;
   status: 'active' | 'restricted' | 'delete';
   needInformation: boolean;
@@ -28,15 +21,21 @@ export type IUser = {
   };
 };
 
+export type IUserFilters = {
+  searchTerm?: string;
+  id?: Types.ObjectId;
+  email?: string;
+  contact?: string;
+  role?: USER_ROLES;
+  status?: 'active' | 'restricted' | 'delete';
+  verified?: boolean;
+  termsAndCondition?: boolean;
+  needInformation?: boolean;
+  appId?: string;
+};
+
 export type UserModel = {
   isExistUserById(id: string): any;
   isExistUserByEmail(email: string): any;
   isMatchPassword(password: string, hashPassword: string): boolean;
 } & Model<IUser>;
-
-export type IUserFilters = {
-  searchTerm?: string;
-  id?: string;
-  role?: string;
-  status?: string;
-};

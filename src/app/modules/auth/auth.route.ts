@@ -12,11 +12,7 @@ router.post(
   AuthController.loginUser,
 );
 
-router.get(
-  '/refresh-token',
-  auth(USER_ROLES.USER, USER_ROLES.PROFESSIONAL, USER_ROLES.ADMIN),
-  AuthController.refreshToken,
-);
+router.get('/refresh-token', AuthController.refreshToken);
 
 router.post(
   '/forget-password',
@@ -28,6 +24,12 @@ router.post(
   '/verify-email',
   validateRequest(AuthValidation.createVerifyEmailZodSchema),
   AuthController.verifyEmail,
+);
+
+router.post(
+  '/reset-password',
+  validateRequest(AuthValidation.createResetPasswordZodSchema),
+  AuthController.resetPassword,
 );
 
 router.post(
