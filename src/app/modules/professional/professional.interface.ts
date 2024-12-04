@@ -1,4 +1,4 @@
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 type Point = {
   type: 'Point';
@@ -14,13 +14,6 @@ type IAddress = {
   country: string;
 };
 
-type IBusinessType =
-  | 'Party Rentals'
-  | 'Event Planning'
-  | 'Catering'
-  | 'Entertainment'
-  | 'Other';
-
 type ISocialLink = {
   facebook?: string;
   instagram?: string;
@@ -29,41 +22,39 @@ type ISocialLink = {
   website?: string;
 };
 
+type ITravelFee = {
+  fee: number;
+  distance: number;
+};
+
 export type IProfessional = {
-  rating?: number;
-  totalReviews: number;
-  location: Point; // [longitude, latitude]
-
-  orderCompleted?: number;
-  isAvailable?: boolean; // order < 10 ? true : false
-
-  //business information
-
-  businessTitle?: string;
-  businessType?: IBusinessType;
-  businessAddress?: IAddress;
-  businessContact?: string;
-  businessEmail?: string;
-  socialLinks: ISocialLink;
-  yearsInBusiness?: number;
-  servicesOffered?: string[];
-  isLicensed?: boolean;
-  license?: string;
-  description?: string;
-
-  availableDays?: string[];
-  operationStartTime?: string;
-  operationEndTime?: string;
-
-  //bank information
-  bankName?: string;
-  bankAccountName?: string;
-  bankAccountNumber?: string;
-  bankAccountType?: string;
-  bankRoutingNumber?: string;
-
-  signatureType?: 'Typed' | 'Digital';
-  signature?: string;
+  auth: Types.ObjectId;
+  business_name: string;
+  target_audience: 'men' | 'women';
+  services_type: 'home' | 'in-place';
+  travel_fee: ITravelFee;
+  isFreelancer: boolean;
+  team_size: {
+    min: number;
+    max: number;
+  };
+  schedule_id?: Types.ObjectId;
+  description: string;
+  license: string;
+  profile: string;
+  social_links: ISocialLink;
+  rating: number;
+  address: string;
+  location: Point;
+  informationCount: number;
+  categories: Types.ObjectId[];
+  subCategories: Types.ObjectId[];
+  total_reviews: number;
+  total_service_provided: number;
+  is_available: boolean;
+  previously_used_tools: boolean;
+  portfolio: string[];
+  helping_tags: string[];
 };
 
 export type ProfessionalModel = Model<IProfessional>;

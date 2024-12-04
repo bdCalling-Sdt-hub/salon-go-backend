@@ -33,18 +33,6 @@ const userSchema = new Schema<IUser, UserModel>(
       enum: Object.values(USER_ROLES),
       required: true,
     },
-    customer: {
-      type: Types.ObjectId,
-      ref: 'Customer',
-    },
-    professional: {
-      type: Types.ObjectId,
-      ref: 'Professional',
-    },
-    admin: {
-      type: Types.ObjectId,
-      ref: 'Admin',
-    },
     status: {
       type: String,
       enum: ['active', 'restricted', 'delete'],
