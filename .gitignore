@@ -5,3 +5,4 @@ node_modules
 /winston
 /logs/winston
 /logs
+sparkpress.config.cjs
