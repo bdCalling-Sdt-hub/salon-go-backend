@@ -72,7 +72,7 @@ const loginUserFromDB = async (
     config.jwt.jwt_refresh_expire_in as string,
   );
 
-  return { accessToken, refreshToken };
+  return { accessToken, refreshToken, role: isExistUser.role };
 };
 
 const refreshToken = async (

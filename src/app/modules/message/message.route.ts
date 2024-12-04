@@ -8,7 +8,7 @@ import { MessageController } from './message.controller';
 const router = express.Router();
 
 router.post(
-  '/send-message',
+  '/send-message/:id',
   auth(USER_ROLES.USER, USER_ROLES.PROFESSIONAL),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {

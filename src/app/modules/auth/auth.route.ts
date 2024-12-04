@@ -27,6 +27,12 @@ router.post(
 );
 
 router.post(
+  '/reset-password',
+  validateRequest(AuthValidation.createResetPasswordZodSchema),
+  AuthController.resetPassword,
+);
+
+router.post(
   '/change-password',
   auth(USER_ROLES.ADMIN, USER_ROLES.USER, USER_ROLES.PROFESSIONAL),
   validateRequest(AuthValidation.createChangePasswordZodSchema),
