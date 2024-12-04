@@ -9,16 +9,17 @@ import { Chat } from '../chat/chat.model';
 import { Types } from 'mongoose';
 import { Message } from './message.model';
 
-const sendMessage = async (user: JwtPayload, payload: IMessage) => {
+const sendMessage = async (
+  user: JwtPayload,
+  payload: IMessage,
+  chatId: string,
+) => {
   const senderId = new Types.ObjectId(user.id);
 
   // Find chat and receiver in parallel
   const [chat, receiver] = await Promise.all([
-    Chat.findById(payload.chatId),
-    User.findOne({
-      [user.role === USER_ROLES.USER ? 'vendor' : 'customer']:
-        payload.receiverId,
-    }),
+    Chat.findById(chatId),
+    User.findById(payload.receiverId),
   ]);
 
   // Check if chat exists
@@ -34,6 +35,7 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
   // Determine message type
   payload.senderId = senderId;
   payload.receiverId = receiver._id;
+
   payload.type =
     payload.image && payload.message
       ? 'both'
@@ -42,7 +44,7 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
       : 'text';
 
   // Create the message
-  const result = await Message.create(payload);
+  const result = await Message.create({ ...payload, chatId });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to send message.');
   }
@@ -53,7 +55,7 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
 
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  global.io?.emit(`messageReceived::${payload.chatId}`, populatedResult);
+  global.io?.emit(`messageReceived::${chatId}`, populatedResult);
 
   // Update the chat with latest message details
   await Chat.findByIdAndUpdate(
@@ -69,18 +71,18 @@ const getMessagesByChatId = async (chatId: string) => {
   const result = await Message.find({ chatId })
     .populate({
       path: 'senderId',
-      select: 'email',
-      populate: {
-        path: 'customer vendor',
-        select: 'name',
+      select: {
+        name: 1,
+
+        role: 1,
       },
     })
     .populate({
       path: 'receiverId',
-      select: 'email',
-      populate: {
-        path: 'customer vendor',
-        select: 'name',
+      select: {
+        name: 1,
+
+        role: 1,
       },
     });
 

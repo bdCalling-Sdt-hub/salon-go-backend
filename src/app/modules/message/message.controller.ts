@@ -6,6 +6,8 @@ import { MessageService } from './message.service';
 
 const sendMessage = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
+  const chatId = req.params.id;
+
   const { ...messageData } = req.body;
 
   let image;
@@ -14,7 +16,7 @@ const sendMessage = catchAsync(async (req: Request, res: Response) => {
   }
   messageData.image = image;
 
-  const result = await MessageService.sendMessage(user, messageData);
+  const result = await MessageService.sendMessage(user, messageData, chatId);
 
   sendResponse(res, {
     success: true,
