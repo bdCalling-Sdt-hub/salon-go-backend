@@ -51,6 +51,7 @@ export type IProfessional = {
   subCategories: Types.ObjectId[];
   total_reviews: number;
   total_service_provided: number;
+
   is_available: boolean;
   previously_used_tools: boolean;
   portfolio: string[];

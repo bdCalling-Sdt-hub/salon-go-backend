@@ -30,6 +30,10 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
         },
       },
     },
+    profile: {
+      type: String,
+      default: 'https://cdn-icons-png.flaticon.com/512/1253/1253756.png',
+    },
     description: {
       type: String,
     },
