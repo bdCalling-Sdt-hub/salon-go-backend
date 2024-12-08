@@ -1,7 +1,11 @@
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 export type IReview = {
-  // Define the interface for Review here
+  review: string;
+  rating: number;
+  professional: Types.ObjectId;
+  customer: Types.ObjectId;
+  service: Types.ObjectId;
 };
 
 export type ReviewModel = Model<IReview>;

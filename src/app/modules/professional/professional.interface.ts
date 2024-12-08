@@ -44,12 +44,12 @@ export type IProfessional = {
   profile: string;
   social_links: ISocialLink;
   rating: number;
+  total_reviews: number;
   address: string;
   location: Point;
   informationCount: number;
   categories: Types.ObjectId[];
   subCategories: Types.ObjectId[];
-  total_reviews: number;
   total_service_provided: number;
 
   is_available: boolean;
