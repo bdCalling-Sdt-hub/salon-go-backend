@@ -8,24 +8,20 @@ import { ScheduleValidations } from './schedule.validation';
 const router = express.Router();
 
 router.post(
-  '/create-schedule',
+  '/',
   auth(USER_ROLES.PROFESSIONAL),
   validateRequest(ScheduleValidations.createScheduleZodSchema),
   ScheduleController.createSchedule,
 );
 
 router.patch(
-  '/update-schedule',
+  '/',
 
   auth(USER_ROLES.PROFESSIONAL),
   validateRequest(ScheduleValidations.updateScheduleZodSchema),
   ScheduleController.updateSchedule,
 );
 
-router.get(
-  '/',
-  auth(USER_ROLES.PROFESSIONAL),
-  ScheduleController.getScheduleForProfessional,
-);
+router.get('/:id', ScheduleController.getScheduleForProfessional);
 
 export const ScheduleRoutes = router;
