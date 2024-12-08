@@ -128,8 +128,8 @@ const updateScheduleForDaysInDB = async (
   }
 };
 
-const getTimeScheduleFromDBForProfessional = async (user: JwtPayload) => {
-  const professional = await Professional.findOne({ auth: user.id });
+const getTimeScheduleFromDBForProfessional = async (id: string) => {
+  const professional = await Professional.findById({ _id: id });
   if (!professional || !professional.schedule_id) {
     throw new ApiError(
       StatusCodes.NOT_FOUND,

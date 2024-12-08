@@ -4,13 +4,16 @@ import { IService, ServiceModel } from './service.interface';
 const serviceSchema = new Schema<IService, ServiceModel>(
   {
     title: { type: String, required: true },
-    description: { type: String, required: true },
-    image: { type: String, required: true },
-    createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    description: { type: String },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'Professional',
+      required: true,
+    },
     rating: { type: Number, default: 0 },
-    totalRatings: { type: Number, default: 0 },
+    totalReviews: { type: Number, default: 0 },
     category: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
-    SubCategory: {
+    subCategory: {
       type: Schema.Types.ObjectId,
       ref: 'SubCategory',
       required: true,
@@ -22,7 +25,7 @@ const serviceSchema = new Schema<IService, ServiceModel>(
     },
     duration: { type: Number, required: true },
     price: { type: Number, required: true },
-    serviceType: { type: String, enum: ['home', 'in-place'], required: true },
+    discount: { type: Number, default: 0 },
   },
   {
     timestamps: true,

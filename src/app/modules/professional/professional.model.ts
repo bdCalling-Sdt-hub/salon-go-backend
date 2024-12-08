@@ -64,6 +64,14 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: Schema.Types.ObjectId,
       ref: 'Schedule',
     },
+    rating: {
+      type: Number,
+      default: 0,
+    },
+    total_reviews: {
+      type: Number,
+      default: 0,
+    },
 
     // address: {
     //   _id: false,

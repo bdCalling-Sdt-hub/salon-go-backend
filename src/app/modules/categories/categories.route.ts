@@ -8,8 +8,6 @@ import validateRequest from '../../middlewares/validateRequest';
 
 const router = express.Router();
 
-router.get('/', CategoriesController.getAllCategories);
-
 router.post(
   '/category',
   // auth(USER_ROLES.ADMIN),
@@ -122,5 +120,8 @@ router.patch(
   ),
   CategoriesController.removeSubSubCategoryFromSubCategory,
 );
+
+//filter categories
+router.get('/', CategoriesController.filterCategories);
 
 export const CategoriesRoutes = router;
