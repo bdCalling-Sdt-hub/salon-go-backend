@@ -30,6 +30,10 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
         },
       },
     },
+    profile: {
+      type: String,
+      default: 'https://cdn-icons-png.flaticon.com/512/1253/1253756.png',
+    },
     description: {
       type: String,
     },
@@ -59,6 +63,14 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
     schedule_id: {
       type: Schema.Types.ObjectId,
       ref: 'Schedule',
+    },
+    rating: {
+      type: Number,
+      default: 0,
+    },
+    total_reviews: {
+      type: Number,
+      default: 0,
     },
 
     // address: {

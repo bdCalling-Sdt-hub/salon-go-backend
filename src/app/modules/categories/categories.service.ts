@@ -281,6 +281,85 @@ const removeSubSubCategoryFromSubCategory = async (
 
   return result;
 };
+
+export const filterCategories = async (
+  categoryId?: string,
+  subCategoryId?: string,
+) => {
+  try {
+    const pipeline: any[] = [];
+
+    // Stage 1: Fetch all categories with their subcategories
+    pipeline.push({
+      $project: {
+        name: 1,
+        image: 1,
+        subCategories: 1,
+      },
+    });
+
+    const categories = await Category.aggregate(pipeline);
+
+    let subCategories: any[] = [];
+    let subSubCategories: any[] = [];
+
+    if (categoryId) {
+      // Find subcategories for the selected category
+      const selectedCategory = categories.find(
+        (category) => category._id.toString() === categoryId,
+      );
+
+      if (selectedCategory && selectedCategory.subCategories.length > 0) {
+        subCategories = await SubCategory.find(
+          { _id: { $in: selectedCategory.subCategories } },
+          { name: 1, subSubCategories: 1 },
+        ).lean();
+
+        if (subCategoryId) {
+          // Find subsubcategories for the selected subcategory
+          const selectedSubCategory = subCategories.find(
+            (subCategory) => subCategory._id.toString() === subCategoryId,
+          );
+
+          if (
+            selectedSubCategory &&
+            selectedSubCategory.subSubCategories.length > 0
+          ) {
+            subSubCategories = await SubSubCategory.find(
+              { _id: { $in: selectedSubCategory.subSubCategories } },
+              { name: 1 },
+            ).lean();
+          }
+        } else {
+          // Default to the first subcategory's subsubcategories
+          const firstSubCategory = subCategories[0];
+          if (
+            firstSubCategory &&
+            firstSubCategory.subSubCategories.length > 0
+          ) {
+            subSubCategories = await SubSubCategory.find(
+              { _id: { $in: firstSubCategory.subSubCategories } },
+              { name: 1 },
+            ).lean();
+          }
+        }
+      }
+    } else {
+      // If no category is selected, return all subcategories without filtering
+      subCategories = await SubCategory.find({}, { name: 1 }).lean();
+    }
+    const data = {
+      categories,
+      subCategories,
+      subSubCategories,
+    };
+    return data;
+  } catch (error) {
+    console.error(error);
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Error fetching categories');
+  }
+};
+
 export const CategoriesServices = {
   getAllCategories,
   createCategoryToDB,
@@ -297,4 +376,7 @@ export const CategoriesServices = {
   removeSubCategoryFromCategory,
   addSubSubCategoryToSubCategory,
   removeSubSubCategoryFromSubCategory,
+
+  //filter categories
+  filterCategories,
 };

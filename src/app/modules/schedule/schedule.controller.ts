@@ -31,9 +31,9 @@ const updateSchedule = catchAsync(async (req: Request, res: Response) => {
 
 const getScheduleForProfessional = catchAsync(
   async (req: Request, res: Response) => {
-    const user = req.user;
+    const id = req.params.id;
     const result = await ScheduleServices.getTimeScheduleFromDBForProfessional(
-      user,
+      id,
     );
     sendResponse(res, {
       success: true,
