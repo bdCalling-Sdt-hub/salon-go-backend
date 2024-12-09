@@ -87,7 +87,7 @@ const deleteProfessionalProfile = catchAsync(
   },
 );
 
-//get all vendor
+//get all professional
 const getAllProfessional = catchAsync(async (req: Request, res: Response) => {
   const filters = pick(req.query, professionalFilterableFields);
   const paginationOptions = pick(req.query, paginationFields);
@@ -98,7 +98,7 @@ const getAllProfessional = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
-    message: 'All vendor retrieved successfully',
+    message: 'All professional retrieved successfully',
     meta: result.meta,
     data: result.data,
   });

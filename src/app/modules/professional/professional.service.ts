@@ -6,6 +6,8 @@ import { IProfessional, IProfessionalFilters } from './professional.interface';
 import ApiError from '../../../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
 import { Professional } from './professional.model';
+import { professionalSearchableFields } from './professional.constants';
+import { Service } from '../service/service.model';
 
 const updateProfessionalProfile = async (
   user: JwtPayload,
@@ -89,7 +91,55 @@ const getAllProfessional = async (
   filters: IProfessionalFilters,
   paginationOptions: IPaginationOptions,
 ) => {
-  const {} = filters;
+  const {
+    searchTerm,
+    city,
+    category,
+    subCategory,
+    subSubCategory,
+    minPrice,
+    maxPrice,
+    date,
+    sortBy,
+    sortOrder,
+  } = filters;
+
+  // search with normal fields like address, businessName, description
+  const andCondition = [];
+  if (searchTerm) {
+    andCondition.push({
+      $or: professionalSearchableFields.map((field) => ({
+        [field]: {
+          $regex: searchTerm,
+          $options: 'i',
+        },
+      })),
+    });
+  }
+
+  //search with category, subCategory, subSubCategory
+
+  //filter with service price range and get the professional id's
+  if (minPrice && maxPrice) {
+    const query = { price: { $gte: minPrice, $lte: maxPrice } };
+    const result = await Service.find(query);
+  }
+
+  if (city) {
+    andCondition.push({
+      $and: [
+        {
+          address: { regex: city, $options: 'i' },
+        },
+      ],
+    });
+  }
+
+  //filter with available date and get the professional id's (slots check and open or close check)
+
+  //filter with city
+
+  //get the professionals
 };
 
 export const ProfessionalService = {

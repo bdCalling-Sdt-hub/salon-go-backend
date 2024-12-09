@@ -1,0 +1,37 @@
+import { JwtPayload } from 'jsonwebtoken';
+import { IInvitation } from './invitation.interface';
+import { Invitation } from './invitation.model';
+import { handleNotificationForInvitation } from '../../../helpers/sendNotificationHelper';
+import { Professional } from '../professional/professional.model';
+import ApiError from '../../../errors/ApiError';
+import { StatusCodes } from 'http-status-codes';
+import { Types } from 'mongoose';
+
+const sendInvitation = async (payload: IInvitation, user: JwtPayload) => {
+  const { userId } = user;
+  payload.sender = userId;
+
+  const isValidUser = await Professional.findById({ userId, status: 'active' });
+
+  if (!isValidUser) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found');
+  }
+
+  const invitation = await Invitation.create(payload);
+  if (!invitation) {
+    throw new Error('Failed to create invitation');
+  }
+
+  await handleNotificationForInvitation('invitation', {
+    users: invitation?.users as Types.ObjectId[],
+    title: `${isValidUser?.business_name} has set you an invitation.`,
+    message: `Please visit our salon profile to get information about our services and prices.`,
+    type: 'USER',
+  });
+
+  return invitation;
+};
+
+export const InvitationServices = {
+  sendInvitation,
+};

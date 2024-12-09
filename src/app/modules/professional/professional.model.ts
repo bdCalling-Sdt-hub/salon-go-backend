@@ -8,18 +8,18 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       ref: 'User',
       required: true,
     },
-    business_name: {
+    businessName: {
       type: String,
     },
-    target_audience: {
+    targetAudience: {
       type: String,
       enum: ['men', 'women'],
     },
-    services_type: {
+    serviceType: {
       type: String,
       enum: ['home', 'in-place'],
     },
-    travel_fee: {
+    travelFee: {
       _id: false,
       type: {
         fee: {
@@ -45,11 +45,8 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: [Types.ObjectId],
       ref: 'SubCategory',
     },
-    isFreelancer: {
-      type: Boolean,
-      default: false,
-    },
-    team_size: {
+
+    teamSize: {
       _id: false,
       type: {
         min: {
@@ -60,7 +57,7 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
         },
       },
     },
-    schedule_id: {
+    scheduleId: {
       type: Schema.Types.ObjectId,
       ref: 'Schedule',
     },
@@ -68,29 +65,11 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: Number,
       default: 0,
     },
-    total_reviews: {
+    totalReviews: {
       type: Number,
       default: 0,
     },
 
-    // address: {
-    //   _id: false,
-    //   street: {
-    //     type: String,
-    //   },
-    //   city: {
-    //     type: String,
-    //   },
-    //   state: {
-    //     type: String,
-    //   },
-    //   zip_code: {
-    //     type: String,
-    //   },
-    //   country: {
-    //     type: String,
-    //   },
-    // },
     address: {
       type: String,
     },
@@ -105,7 +84,7 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
     license: {
       type: String,
     },
-    social_links: {
+    socialLinks: {
       _id: false,
       type: {
         facebook: {

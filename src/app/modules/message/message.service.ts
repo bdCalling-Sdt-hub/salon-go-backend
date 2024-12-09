@@ -43,7 +43,6 @@ const sendMessage = async (
       ? 'image'
       : 'text';
 
-  // Create the message
   const result = await Message.create({ ...payload, chatId });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to send message.');
@@ -57,7 +56,6 @@ const sendMessage = async (
   // @ts-ignore
   global.io?.emit(`messageReceived::${chatId}`, populatedResult);
 
-  // Update the chat with latest message details
   await Chat.findByIdAndUpdate(
     payload.chatId,
     { latestMessage: result._id, latestMessageTime: new Date() },
