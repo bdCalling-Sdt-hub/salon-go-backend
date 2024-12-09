@@ -7,31 +7,7 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
       type: Schema.Types.ObjectId,
       ref: 'User',
     },
-    // address: {
-    //   _id: false,
-    //   type: {
-    //     street: {
-    //       type: String,
-    //       required: true,
-    //     },
-    //     city: {
-    //       type: String,
-    //       required: true,
-    //     },
-    //     state: {
-    //       type: String,
-    //       required: true,
-    //     },
-    //     zip: {
-    //       type: String,
-    //       required: true,
-    //     },
-    //     country: {
-    //       type: String,
-    //       required: true,
-    //     },
-    //   },
-    // },
+
     address: {
       type: String,
     },

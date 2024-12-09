@@ -5,15 +5,6 @@ type Point = {
   coordinates: [number, number]; // [longitude, latitude]
 };
 
-type IAddress = {
-  street: string;
-  apartmentOrSuite: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-};
-
 type ISocialLink = {
   facebook?: string;
   instagram?: string;
@@ -29,66 +20,46 @@ type ITravelFee = {
 
 export type IProfessional = {
   auth: Types.ObjectId;
-  business_name: string;
-  target_audience: 'men' | 'women';
-  services_type: 'home' | 'in-place';
-  travel_fee: ITravelFee;
-  isFreelancer: boolean;
-  team_size: {
+  businessName: string;
+  targetAudience: 'men' | 'women';
+  serviceType: 'home' | 'in-place';
+  travelFee: ITravelFee;
+  teamSize: {
     min: number;
     max: number;
   };
-  schedule_id?: Types.ObjectId;
+  scheduleId?: Types.ObjectId;
   description: string;
   license: string;
+  ID: string;
   profile: string;
-  social_links: ISocialLink;
+  socialLinks: ISocialLink;
   rating: number;
-  total_reviews: number;
+  totalReviews: number;
   address: string;
   location: Point;
   informationCount: number;
   categories: Types.ObjectId[];
   subCategories: Types.ObjectId[];
-  total_service_provided: number;
-
-  is_available: boolean;
-  previously_used_tools: boolean;
+  totalServiceProvided: number;
+  previouslyUsedTools: boolean;
   portfolio: string[];
-  helping_tags: string[];
+  helpingTags: string[];
 };
 
 export type ProfessionalModel = Model<IProfessional>;
 
 export type IProfessionalFilters = {
   searchTerm?: string;
-  id?: string;
-  name?: string;
-  businessTitle?: string;
-  address?: string;
-  email?: string;
-  minRating?: number;
-  maxRating?: number;
-  totalReviews?: number;
-  orderCompleted?: number;
-  isAvailable?: boolean;
+
+  city?: string;
+  category?: string;
+  subCategory?: string;
+  subSubCategory?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  date: string;
+
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-  minOrderCompleted?: number;
-  maxOrderCompleted?: number;
-  minReviews?: number;
-  maxReviews?: number;
-
-  // schedule
-  serviceDate?: string;
-  serviceTime?: string;
-
-  //budget
-  minBudget?: number;
-  maxBudget?: number;
-
-  //distance
-  radius?: number;
-  customerLat?: number;
-  customerLng?: number;
 };
