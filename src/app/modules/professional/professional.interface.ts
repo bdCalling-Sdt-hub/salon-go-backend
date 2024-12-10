@@ -28,6 +28,7 @@ export type IProfessional = {
     min: number;
     max: number;
   };
+  isFreelancer: boolean;
   scheduleId?: Types.ObjectId;
   description: string;
   license: string;
@@ -38,7 +39,6 @@ export type IProfessional = {
   totalReviews: number;
   address: string;
   location: Point;
-  informationCount: number;
   categories: Types.ObjectId[];
   subCategories: Types.ObjectId[];
   totalServiceProvided: number;

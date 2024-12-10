@@ -10,6 +10,7 @@ import { BookMarkRoutes } from '../app/modules/bookmark/bookmark.route';
 import { ScheduleRoutes } from '../app/modules/schedule/schedule.route';
 import { ServiceRoutes } from '../app/modules/service/service.route';
 import { ReviewRoutes } from '../app/modules/review/review.route';
+import { ReservationRoutes } from '../app/modules/reservation/reservation.route';
 
 const router = express.Router();
 
@@ -54,6 +55,10 @@ export const apiRoutes: { path: string; route: any }[] = [
   {
     path: '/review',
     route: ReviewRoutes,
+  },
+  {
+    path: '/reservation',
+    route: ReservationRoutes,
   },
 ];
 

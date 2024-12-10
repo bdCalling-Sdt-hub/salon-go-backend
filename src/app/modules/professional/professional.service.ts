@@ -8,11 +8,113 @@ import { StatusCodes } from 'http-status-codes';
 import { Professional } from './professional.model';
 import { professionalSearchableFields } from './professional.constants';
 import { Service } from '../service/service.model';
+import { handleObjectUpdate } from './professional.utils';
 
 const updateProfessionalProfile = async (
   user: JwtPayload,
   payload: Partial<IProfessional>,
-) => {};
+) => {
+  const { socialLinks, ...restData } = payload;
+
+  let updatedData = { ...restData };
+  if (socialLinks && Object.keys(socialLinks).length > 0) {
+    updatedData = handleObjectUpdate(socialLinks, updatedData, 'socialLinks');
+  }
+  const result = await Professional.findOneAndUpdate(
+    { _id: user.userId },
+    updatedData,
+    {
+      new: true,
+    },
+  );
+
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update profile!');
+  }
+};
+
+const addPortfolioImageToDB = async (user: JwtPayload, payload: string[]) => {
+  // Check if the user exists and is active
+  const isUserExist = await Professional.findById(user.userId).populate(
+    'auth',
+    { status: 1 }, // Only select the status field from the referenced User
+  );
+
+  if (
+    !isUserExist ||
+    !isUserExist.auth ||
+    isUserExist.auth.status !== 'active'
+  ) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found or inactive!');
+  }
+
+  // Add new images to the portfolio, avoiding duplicates
+  const uniqueNewImages = payload.filter(
+    (image) => !isUserExist.portfolio.includes(image),
+  );
+
+  if (uniqueNewImages.length === 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'No new images to add!');
+  }
+
+  const result = await Professional.findByIdAndUpdate(
+    user.userId,
+    { $addToSet: { portfolio: { $each: uniqueNewImages } } },
+    { new: true },
+  );
+
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update portfolio!');
+  }
+
+  return result;
+};
+
+const updatePortfolioImageToDB = async (
+  user: JwtPayload,
+  newImages: string[],
+  removedImages: string[],
+) => {
+  const isUserExist = await Professional.findById(user.userId).populate(
+    'auth',
+    { status: 1 }, // Only select the status field from the referenced User
+  );
+
+  if (
+    !isUserExist ||
+    !isUserExist.auth ||
+    isUserExist.auth.status !== 'active'
+  ) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found or inactive!');
+  }
+
+  let updatedPortfolio = isUserExist.portfolio || [];
+
+  if (removedImages.length > 0) {
+    updatedPortfolio = updatedPortfolio.filter(
+      (image) => !removedImages.includes(image),
+    );
+  }
+
+  if (newImages.length > 0) {
+    const uniqueNewImages = newImages.filter(
+      (image) => !updatedPortfolio.includes(image),
+    );
+    updatedPortfolio.push(...uniqueNewImages);
+  }
+
+  const result = await Professional.findByIdAndUpdate(
+    user.userId,
+    { portfolio: updatedPortfolio },
+    { new: true },
+  );
+
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update portfolio!');
+  }
+
+  return result;
+};
 
 const getBusinessInformationForProfessional = async (
   user: JwtPayload,
@@ -87,6 +189,29 @@ const getProfessionalProfile = async (
 
 const deleteProfessionalProfile = async (user: JwtPayload) => {};
 
+const getSingleProfessional = async (id: string) => {
+  const result = await Professional.findById(id).populate('auth', {
+    name: 1,
+    email: 1,
+    role: 1,
+    status: 1,
+  });
+  if (!result) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      'Requested professional not found',
+    );
+  }
+  //@ts-ignore
+  if (result.auth.status === 'delete') {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Requested professional profile has been deleted.',
+    );
+  }
+  return result;
+};
+
 const getAllProfessional = async (
   filters: IProfessionalFilters,
   paginationOptions: IPaginationOptions,
@@ -148,4 +273,7 @@ export const ProfessionalService = {
   getProfessionalProfile,
   deleteProfessionalProfile,
   getAllProfessional,
+  getSingleProfessional,
+  addPortfolioImageToDB,
+  updatePortfolioImageToDB,
 };

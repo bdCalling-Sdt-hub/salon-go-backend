@@ -26,6 +26,34 @@ router.patch(
 );
 
 router.patch(
+  '/portfolio',
+  auth(USER_ROLES.PROFESSIONAL),
+  fileUploadHandler(),
+  (req: Request, res: Response, next: NextFunction) => {
+    if (req.body.data) {
+      req.body = JSON.parse(req.body.data);
+    }
+
+    return ProfessionalController.addToPortfolio(req, res, next);
+  },
+);
+
+router.patch(
+  '/update-portfolio',
+  auth(USER_ROLES.PROFESSIONAL),
+  fileUploadHandler(),
+  (req: Request, res: Response, next: NextFunction) => {
+    if (req.body.data) {
+      req.body = ProfessionalValidation.updatePortfolioZodSchema.parse(
+        JSON.parse(req.body.data),
+      );
+    }
+
+    return ProfessionalController.updatePortfolioImage(req, res, next);
+  },
+);
+
+router.patch(
   '/business-information',
   auth(USER_ROLES.PROFESSIONAL),
   validateRequest(ProfessionalValidation.partialProfessionalBusinessSchema),
@@ -44,6 +72,12 @@ router.delete(
   '/delete',
   auth(USER_ROLES.PROFESSIONAL),
   ProfessionalController.deleteProfessionalProfile,
+);
+
+router.get(
+  '/:id',
+  auth(USER_ROLES.USER),
+  ProfessionalController.getSingleProfessional,
 );
 
 //get all vendor for home page search and filter
