@@ -6,6 +6,7 @@ import { StatusCodes } from 'http-status-codes';
 import { Schedule } from './schedule.model';
 import mongoose from 'mongoose';
 import { Professional } from '../professional/professional.model';
+import { Reservation } from '../reservation/reservation.model';
 
 const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
   const isUserExist = await User.findById({ _id: user.id, status: 'active' });
@@ -68,7 +69,7 @@ const updateScheduleForDaysInDB = async (
 
     // Find the professional and their existing schedule
     const professional = await Professional.findOne({ auth: user.id });
-    if (!professional || !professional.schedule_id) {
+    if (!professional || !professional.scheduleId) {
       throw new ApiError(
         StatusCodes.NOT_FOUND,
         'Professional or schedule not found!',
@@ -76,7 +77,7 @@ const updateScheduleForDaysInDB = async (
     }
 
     // Find the schedule
-    const schedule = await Schedule.findById(professional.schedule_id);
+    const schedule = await Schedule.findById(professional.scheduleId);
     if (!schedule) {
       throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
     }
@@ -130,17 +131,82 @@ const updateScheduleForDaysInDB = async (
 
 const getTimeScheduleFromDBForProfessional = async (id: string) => {
   const professional = await Professional.findById({ _id: id });
-  if (!professional || !professional.schedule_id) {
+  if (!professional || !professional.scheduleId) {
     throw new ApiError(
       StatusCodes.NOT_FOUND,
       'Professional or schedule not found!',
     );
   }
-  const schedule = await Schedule.findById(professional.schedule_id);
+  const schedule = await Schedule.findById(professional.scheduleId);
   if (!schedule) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
   }
   return schedule;
+};
+
+const checkProfessionalAvailability = async (
+  professionalId: string,
+  selectedDate: string,
+) => {
+  const professional = await Professional.findById(professionalId);
+  if (!professional) {
+    throw new Error('Professional not found');
+  }
+
+  const isFreelancer = professional.isFreelancer;
+
+  const schedule = await Schedule.findOne({ professional: professionalId });
+  if (!schedule) {
+    throw new Error('Schedule not found for this professional');
+  }
+
+  // Step 3: Use aggregation to count confirmed reservations for the selected date and time slots
+  const reservationCounts = await Reservation.aggregate([
+    {
+      $match: {
+        professional: professionalId,
+        date: selectedDate,
+        status: 'confirmed',
+      },
+    },
+    { $group: { _id: '$time', count: { $sum: 1 } } },
+  ]);
+
+  // Step 4: Create a map of the reservation counts by time slot
+  const reservationMap = reservationCounts.reduce((acc, { _id, count }) => {
+    acc[_id] = count;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Step 5: Update the schedule with availability
+  const updatedSchedule = schedule.days.map((day) => {
+    if (day.day === selectedDate) {
+      // For each day, loop through the time slots
+      day.timeSlots = day.timeSlots.map((slot) => {
+        const bookedCount = reservationMap[slot.time] || 0;
+
+        if (isFreelancer) {
+          // Freelancer check: If a reservation exists for the time slot, mark as unavailable
+          return {
+            ...slot,
+            isAvailable: bookedCount === 0,
+            notAvailable: bookedCount > 0,
+          };
+        }
+
+        // Team-based check: If the booked count matches or exceeds the team size, mark as unavailable
+        const isSlotFullyBooked = bookedCount >= professional.teamSize.max;
+        return {
+          ...slot,
+          isAvailable: !isSlotFullyBooked,
+          notAvailable: isSlotFullyBooked,
+        };
+      });
+    }
+    return day;
+  });
+
+  return updatedSchedule;
 };
 
 export const ScheduleServices = {

@@ -21,7 +21,7 @@ const addBanner = async (payload: IBanner, user: JwtPayload) => {
 };
 
 const getBanners = async (): Promise<IBanner[] | null> => {
-  const result = await Banner.find({ isActive: true }).sort({ createdAt: -1 });
+  const result = await Banner.find({}).sort({ createdAt: -1 });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get banner');
   }

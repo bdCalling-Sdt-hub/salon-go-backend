@@ -31,6 +31,7 @@ export type IUserFilters = {
   verified?: boolean;
   termsAndCondition?: boolean;
   needInformation?: boolean;
+  informationCount?: number;
   appId?: string;
 };
 

@@ -39,6 +39,51 @@ const updateProfessionalProfile = catchAsync(
   },
 );
 
+//portfolio
+
+const addToPortfolio = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user;
+  const { portfolioData, replacedImage } = req.body;
+  if (req.files && 'image' in req.files && req.files.image) {
+    req.files.image.map((file: any) => {
+      portfolioData.portfolio = `/images/${file.filename}`;
+    });
+  }
+
+  const result = await ProfessionalService.addPortfolioImageToDB(
+    user,
+    portfolioData,
+  );
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Portfolio updated successfully',
+    data: portfolioData,
+  });
+});
+
+const updatePortfolioImage = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user;
+  const { removedImages } = req.body;
+  const newImages = [] as string[];
+  if (req.files && 'image' in req.files && req.files.image) {
+    req.files.image.map((file: any) => {
+      newImages.push(`/images/${file.filename}`);
+    });
+  }
+  const result = await ProfessionalService.updatePortfolioImageToDB(
+    user,
+    newImages,
+    removedImages,
+  );
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Portfolio updated successfully',
+    data: result,
+  });
+});
+
 const getBusinessInformationForProfessional = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
@@ -87,21 +132,34 @@ const deleteProfessionalProfile = catchAsync(
   },
 );
 
+const getSingleProfessional = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await ProfessionalService.getSingleProfessional(id);
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Professional retrieved successfully',
+      data: result,
+    });
+  },
+);
+
 //get all professional
 const getAllProfessional = catchAsync(async (req: Request, res: Response) => {
   const filters = pick(req.query, professionalFilterableFields);
   const paginationOptions = pick(req.query, paginationFields);
-  const result = await ProfessionalService.getAllProfessional(
-    filters,
-    paginationOptions,
-  );
-  sendResponse(res, {
-    success: true,
-    statusCode: StatusCodes.OK,
-    message: 'All professional retrieved successfully',
-    meta: result.meta,
-    data: result.data,
-  });
+  // const result = await ProfessionalService.getAllProfessional(
+  //   filters,
+  //   paginationOptions,
+  // );
+  // sendResponse(res, {
+  //   success: true,
+  //   statusCode: StatusCodes.OK,
+  //   message: 'All professional retrieved successfully',
+  //   meta: result.meta,
+  //   data: result.data,
+  // });
 });
 
 export const ProfessionalController = {
@@ -110,4 +168,7 @@ export const ProfessionalController = {
   getProfessionalProfile,
   deleteProfessionalProfile,
   getAllProfessional,
+  getSingleProfessional,
+  addToPortfolio,
+  updatePortfolioImage,
 };

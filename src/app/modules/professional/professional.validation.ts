@@ -161,10 +161,15 @@ const baseProfessionalBusinessSchema = z.object({
   }),
 });
 
+const updatePortfolioZodSchema = z.object({
+  removedImages: z.array(z.string()).optional(),
+});
+
 export const partialProfessionalBusinessSchema =
   baseProfessionalBusinessSchema.partial();
 
 export const ProfessionalValidation = {
   baseProfessionalBusinessSchema,
   partialProfessionalBusinessSchema,
+  updatePortfolioZodSchema,
 };
