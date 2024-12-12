@@ -149,17 +149,17 @@ const getSingleProfessional = catchAsync(
 const getAllProfessional = catchAsync(async (req: Request, res: Response) => {
   const filters = pick(req.query, professionalFilterableFields);
   const paginationOptions = pick(req.query, paginationFields);
-  // const result = await ProfessionalService.getAllProfessional(
-  //   filters,
-  //   paginationOptions,
-  // );
-  // sendResponse(res, {
-  //   success: true,
-  //   statusCode: StatusCodes.OK,
-  //   message: 'All professional retrieved successfully',
-  //   meta: result.meta,
-  //   data: result.data,
-  // });
+  const result = await ProfessionalService.getAllProfessional(
+    filters,
+    paginationOptions,
+  );
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'All professional retrieved successfully',
+    meta: result.meta,
+    data: result.data,
+  });
 });
 
 export const ProfessionalController = {

@@ -17,6 +17,12 @@ router.post(
   validateRequest(ReservationValidations.reservationValidationZodSchema),
   ReservationController.createReservation,
 );
+
+router.patch(
+  '/:id',
+  auth(USER_ROLES.USER, USER_ROLES.PROFESSIONAL),
+  validateRequest(ReservationValidations.reservationStatusChangeZodValidation),
+);
 router.get(
   '/',
   auth(USER_ROLES.PROFESSIONAL),

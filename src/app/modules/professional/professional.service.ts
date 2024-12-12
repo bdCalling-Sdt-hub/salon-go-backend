@@ -9,6 +9,8 @@ import { Professional } from './professional.model';
 import { professionalSearchableFields } from './professional.constants';
 import { Service } from '../service/service.model';
 import { handleObjectUpdate } from './professional.utils';
+import { paginationHelper } from '../../../helpers/paginationHelper';
+import { IGenericResponse } from '../../../types/response';
 
 const updateProfessionalProfile = async (
   user: JwtPayload,
@@ -120,13 +122,13 @@ const getBusinessInformationForProfessional = async (
   user: JwtPayload,
   payload: Partial<IProfessional>,
 ) => {
-  // Find the existing professional document
-  const existingProfessional = await Professional.findOne({ auth: user.id });
+  const existingProfessional = await Professional.findById({
+    _id: user.userId,
+  }).populate('auth', { status: 1 });
   if (!existingProfessional) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional not found!');
   }
 
-  // Track updated fields
   const updatedFields: string[] = [];
   for (const key in payload) {
     if (
@@ -138,7 +140,6 @@ const getBusinessInformationForProfessional = async (
     }
   }
 
-  // Update the professional's information
   const result = await Professional.findOneAndUpdate(
     { auth: user.id },
     payload,
@@ -155,6 +156,7 @@ const getBusinessInformationForProfessional = async (
   }
 
   result.informationCount += 1;
+  if (result.informationCount > 8) result.informationCount = 0;
   await result.save();
 
   return {
@@ -213,58 +215,68 @@ const getSingleProfessional = async (id: string) => {
 };
 
 const getAllProfessional = async (
-  filters: IProfessionalFilters,
+  searchTerm: string,
   paginationOptions: IPaginationOptions,
 ) => {
-  const {
-    searchTerm,
-    city,
-    category,
-    subCategory,
-    subSubCategory,
-    minPrice,
-    maxPrice,
-    date,
-    sortBy,
-    sortOrder,
-  } = filters;
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(paginationOptions);
 
-  // search with normal fields like address, businessName, description
-  const andCondition = [];
+  const anyCondition: any[] = [];
   if (searchTerm) {
-    andCondition.push({
-      $or: professionalSearchableFields.map((field) => ({
-        [field]: {
-          $regex: searchTerm,
-          $options: 'i',
-        },
-      })),
-    });
-  }
+    const regex = new RegExp(searchTerm, 'i');
 
-  //search with category, subCategory, subSubCategory
-
-  //filter with service price range and get the professional id's
-  if (minPrice && maxPrice) {
-    const query = { price: { $gte: minPrice, $lte: maxPrice } };
-    const result = await Service.find(query);
-  }
-
-  if (city) {
-    andCondition.push({
-      $and: [
-        {
-          address: { regex: city, $options: 'i' },
-        },
+    const professionalsMatch = await Professional.find({
+      $or: [
+        { serviceType: regex },
+        { targetAudience: regex },
+        { businessName: regex },
+        { address: regex },
+        { description: regex },
       ],
-    });
+    }).distinct('_id');
+
+    // Search services collection
+    const servicesMatch = await Service.find({
+      $or: [{ title: regex }, { description: regex }],
+    }).select('createdBy'); // Select the 'professional' field from Service collection
+
+    // Collect matched professional IDs from both collections
+    const professionalIds = professionalsMatch.map(
+      (professional) => professional._id,
+    );
+    const serviceProfessionalIds = servicesMatch.map(
+      (service) => service.createdBy,
+    );
+
+    // Combine the matched professional IDs
+    const combinedIds = [
+      ...new Set([...professionalIds, ...serviceProfessionalIds]),
+    ];
+
+    // Add the condition to search professionals that match any of the combined IDs
+    anyCondition.push({ _id: { $in: combinedIds } });
   }
 
-  //filter with available date and get the professional id's (slots check and open or close check)
+  // Further query conditions can be added to anyCondition array here if needed
 
-  //filter with city
+  // Now, query the Professional collection using the anyCondition array
+  const professionals = await Professional.find({ $and: anyCondition }) // Use $and to combine all conditions in the array
+    .skip(skip)
+    .limit(limit)
+    .sort({ [sortBy || 'createdAt']: sortOrder === 'desc' ? -1 : 1 });
 
-  //get the professionals
+  // Get total count for pagination metadata
+  const total = await Professional.countDocuments({ $and: anyCondition });
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+      totalPage: Math.ceil(total / limit),
+    },
+    data: professionals,
+  };
 };
 
 export const ProfessionalService = {

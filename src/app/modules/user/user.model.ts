@@ -43,10 +43,7 @@ const userSchema = new Schema<IUser, UserModel>(
       type: String,
       select: 0,
     },
-    needInformation: {
-      type: Boolean,
-      default: true,
-    },
+
     verified: {
       type: Boolean,
       default: false,

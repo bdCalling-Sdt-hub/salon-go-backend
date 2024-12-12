@@ -9,7 +9,6 @@ export type IUser = {
   password: string;
   role: USER_ROLES;
   status: 'active' | 'restricted' | 'delete';
-  needInformation: boolean;
   verified: boolean;
   termsAndCondition: boolean;
   appId: string;
@@ -31,7 +30,6 @@ export type IUserFilters = {
   verified?: boolean;
   termsAndCondition?: boolean;
   needInformation?: boolean;
-  informationCount?: number;
   appId?: string;
 };
 

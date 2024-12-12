@@ -37,7 +37,7 @@ const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
 
     await Professional.findOneAndUpdate(
       { auth: user.id },
-      { schedule_id: result[0]._id },
+      { scheduleId: result[0]._id },
 
       { new: true },
     ).session(session);
