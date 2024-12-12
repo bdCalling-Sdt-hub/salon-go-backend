@@ -14,7 +14,12 @@ app.use(Morgan.successHandler);
 app.use(Morgan.errorHandler);
 app.use(helmet());
 //body parser
-app.use(cors());
+app.use(
+  cors({
+    origin: '*',
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

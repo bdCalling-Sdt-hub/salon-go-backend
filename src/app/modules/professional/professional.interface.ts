@@ -43,6 +43,7 @@ export type IProfessional = {
   subCategories: Types.ObjectId[];
   totalServiceProvided: number;
   previouslyUsedTools: boolean;
+  informationCount: number;
   portfolio: string[];
   helpingTags: string[];
 };

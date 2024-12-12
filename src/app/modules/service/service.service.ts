@@ -85,14 +85,14 @@ const getServicesByProfessionalIdFromDB = async (id: string) => {
     .populate({
       path: 'category',
       select: { name: 1 },
-      populate: {
-        path: 'subCategories',
-        select: { name: 1 },
-        populate: {
-          path: 'subSubCategories',
-          select: { name: 1 },
-        },
-      },
+    })
+    .populate({
+      path: 'subCategory',
+      select: { name: 1 },
+    })
+    .populate({
+      path: 'subSubCategory',
+      select: { name: 1 },
     });
 
   if (!result) {

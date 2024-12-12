@@ -14,15 +14,16 @@ const reservationSchema = new Schema<IReservation, ReservationModel>({
   time: { type: String, required: true },
   status: {
     type: String,
-    enum: ['pending', 'rejected', 'confirmed', 'completed'],
+    enum: ['pending', 'rejected', 'confirmed', 'completed', 'cancelled'],
     default: 'pending',
   },
   subSubCategory: { type: Schema.Types.ObjectId, ref: 'SubSubCategory' },
   travelFee: { type: Number },
   serviceLocation: {
     type: { type: String, default: 'Point', enum: ['Point'] },
-    coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude] // Default to [0, 0] if coordinates are not provided
+    coordinates: { type: [Number], default: [0, 0] },
   },
+  isStarted: { type: Boolean, default: false },
 });
 
 export const Reservation = model<IReservation, ReservationModel>(

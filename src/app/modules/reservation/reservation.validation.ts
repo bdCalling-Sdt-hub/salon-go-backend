@@ -7,11 +7,11 @@ const reservationValidationZodSchema = z.object({
       required_error: 'Service type is required',
     }),
     professional: z.string().nonempty('Professional ID is required'), // MongoDB ObjectId as a string
-    date: z.date({
+    date: z.string({
       required_error: 'Date is required',
     }),
     time: z.string().nonempty('Time is required'),
-    subSubCategory: z.string().optional(), // MongoDB ObjectId as a string
+    subSubCategory: z.string({ required_error: 'SubSubCategory is required' }), // MongoDB ObjectId as a string
     serviceLocation: z.object({
       type: z.literal('Point').optional().default('Point'),
       coordinates: z
@@ -24,6 +24,14 @@ const reservationValidationZodSchema = z.object({
     }),
   }),
 });
+
+const reservationStatusChangeZodValidation = z.object({
+  body: z.object({
+    status: z.enum(['accepted', 'rejected', 'completed']),
+    isStarted: z.boolean().optional(),
+  }),
+});
 export const ReservationValidations = {
   reservationValidationZodSchema,
+  reservationStatusChangeZodValidation,
 };

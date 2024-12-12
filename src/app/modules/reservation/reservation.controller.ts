@@ -9,7 +9,8 @@ import { StatusCodes } from 'http-status-codes';
 
 const createReservation = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
-  const result = await ReservationServices.createReservationToDB(payload);
+  const user = req.user;
+  const result = await ReservationServices.createReservationToDB(payload, user);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -55,8 +56,28 @@ const getSingleReservation = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateReservationStatus = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const payload = req.body;
+    const { userId } = req.user;
+    const result = await ReservationServices.updateReservationStatusToDB(
+      id,
+      payload,
+      userId,
+    );
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Reservation status updated successfully',
+      data: result,
+    });
+  },
+);
+
 export const ReservationController = {
   createReservation,
   getReservationsForProfessional,
   getSingleReservation,
+  updateReservationStatus,
 };

@@ -144,20 +144,20 @@ const socialLinksSchema = z.object({
 
 const baseProfessionalBusinessSchema = z.object({
   body: z.object({
-    business_name: z.string().optional(),
-    target_audience: z.enum(['men', 'women']).optional(),
-    services_type: z.enum(['home', 'in-place']).optional(),
-    travel_fee: travelFeeSchema.optional(),
+    businessName: z.string().optional(),
+    targetAudience: z.enum(['men', 'women']).optional(),
+    serviceType: z.enum(['home', 'in-place']).optional(),
+    travelFee: travelFeeSchema.optional(),
     description: z.string().optional(),
-    team_size: teamSizeSchema.optional(),
-    schedule_id: z.string().optional(),
+    teamSize: teamSizeSchema.optional(),
+    scheduleId: z.string().optional(),
     address: z.string().optional(),
     categories: z.array(z.string()).optional(),
     subCategories: z.array(z.string()).optional(),
     location: locationSchema.optional(),
     license: z.string().optional(),
-    social_links: socialLinksSchema.optional(),
-    helping_tags: z.array(z.string().optional()).optional(),
+    socialLinks: socialLinksSchema.optional(),
+    helpingTags: z.array(z.string().optional()).optional(),
   }),
 });
 

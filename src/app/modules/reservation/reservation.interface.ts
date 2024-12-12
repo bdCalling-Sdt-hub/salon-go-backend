@@ -1,7 +1,7 @@
 import { Model, Types } from 'mongoose';
 type Point = {
   type: 'Point';
-  coordinates: [number, number]; // [longitude, latitude]
+  coordinates: [number, number];
 };
 export type IReservation = {
   service: Types.ObjectId;
@@ -10,10 +10,17 @@ export type IReservation = {
   customer: Types.ObjectId;
   date: Date;
   time: string;
-  status: string | 'pending' | 'confirmed' | 'rejected' | 'completed';
+  status:
+    | string
+    | 'pending'
+    | 'confirmed'
+    | 'rejected'
+    | 'completed'
+    | 'cancelled';
   travelFee: number;
   subSubCategory: Types.ObjectId;
   serviceLocation: Point;
+  isStarted: boolean;
 };
 
 export type IReservationFilterableFields = {

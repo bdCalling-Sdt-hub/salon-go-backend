@@ -14,8 +14,11 @@ import { paginationHelper } from '../../../helpers/paginationHelper';
 import { JwtPayload } from 'jsonwebtoken';
 import { Types } from 'mongoose';
 
-const createReservationToDB = async (payload: IReservation) => {
-  const { professional } = payload;
+const createReservationToDB = async (
+  payload: IReservation,
+  user: JwtPayload,
+) => {
+  const { professional, serviceType, date, time, serviceLocation } = payload;
 
   const isProfessionalExists = await Professional.findById(
     professional,
@@ -25,78 +28,66 @@ const createReservationToDB = async (payload: IReservation) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Professional doesn't exist!");
   }
 
-  if (isProfessionalExists.auth.status !== 'active') {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional is not active!');
+  const { auth, isFreelancer, location, travelFee, teamSize } =
+    isProfessionalExists;
+
+  if (auth.status !== 'active') {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'The requested professional can not be booked right now!',
+    );
   }
 
-  //For freelancer
-  if (isProfessionalExists.isFreelancer) {
-    const isAvailable = await Reservation.findOne({
-      professional: isProfessionalExists._id,
-      date: payload.date,
-      time: payload.time,
-      status: { $in: ['pending', 'rejected', 'completed'] },
+  if (isFreelancer) {
+    const isNotAvailable = await Reservation.exists({
+      professional,
+      date,
+      time,
+      status: { $in: ['confirmed'] },
     });
-    if (!isAvailable) {
+
+    if (isNotAvailable) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
         'Professional is not available at this time!',
       );
     }
 
-    if (payload.serviceType === 'home') {
-      const distance = calculateDistance(
-        [
-          isProfessionalExists.location.coordinates[0],
-          isProfessionalExists.location.coordinates[1],
-        ],
-        [
-          payload.serviceLocation.coordinates[0],
-          payload.serviceLocation.coordinates[1],
-        ],
-      );
-      const travelFee = isProfessionalExists.travelFee.fee * distance;
-      payload.travelFee = travelFee;
-    }
-
-    const result = await Reservation.create(payload);
-    if (!result) {
+    if (!location || !location.coordinates) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        'Failed to create reservation',
+        'Professional location data is incomplete!',
       );
     }
-    return result;
-  }
+    const distance = calculateDistance(
+      [location.coordinates[0], location.coordinates[1]],
+      [serviceLocation.coordinates[0], serviceLocation.coordinates[1]],
+    );
 
-  //For business
-  if (!isProfessionalExists.isFreelancer) {
-    const countReservationForGivenDateAndTime =
-      await Reservation.countDocuments({
-        professional: isProfessionalExists._id,
-        date: payload.date,
-        time: payload.time,
-        status: { $in: ['confirmed'] },
-      });
+    payload.travelFee = travelFee.fee * distance;
+  } else {
+    const reservationCount = await Reservation.countDocuments({
+      professional,
+      date,
+      time,
+      status: { $in: ['confirmed'] },
+    });
 
-    if (
-      countReservationForGivenDateAndTime >= isProfessionalExists.teamSize.max
-    ) {
+    if (reservationCount >= (teamSize?.max || 0)) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
         'Requested salon does not have any free professional for this time.',
       );
     }
-
-    const result = await Reservation.create(payload);
-    if (!result) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Failed to create reservation',
-      );
-    }
-    return result;
   }
+  payload.customer = user.userId;
+  const result = await Reservation.create(payload);
+
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create reservation');
+  }
+
+  return result;
 };
 
 const getReservationForProfessionalFromDB = async (
@@ -109,13 +100,11 @@ const getReservationForProfessionalFromDB = async (
 
   const { status, subSubCategory } = filter;
 
-  // Building the query object
   const query: any = {
     professional: user.userId,
     status: status || 'pending',
   };
 
-  // Only include subSubCategory in the query if it's provided
   if (subSubCategory) {
     query.subSubCategory = subSubCategory;
   }
@@ -188,8 +177,36 @@ const getSingleReservationFromDB = async (
   return isReservationExists;
 };
 
+const updateReservationStatusToDB = async (
+  id: string,
+  payload: any,
+  userId: Types.ObjectId,
+) => {
+  const isReservationExists = await Reservation.findById(id);
+  if (!isReservationExists) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Reservation not found');
+  }
+  if (
+    isReservationExists.customer !== userId ||
+    isReservationExists.professional !== userId
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'You are not authorized to update this reservation',
+    );
+  }
+  const result = await Reservation.findOneAndUpdate({ _id: id }, payload, {
+    new: true,
+  });
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update reservation');
+  }
+  return result;
+};
+
 export const ReservationServices = {
   createReservationToDB,
   getReservationForProfessionalFromDB,
   getSingleReservationFromDB,
+  updateReservationStatusToDB,
 };
