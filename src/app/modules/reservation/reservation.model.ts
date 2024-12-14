@@ -26,6 +26,10 @@ const reservationSchema = new Schema<IReservation, ReservationModel>({
   isStarted: { type: Boolean, default: false },
 });
 
+reservationSchema.index({ customer: 1 });
+reservationSchema.index({ professional: 1 });
+reservationSchema.index({ status: 1, professional: 1 });
+
 export const Reservation = model<IReservation, ReservationModel>(
   'Reservation',
   reservationSchema,

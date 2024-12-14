@@ -44,8 +44,25 @@ const getScheduleForProfessional = catchAsync(
   },
 );
 
+const checkProfessionalAvailability = catchAsync(
+  async (req: Request, res: Response) => {
+    const { professionalId, date } = req.query;
+    const result = await ScheduleServices.checkProfessionalAvailability(
+      professionalId as string,
+      date as string,
+    );
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Schedule retrieved successfully',
+      data: result,
+    });
+  },
+);
+
 export const ScheduleController = {
   createSchedule,
   updateSchedule,
   getScheduleForProfessional,
+  checkProfessionalAvailability,
 };

@@ -121,6 +121,13 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
 );
 professionalSchema.index({ location: '2dsphere' });
 
+professionalSchema.index({
+  businessName: 'text',
+  address: 'text',
+  serviceType: 'text',
+  targetAudience: 'text',
+});
+
 export const Professional = model<IProfessional, ProfessionalModel>(
   'Professional',
   professionalSchema,

@@ -360,6 +360,30 @@ export const filterCategories = async (
   }
 };
 
+const getCategoryForProfessionalUpdateFromDB = async (categoryId?: string) => {
+  if (categoryId) {
+    const result = await Category.findOne(
+      { _id: categoryId },
+      { name: 1, image: 1, _id: 1 },
+    )
+      .populate('subCategories', {
+        name: 1,
+        _id: 1,
+      })
+      .lean();
+    if (!result) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get categories');
+    }
+    return result;
+  }
+  const result = await Category.find({}, { name: 1, image: 1, _id: 1 }).lean();
+
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get categories');
+  }
+  return result;
+};
+
 export const CategoriesServices = {
   getAllCategories,
   createCategoryToDB,
@@ -371,6 +395,7 @@ export const CategoriesServices = {
   createSubSubCategoryToDB,
   updateSubSubCategoryToDB,
   deleteSubSubCategoryToDB,
+  getCategoryForProfessionalUpdateFromDB,
   //manage add and remove sub category and sub sub category
   addSubCategoryToCategory,
   removeSubCategoryFromCategory,

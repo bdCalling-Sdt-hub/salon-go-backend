@@ -98,11 +98,17 @@ const refreshToken = async (
 ): Promise<IRefreshTokenResponse | null> => {
   let verifiedToken = null;
   try {
+    // Verify the refresh token
     verifiedToken = jwtHelper.verifyToken(
       token,
       config.jwt.jwt_refresh_secret as Secret,
     );
   } catch (error) {
+    // If the token verification fails, it might be expired or invalid
+    //@ts-ignore
+    if (error.name === 'TokenExpiredError') {
+      throw new ApiError(StatusCodes.UNAUTHORIZED, 'Refresh Token has expired');
+    }
     throw new ApiError(StatusCodes.FORBIDDEN, 'Invalid Refresh Token');
   }
 
@@ -132,7 +138,10 @@ const refreshToken = async (
 //forget password
 const verifyEmailToDB = async (payload: IVerifyEmail) => {
   const { email, oneTimeCode } = payload;
-  const isExistUser = await User.findOne({ email }).select('+authentication');
+  const isExistUser = await User.findOne(
+    { email },
+    { vendor: 1, role: 1, _id: 1, email: 1 },
+  ).select('+authentication');
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
@@ -165,6 +174,18 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
       { verified: true, authentication: { oneTimeCode: null, expireAt: null } },
     );
     message = 'Email verify successfully';
+
+    //create accessToken
+    const accessToken = jwtHelper.createToken(
+      {
+        id: isExistUser._id,
+        email: isExistUser.email,
+        role: isExistUser.role,
+      },
+      config.jwt.jwt_secret as Secret,
+      config.jwt.jwt_expire_in as string,
+    );
+    data = { accessToken };
   } else {
     await User.findOneAndUpdate(
       { _id: isExistUser._id },
@@ -189,6 +210,7 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
       'Verification Successful: Please securely store and utilize this code for reset password';
     data = createToken;
   }
+
   return { data, message };
 };
 

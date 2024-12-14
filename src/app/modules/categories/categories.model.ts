@@ -42,10 +42,6 @@ const subCategorySchema = new Schema<ISubCategory, SubCategoriesModel>(
     description: {
       type: String,
     },
-    // category: {
-    //   type: Schema.Types.ObjectId,
-    //   ref: 'Category',
-    // },
     subSubCategories: {
       type: [Schema.Types.ObjectId],
       ref: 'SubSubCategory',
@@ -67,10 +63,6 @@ const subSubCategorySchema = new Schema<ISubSubCategory, SubSubCategoriesModel>(
     description: {
       type: String,
     },
-    // subCategory: {
-    //   type: Schema.Types.ObjectId,
-    //   ref: 'SubCategory',
-    // },
   },
   {
     timestamps: true,

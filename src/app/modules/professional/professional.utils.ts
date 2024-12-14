@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { Service } from '../service/service.model';
+
 export const buildRangeFilter = (field: string, min?: number, max?: number) => {
   const rangeFilter: any = {};
   if (min !== undefined) rangeFilter.$gte = min;

@@ -21,6 +21,10 @@ router.patch(
   validateRequest(ScheduleValidations.updateScheduleZodSchema),
   ScheduleController.updateSchedule,
 );
+router.get(
+  '/professional-availability',
+  ScheduleController.checkProfessionalAvailability,
+);
 
 router.get('/:id', ScheduleController.getScheduleForProfessional);
 

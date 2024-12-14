@@ -88,6 +88,11 @@ router.delete(
   CategoriesController.deleteSubSubCategory,
 );
 
+router.get(
+  '/category-list',
+  CategoriesController.getCategoryForProfessionalUpdate,
+);
+
 //manage add and remove sub category and sub sub category
 router.patch(
   '/add-sub-category-to-category/:id',

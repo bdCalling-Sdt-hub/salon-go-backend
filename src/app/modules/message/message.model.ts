@@ -11,4 +11,6 @@ const messageSchema = new Schema<IMessage, MessageModel>({
   type: { type: String, enum: ['text', 'image', 'both'], required: true },
 });
 
+messageSchema.index({ chatId: 1 });
+
 export const Message = model<IMessage, MessageModel>('Message', messageSchema);
