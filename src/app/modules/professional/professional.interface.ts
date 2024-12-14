@@ -59,7 +59,7 @@ export type IProfessionalFilters = {
   subSubCategory?: string;
   minPrice?: number;
   maxPrice?: number;
-  date: string;
+  date?: string;
 
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';

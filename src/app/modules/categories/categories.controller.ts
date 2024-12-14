@@ -141,6 +141,22 @@ const deleteSubSubCategory = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getCategoryForProfessionalUpdate = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.query;
+    const result =
+      await CategoriesServices.getCategoryForProfessionalUpdateFromDB(
+        id as string,
+      );
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'All categories retrieved successfully',
+      data: result,
+    });
+  },
+);
+
 //------------------------------------------------------
 
 //manage add and remove sub category and sub sub category
@@ -239,7 +255,7 @@ export const CategoriesController = {
   deleteCategory,
   deleteSubCategory,
   deleteSubSubCategory,
-
+  getCategoryForProfessionalUpdate,
   //manage add and remove sub category and sub sub category
   addSubCategoryToCategory,
   removeSubCategoryFromCategory,

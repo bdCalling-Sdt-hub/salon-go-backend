@@ -87,12 +87,13 @@ const updatePortfolioImage = catchAsync(async (req: Request, res: Response) => {
 const getBusinessInformationForProfessional = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
-    const { ...vendorData } = req.body;
-    console.log(vendorData);
+
+    const { ...professionalData } = req.body;
+
     const result =
       await ProfessionalService.getBusinessInformationForProfessional(
         user,
-        vendorData,
+        professionalData,
       );
 
     sendResponse(res, {

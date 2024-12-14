@@ -1,5 +1,5 @@
 import { JwtPayload } from 'jsonwebtoken';
-
+import { parse } from 'date-fns';
 import { IPaginationOptions } from '../../../types/pagination';
 
 import { IProfessional, IProfessionalFilters } from './professional.interface';
@@ -11,6 +11,10 @@ import { Service } from '../service/service.model';
 import { handleObjectUpdate } from './professional.utils';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IGenericResponse } from '../../../types/response';
+import { Types } from 'mongoose';
+import { QueryHelper } from '../../../utils/queryHelper';
+import { Schedule } from '../schedule/schedule.model';
+import { User } from '../user/user.model';
 
 const updateProfessionalProfile = async (
   user: JwtPayload,
@@ -45,6 +49,7 @@ const addPortfolioImageToDB = async (user: JwtPayload, payload: string[]) => {
   if (
     !isUserExist ||
     !isUserExist.auth ||
+    //@ts-ignore
     isUserExist.auth.status !== 'active'
   ) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found or inactive!');
@@ -81,10 +86,10 @@ const updatePortfolioImageToDB = async (
     'auth',
     { status: 1 }, // Only select the status field from the referenced User
   );
-
   if (
     !isUserExist ||
     !isUserExist.auth ||
+    //@ts-ignore
     isUserExist.auth.status !== 'active'
   ) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found or inactive!');
@@ -122,8 +127,8 @@ const getBusinessInformationForProfessional = async (
   user: JwtPayload,
   payload: Partial<IProfessional>,
 ) => {
-  const existingProfessional = await Professional.findById({
-    _id: user.userId,
+  const existingProfessional = await Professional.findOne({
+    auth: new Types.ObjectId(user.id),
   }).populate('auth', { status: 1 });
   if (!existingProfessional) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional not found!');
@@ -141,7 +146,7 @@ const getBusinessInformationForProfessional = async (
   }
 
   const result = await Professional.findOneAndUpdate(
-    { auth: user.id },
+    { auth: new Types.ObjectId(user.id) },
     payload,
     {
       new: true,
@@ -215,57 +220,123 @@ const getSingleProfessional = async (id: string) => {
 };
 
 const getAllProfessional = async (
-  searchTerm: string,
+  filterOptions: IProfessionalFilters,
   paginationOptions: IPaginationOptions,
 ) => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
 
+  const {
+    searchTerm,
+    category,
+    subCategory,
+    subSubCategory,
+    date,
+    minPrice,
+    maxPrice,
+    city,
+  } = filterOptions;
+  console.log(filterOptions);
   const anyCondition: any[] = [];
   if (searchTerm) {
     const regex = new RegExp(searchTerm, 'i');
 
-    const professionalsMatch = await Professional.find({
-      $or: [
-        { serviceType: regex },
-        { targetAudience: regex },
-        { businessName: regex },
-        { address: regex },
-        { description: regex },
-      ],
-    }).distinct('_id');
+    if (city) {
+      anyCondition.push({ address: { $regex: city, $options: 'i' } });
+    }
+    // Run queries in parallel
+    const [professionalsMatch, servicesMatch] = await Promise.all([
+      Professional.find({
+        $or: [
+          { serviceType: regex },
+          { targetAudience: regex },
+          { businessName: regex },
+          { address: regex },
+          { description: regex },
+        ],
+      }).distinct('_id'),
+      Service.find({
+        $or: [{ title: regex }, { description: regex }],
+      }).select('createdBy'),
+    ]);
 
-    // Search services collection
-    const servicesMatch = await Service.find({
-      $or: [{ title: regex }, { description: regex }],
-    }).select('createdBy'); // Select the 'professional' field from Service collection
-
-    // Collect matched professional IDs from both collections
-    const professionalIds = professionalsMatch.map(
-      (professional) => professional._id,
-    );
-    const serviceProfessionalIds = servicesMatch.map(
-      (service) => service.createdBy,
-    );
-
-    // Combine the matched professional IDs
     const combinedIds = [
-      ...new Set([...professionalIds, ...serviceProfessionalIds]),
+      ...new Set([
+        ...professionalsMatch,
+        ...servicesMatch.map((service) => service.createdBy),
+      ]),
     ];
 
-    // Add the condition to search professionals that match any of the combined IDs
     anyCondition.push({ _id: { $in: combinedIds } });
   }
 
-  // Further query conditions can be added to anyCondition array here if needed
+  if (category || subCategory || subSubCategory) {
+    // Prepare the filter conditions
+    const filterConditions = [];
 
-  // Now, query the Professional collection using the anyCondition array
-  const professionals = await Professional.find({ $and: anyCondition }) // Use $and to combine all conditions in the array
+    if (category) {
+      filterConditions.push({ category: category });
+    }
+
+    if (subCategory) {
+      filterConditions.push({ subCategory: subCategory });
+    }
+
+    if (subSubCategory) {
+      filterConditions.push({ subSubCategory: subSubCategory });
+    }
+    console.log(filterConditions);
+    const servicesWithConditions = await Service.find(
+      { $or: filterConditions },
+      {
+        createdBy: 1,
+      },
+    ).distinct('createdBy');
+
+    anyCondition.push({ _id: { $in: servicesWithConditions } });
+  }
+
+  if (minPrice && maxPrice) {
+    const priceFilterCondition = QueryHelper.rangeQueryHelper(
+      'price',
+      minPrice,
+      maxPrice,
+    );
+    const servicesWithBudget = await Service.find(
+      priceFilterCondition,
+    ).distinct('createdBy');
+
+    anyCondition.push({ _id: { $in: servicesWithBudget } });
+  }
+
+  if (date) {
+    const requestedDay = parse(
+      date,
+      'dd-MM-yyyy',
+      new Date(),
+    ).toLocaleDateString('en-US', { weekday: 'long' });
+
+    const availableProfessionals = await Schedule.find({
+      days: { day: requestedDay },
+    }).distinct('professional');
+
+    anyCondition.push({ _id: { $in: availableProfessionals } });
+  }
+
+  const activeProfessional = await User.find(
+    {
+      status: 'active',
+    },
+    '_id',
+  ).distinct('_id');
+
+  anyCondition.push({ auth: { $in: activeProfessional } });
+
+  const professionals = await Professional.find({ $and: anyCondition })
     .skip(skip)
     .limit(limit)
     .sort({ [sortBy || 'createdAt']: sortOrder === 'desc' ? -1 : 1 });
 
-  // Get total count for pagination metadata
   const total = await Professional.countDocuments({ $and: anyCondition });
 
   return {

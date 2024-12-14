@@ -12,7 +12,7 @@ router.post(
   AuthController.loginUser,
 );
 
-router.get('/refresh-token', AuthController.refreshToken);
+router.post('/refresh-token', AuthController.refreshToken);
 
 router.post(
   '/forget-password',
