@@ -27,11 +27,19 @@ const reservationValidationZodSchema = z.object({
 
 const reservationStatusChangeZodValidation = z.object({
   body: z.object({
-    status: z.enum(['accepted', 'rejected', 'completed']),
+    status: z.enum(['accepted', 'rejected', 'completed', 'confirmed']),
+    amount: z.number().optional(),
     isStarted: z.boolean().optional(),
+  }),
+});
+
+const confirmReservationZodSchema = z.object({
+  body: z.object({
+    amount: z.number({ required_error: 'Amount is required' }),
   }),
 });
 export const ReservationValidations = {
   reservationValidationZodSchema,
   reservationStatusChangeZodValidation,
+  confirmReservationZodSchema,
 };

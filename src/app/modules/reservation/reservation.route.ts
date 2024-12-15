@@ -20,8 +20,9 @@ router.post(
 
 router.patch(
   '/:id',
-  auth(USER_ROLES.USER, USER_ROLES.PROFESSIONAL),
-  validateRequest(ReservationValidations.reservationStatusChangeZodValidation),
+  auth(USER_ROLES.PROFESSIONAL),
+  validateRequest(ReservationValidations.confirmReservationZodSchema),
+  ReservationController.confirmReservation,
 );
 router.get(
   '/',

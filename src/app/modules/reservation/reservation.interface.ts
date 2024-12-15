@@ -9,6 +9,7 @@ export type IReservation = {
   professional: Types.ObjectId;
   customer: Types.ObjectId;
   date: Date;
+  amount: number;
   time: string;
   status:
     | string
@@ -20,6 +21,9 @@ export type IReservation = {
   travelFee: number;
   subSubCategory: Types.ObjectId;
   serviceLocation: Point;
+  serviceStartDateTime: Date;
+  serviceEndDateTime: Date;
+  duration: number;
   isStarted: boolean;
 };
 
