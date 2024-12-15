@@ -7,6 +7,7 @@ import { Schedule } from './schedule.model';
 import mongoose from 'mongoose';
 import { Professional } from '../professional/professional.model';
 import { Reservation } from '../reservation/reservation.model';
+import { DateHelper } from '../../../utils/date.helper';
 
 const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
   const isUserExist = await User.findById({ _id: user.id, status: 'active' });
@@ -14,43 +15,34 @@ const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found!');
   }
 
-  const session = await mongoose.startSession();
   try {
-    session.startTransaction();
-
-    const result = await Schedule.create(
-      [
-        {
-          professional: user.userId,
-          days: data.days.map((day) => ({
-            ...day,
-            timeSlots: day.timeSlots.map((time) => ({
-              time: time,
-            })),
-          })),
-        },
-      ],
-      { session },
-    );
+    const result = await Schedule.create({
+      professional: user.userId,
+      days: data.days.map((day) => ({
+        ...day,
+        timeSlots: day.timeSlots.map((time) => {
+          //@ts-ignore
+          const timeCode = DateHelper.parseTimeTo24Hour(time); // Adjusted for plain string `time`
+          return {
+            time: time, // Original time in 12-hour format
+            timeCode: timeCode, // ISO 24-hour format
+          };
+        }),
+      })),
+    });
 
     console.log(result);
 
+    // Update the professional's scheduleId
     await Professional.findOneAndUpdate(
       { auth: user.id },
-      { scheduleId: result[0]._id },
-
+      { scheduleId: result._id },
       { new: true },
-    ).session(session);
-
-    await session.commitTransaction();
+    );
 
     return result;
   } catch (error) {
-    await session.abortTransaction();
-
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create schedule');
-  } finally {
-    session.endSession();
   }
 };
 

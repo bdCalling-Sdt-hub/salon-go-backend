@@ -56,28 +56,26 @@ const getSingleReservation = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const updateReservationStatus = catchAsync(
-  async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const payload = req.body;
-    const { userId } = req.user;
-    const result = await ReservationServices.updateReservationStatusToDB(
-      id,
-      payload,
-      userId,
-    );
-    sendResponse(res, {
-      success: true,
-      statusCode: StatusCodes.OK,
-      message: 'Reservation status updated successfully',
-      data: result,
-    });
-  },
-);
+const confirmReservation = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const payload = req.body;
+  const { user } = req;
+  const result = await ReservationServices.confirmReservation(
+    id,
+    payload,
+    user,
+  );
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Reservation status updated successfully',
+    data: result,
+  });
+});
 
 export const ReservationController = {
   createReservation,
   getReservationsForProfessional,
   getSingleReservation,
-  updateReservationStatus,
+  confirmReservation,
 };

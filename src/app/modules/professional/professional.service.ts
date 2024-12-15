@@ -145,6 +145,8 @@ const getBusinessInformationForProfessional = async (
     }
   }
 
+  console.log(payload);
+
   const result = await Professional.findOneAndUpdate(
     { auth: new Types.ObjectId(user.id) },
     payload,

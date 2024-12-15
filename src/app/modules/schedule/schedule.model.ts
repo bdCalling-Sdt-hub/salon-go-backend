@@ -28,6 +28,7 @@ const scheduleSchema = new Schema<ISchedule, ScheduleModel>({
         type: [
           {
             time: { type: String, required: true },
+            timeCode: { type: Number, required: true },
             isAvailable: { type: Boolean, default: true },
             discount: { type: Types.ObjectId, ref: 'Discount' },
           },

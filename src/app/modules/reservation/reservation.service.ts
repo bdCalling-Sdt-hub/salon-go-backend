@@ -7,18 +7,20 @@ import {
 import ApiError from '../../../errors/ApiError';
 import { Schedule } from '../schedule/schedule.model';
 import { Reservation } from './reservation.model';
-import { Customer } from '../customer/customer.model';
 import { calculateDistance } from './reservation.utils';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { JwtPayload } from 'jsonwebtoken';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
+import { DateHelper } from '../../../utils/date.helper';
+import { format, isAfter, isBefore } from 'date-fns';
+import moment from 'moment';
 
 const createReservationToDB = async (
   payload: IReservation,
   user: JwtPayload,
 ) => {
-  const { professional, serviceType, date, time, serviceLocation } = payload;
+  const { professional, date, time, serviceLocation, amount } = payload;
 
   const isProfessionalExists = await Professional.findById(
     professional,
@@ -30,11 +32,57 @@ const createReservationToDB = async (
 
   const { auth, isFreelancer, location, travelFee, teamSize } =
     isProfessionalExists;
-
+  //@ts-ignore
   if (auth.status !== 'active') {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'The requested professional can not be booked right now!',
+      'The requested professional cannot be booked right now!',
+    );
+  }
+
+  const schedule = await Schedule.findOne(
+    {
+      professional: professional,
+      'days.day': format(date, 'EEEE'),
+    },
+    {
+      'days.$': 1,
+    },
+  );
+
+  if (!schedule) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'The requested professional cannot be booked right now!',
+    );
+  }
+
+  const { days } = schedule;
+
+  const serviceStartDateTime = DateHelper.convertToISODate(time, date);
+  const serviceEndDateTime = DateHelper.convertToISODate(
+    DateHelper.calculateEndTime(time, payload.duration),
+    date,
+  );
+
+  const operationStartTime = DateHelper.convertToISODate(
+    days[0].startTime,
+    date,
+  );
+  const operationEndTime = DateHelper.convertToISODate(days[0].endTime, date);
+
+  const serviceStart = new Date(serviceStartDateTime);
+  const serviceEnd = new Date(serviceEndDateTime);
+  const operationStart = new Date(operationStartTime);
+  const operationEnd = new Date(operationEndTime);
+
+  if (
+    isBefore(serviceStart, operationStart) ||
+    isAfter(serviceEnd, operationEnd)
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'The requested professional cannot be booked right now!',
     );
   }
 
@@ -42,8 +90,9 @@ const createReservationToDB = async (
     const isNotAvailable = await Reservation.exists({
       professional,
       date,
-      time,
       status: { $in: ['confirmed'] },
+      serviceStartDateTime: { $lt: serviceEndDateTime },
+      serviceEndDateTime: { $gt: serviceStartDateTime },
     });
 
     if (isNotAvailable) {
@@ -69,18 +118,24 @@ const createReservationToDB = async (
     const reservationCount = await Reservation.countDocuments({
       professional,
       date,
-      time,
       status: { $in: ['confirmed'] },
+      serviceStartDateTime: { $lt: serviceEndDateTime },
+      serviceEndDateTime: { $gt: serviceStartDateTime },
     });
 
     if (reservationCount >= (teamSize?.max || 0)) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        'Requested salon does not have any free professional for this time.',
+        'Requested salon does not have any free professionals for this time.',
       );
     }
   }
+
   payload.customer = user.userId;
+  payload.serviceStartDateTime = serviceStart;
+  payload.serviceEndDateTime = serviceEnd;
+  payload.amount = amount;
+
   const result = await Reservation.create(payload);
 
   if (!result) {
@@ -89,6 +144,167 @@ const createReservationToDB = async (
 
   return result;
 };
+
+// const changeReservationStatusToDB = async (
+//   id: string,
+//   payload: { status: string; amount?: number; isStarted?: boolean },
+//   user: JwtPayload,
+// ) => {
+//   const { status, amount, isStarted } = payload;
+
+//   if (status === 'confirmed' && !amount) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Amount is required');
+//   }
+
+//   const updateReservation = async (updateFields: object) => {
+//     const result = await Reservation.findOneAndUpdate(
+//       { _id: id },
+//       updateFields,
+//       { new: true },
+//     );
+//     if (!result) {
+//       throw new ApiError(
+//         StatusCodes.BAD_REQUEST,
+//         'Failed to change reservation status.',
+//       );
+//     }
+//     return result;
+//   };
+
+//   if (isStarted) {
+//     return await updateReservation({ isStarted });
+//   }
+
+//   // Handle simple status updates
+//   if (['rejected'].includes(status)) {
+//     return await updateReservation({ status });
+//   }
+
+//   // Handle confirmed status with additional logic
+//   if (status === 'confirmed') {
+//     const session = await mongoose.startSession();
+//     try {
+//       session.startTransaction();
+
+//       const result = await updateReservation({ status, amount });
+
+//       const {
+//         professional,
+//         serviceStartDateTime,
+//         serviceEndDateTime,
+//         date,
+//         customer,
+//       } = result;
+
+//       // Check if the reservation conflicts with existing reservations
+//       const conflictingReservation = await Reservation.findOne({
+//         professional,
+//         status: 'confirmed',
+//         serviceStartDateTime: { $lt: serviceEndDateTime },
+//         serviceEndDateTime: { $gt: serviceStartDateTime },
+//       }).session(session);
+
+//       if (conflictingReservation) {
+//         throw new ApiError(
+//           StatusCodes.BAD_REQUEST,
+//           'This reservation conflicts with an existing confirmed reservation.',
+//         );
+//       }
+
+//       // Retrieve the schedule
+//       const schedule = await Schedule.findOne({
+//         professional,
+//         'days.day': format(date, 'EEEE'),
+//       }).session(session);
+
+//       if (!schedule) {
+//         throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found');
+//       }
+
+//       const isProfessionalExists = await Professional.findById(professional);
+
+//       if (!isProfessionalExists) {
+//         throw new ApiError(StatusCodes.NOT_FOUND, 'Professional not found');
+//       }
+
+//       // Check if the professional is a freelancer or part of a team
+//       const isFreelancer = isProfessionalExists.isFreelancer; // Assuming `isFreelancer` is part of the `Schedule` model
+//       const maxTeamSize = isProfessionalExists.teamSize?.max || 0;
+
+//       if (isFreelancer) {
+//         // For freelancers, mark the slots as unavailable
+//         await Schedule.findOneAndUpdate(
+//           {
+//             professional,
+//             'days.day': format(date, 'EEEE'),
+//           },
+//           {
+//             $set: {
+//               'days.$[day].timeSlots.$[slot].isAvailable': false,
+//             },
+//           },
+//           {
+//             new: true,
+//             session,
+//             arrayFilters: [
+//               { 'day.day': format(date, 'EEEE') },
+//               {
+//                 'slot.time': {
+//                   $gte: serviceStartDateTime,
+//                   $lt: serviceEndDateTime,
+//                 },
+//               },
+//             ],
+//           },
+//         );
+//       } else {
+//         // For team-based professionals, check the reservation count
+//         const reservationCount = await Reservation.countDocuments({
+//           professional,
+//           status: 'confirmed',
+//           serviceStartDateTime: { $lt: serviceEndDateTime },
+//           serviceEndDateTime: { $gt: serviceStartDateTime },
+//         }).session(session);
+
+//         if (reservationCount >= maxTeamSize) {
+//           // Mark the slots as unavailable if the max team size is reached
+//           await Schedule.findOneAndUpdate(
+//             {
+//               professional,
+//               'days.day': format(date, 'EEEE'),
+//             },
+//             {
+//               $set: {
+//                 'days.$[day].timeSlots.$[slot].isAvailable': false,
+//               },
+//             },
+//             {
+//               new: true,
+//               session,
+//               arrayFilters: [
+//                 { 'day.day': format(date, 'EEEE') },
+//                 {
+//                   'slot.time': {
+//                     $gte: serviceStartDateTime,
+//                     $lt: serviceEndDateTime,
+//                   },
+//                 },
+//               ],
+//             },
+//           );
+//         }
+//       }
+
+//       await session.commitTransaction();
+//       return result;
+//     } catch (error) {
+//       await session.abortTransaction();
+//       throw error;
+//     } finally {
+//       session.endSession();
+//     }
+//   }
+// };
 
 const getReservationForProfessionalFromDB = async (
   user: JwtPayload,
@@ -177,36 +393,235 @@ const getSingleReservationFromDB = async (
   return isReservationExists;
 };
 
-const updateReservationStatusToDB = async (
+const confirmReservation = async (
   id: string,
-  payload: any,
-  userId: Types.ObjectId,
+  payload: { amount: number },
+  user: JwtPayload,
 ) => {
-  const isReservationExists = await Reservation.findById(id);
-  if (!isReservationExists) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Reservation not found');
+  const { amount } = payload;
+  if (!amount) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Amount is required');
   }
-  if (
-    isReservationExists.customer !== userId ||
-    isReservationExists.professional !== userId
-  ) {
+
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+
+    // Update the reservation status to confirmed
+    const reservation = await Reservation.findOneAndUpdate(
+      { _id: id },
+      { status: 'confirmed', amount },
+      { new: true, session },
+    );
+
+    if (!reservation) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
+    }
+
+    if (user.userId != reservation.professional) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'You are not authorized to confirm this reservation',
+      );
+    }
+
+    const { professional, serviceStartDateTime, serviceEndDateTime, date } =
+      reservation;
+
+    const start = DateHelper.parseTimeTo24Hour(
+      DateHelper.convertISOTo12HourFormat(serviceStartDateTime + ''),
+    );
+    const end = DateHelper.parseTimeTo24Hour(
+      DateHelper.convertISOTo12HourFormat(serviceEndDateTime + ''),
+    );
+
+    const professionalData = await Professional.findById(user.userId);
+    if (!professionalData) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Professional not found');
+    }
+
+    const isFreelancer = professionalData.isFreelancer;
+    const maxTeamSize = professionalData.teamSize?.max || 0;
+
+    if (isFreelancer) {
+      const conflictingReservation = await Reservation.findOne({
+        professional,
+        status: 'confirmed',
+        serviceStartDateTime: { $lt: serviceEndDateTime },
+        serviceEndDateTime: { $gt: serviceStartDateTime },
+      }).session(session);
+
+      if (conflictingReservation) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'This reservation conflicts with an existing confirmed reservation.',
+        );
+      }
+
+      // Mark slots as unavailable for freelancers
+
+      await Schedule.findOneAndUpdate(
+        {
+          professional, // Ensure you are targeting the correct professional
+          'days.day': format(date, 'EEEE'), // Format the date correctly
+        },
+
+        {
+          $set: {
+            'days.$[day].timeSlots.$[slot].isAvailable': false, // Mark the slot as unavailable
+          },
+        },
+        {
+          new: true, // Return the updated document
+          session, // Use the session if you're in a transaction
+          arrayFilters: [
+            { 'days.day': format(date, 'EEEE') }, // Ensure the day matches
+            {
+              'slot.timeCode': {
+                // Extract time only (HH:mm) for both service start and end time
+                $gte: start,
+                $lt: end,
+              },
+            },
+          ],
+        },
+      );
+    } else {
+      // For team-based professionals, check the reservation count
+      const reservationCount = await Reservation.countDocuments({
+        professional,
+        status: 'confirmed',
+        serviceStartDateTime: { $lt: serviceEndDateTime },
+        serviceEndDateTime: { $gt: serviceStartDateTime },
+      }).session(session);
+
+      if (reservationCount >= maxTeamSize) {
+        await Schedule.findOneAndUpdate(
+          {
+            professional, // Ensure you are targeting the correct professional
+            'days.day': format(date, 'EEEE'), // Format the date correctly
+          },
+          {
+            $set: {
+              'days.$[day].timeSlots.$[slot].isAvailable': false, // Mark the slot as unavailable
+            },
+          },
+          {
+            new: true, // Return the updated document
+            session, // Use the session if you're in a transaction
+            arrayFilters: [
+              { 'day.day': format(date, 'EEEE') }, // Ensure the day matches
+              {
+                'slot.timeCode': {
+                  // Extract time only (HH:mm) for both service start and end time
+                  $gte: start,
+                  $lt: end,
+                },
+              },
+            ],
+          },
+        );
+      }
+    }
+
+    await session.commitTransaction();
+    return reservation;
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+};
+
+// Cancel Reservation
+export const cancelReservation = async (id: string) => {
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+
+    const reservation = await Reservation.findOneAndUpdate(
+      { _id: id },
+      { status: 'canceled' },
+      { new: true, session },
+    );
+
+    if (!reservation) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
+    }
+
+    const { professional, serviceStartDateTime, serviceEndDateTime, date } =
+      reservation;
+
+    // Mark time slots as available
+    await Schedule.findOneAndUpdate(
+      {
+        professional,
+        'days.day': format(date, 'EEEE'),
+      },
+      {
+        $set: {
+          'days.$[day].timeSlots.$[slot].isAvailable': true,
+        },
+      },
+      {
+        new: true,
+        session,
+        arrayFilters: [
+          { 'day.day': format(date, 'EEEE') },
+          {
+            'slot.time': {
+              $gte: serviceStartDateTime,
+              $lt: serviceEndDateTime,
+            },
+          },
+        ],
+      },
+    );
+
+    await session.commitTransaction();
+    return reservation;
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+};
+
+// Reject or Start Reservation
+export const updateReservationStatus = async (
+  id: string,
+  payload: { status?: string; isStarted?: boolean },
+) => {
+  const { status, isStarted } = payload;
+  const updateFields: any = {};
+
+  if (status) updateFields.status = status;
+  if (isStarted !== undefined) updateFields.isStarted = isStarted;
+
+  const reservation = await Reservation.findOneAndUpdate(
+    { _id: id },
+    updateFields,
+    { new: true },
+  );
+
+  if (!reservation) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'You are not authorized to update this reservation',
+      'Failed to update reservation status.',
     );
   }
-  const result = await Reservation.findOneAndUpdate({ _id: id }, payload, {
-    new: true,
-  });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update reservation');
-  }
-  return result;
+
+  return reservation;
 };
 
 export const ReservationServices = {
   createReservationToDB,
   getReservationForProfessionalFromDB,
   getSingleReservationFromDB,
-  updateReservationStatusToDB,
+  // updateReservationStatusToDB,
+  cancelReservation,
+  confirmReservation,
+  updateReservationStatus,
 };

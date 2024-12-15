@@ -10,6 +10,7 @@ const reservationSchema = new Schema<IReservation, ReservationModel>({
     ref: 'Professional',
     required: true,
   },
+  amount: { type: Number, required: true },
   date: { type: Date, required: true },
   time: { type: String, required: true },
   status: {
@@ -23,6 +24,9 @@ const reservationSchema = new Schema<IReservation, ReservationModel>({
     type: { type: String, default: 'Point', enum: ['Point'] },
     coordinates: { type: [Number], default: [0, 0] },
   },
+  serviceStartDateTime: { type: Date },
+  serviceEndDateTime: { type: Date },
+  duration: { type: Number, required: true },
   isStarted: { type: Boolean, default: false },
 });
 

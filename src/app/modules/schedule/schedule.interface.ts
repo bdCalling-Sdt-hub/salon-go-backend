@@ -7,11 +7,14 @@ type Reservation = {
 
 type TimeSlots = {
   time: string; // 'HH:mm' format
+  timeCode: number;
   isAvailable: boolean;
   discount: Types.ObjectId;
 };
 
 type Day = {
+  startTime: any;
+  endTime: any;
   day:
     | 'Monday'
     | 'Tuesday'
