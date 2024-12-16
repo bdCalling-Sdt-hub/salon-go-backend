@@ -60,14 +60,12 @@ router.patch(
   ProfessionalController.getBusinessInformationForProfessional,
 );
 
-//get single vendor by custom Id
 router.get(
   '/profile',
   auth(USER_ROLES.PROFESSIONAL),
   ProfessionalController.getProfessionalProfile,
 );
 
-//delete professional
 router.delete(
   '/delete',
   auth(USER_ROLES.PROFESSIONAL),
@@ -80,7 +78,10 @@ router.get(
   ProfessionalController.getSingleProfessional,
 );
 
-//get all vendor for home page search and filter
-router.get('/', ProfessionalController.getAllProfessional);
+router.get(
+  '/',
+  auth(USER_ROLES.USER),
+  ProfessionalController.getAllProfessional,
+);
 
 export const ProfessionalRoutes = router;
