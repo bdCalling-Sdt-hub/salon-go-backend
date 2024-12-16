@@ -8,7 +8,7 @@ import { ReservationValidations } from './reservation.validation';
 const router = express.Router();
 router.get(
   '/:id',
-  auth(USER_ROLES.PROFESSIONAL),
+  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER, USER_ROLES.ADMIN),
   ReservationController.getSingleReservation,
 );
 router.post(
@@ -19,11 +19,30 @@ router.post(
 );
 
 router.patch(
-  '/:id',
+  'confirm/:id',
   auth(USER_ROLES.PROFESSIONAL),
   validateRequest(ReservationValidations.confirmReservationZodSchema),
   ReservationController.confirmReservation,
 );
+
+router.patch(
+  'cancel/:id',
+  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+  ReservationController.cancelReservation,
+);
+
+router.patch(
+  '/completed/:id',
+  auth(USER_ROLES.PROFESSIONAL),
+  ReservationController.markReservationAsCompleted,
+);
+
+router.patch(
+  '/reject/:id',
+  auth(USER_ROLES.PROFESSIONAL),
+  ReservationController.rejectReservation,
+);
+
 router.get(
   '/',
   auth(USER_ROLES.PROFESSIONAL),
