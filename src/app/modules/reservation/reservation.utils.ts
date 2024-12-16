@@ -1,26 +1,87 @@
-// Function to calculate the distance between two coordinates
-export function calculateDistance(
-  coords1: [number, number],
-  coords2: [number, number],
-): number {
-  const toRadians = (degrees: number): number => (degrees * Math.PI) / 180;
+import { ClientSession, Types } from 'mongoose';
+import { Schedule } from '../schedule/schedule.model';
+import { format } from 'date-fns';
+import { Reservation } from './reservation.model';
+import { StatusCodes } from 'http-status-codes';
+import ApiError from '../../../errors/ApiError';
 
-  const [lon1, lat1] = coords1; // [longitude, latitude]
-  const [lon2, lat2] = coords2;
+const validateReservationConflicts = async (
+  isFreelancer: boolean,
+  professional: Types.ObjectId,
+  serviceStartDateTime: Date,
+  serviceEndDateTime: Date,
+  maxTeamSize: number,
+  session: ClientSession,
+) => {
+  if (isFreelancer) {
+    const conflict = await Reservation.findOne({
+      professional,
+      status: 'confirmed',
+      serviceStartDateTime: { $lt: serviceEndDateTime },
+      serviceEndDateTime: { $gt: serviceStartDateTime },
+    }).session(session);
 
-  const R = 6371; // Radius of the Earth in kilometers
-  const dLat = toRadians(lat2 - lat1);
-  const dLon = toRadians(lon2 - lon1);
+    if (conflict) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'You have conflicting reservations in this time slot.',
+      );
+    }
+    return true;
+  } else {
+    const reservationCount = await Reservation.countDocuments({
+      professional,
+      status: 'confirmed',
+      serviceStartDateTime: { $lt: serviceEndDateTime },
+      serviceEndDateTime: { $gt: serviceStartDateTime },
+    }).session(session);
 
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(lat1)) *
-      Math.cos(toRadians(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    if (reservationCount >= maxTeamSize) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'You have conflicting reservations in this time slot.',
+      );
+    }
 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c; // Distance in kilometers
+    return reservationCount + 1 >= maxTeamSize;
+  }
+};
 
-  return Number(distance.toFixed(2));
-}
+const updateTimeSlotAvailability = async (
+  professional: Types.ObjectId,
+  date: Date,
+  startTime: number,
+  endTime: number,
+  session: ClientSession,
+  status: boolean,
+) => {
+  await Schedule.findOneAndUpdate(
+    {
+      professional,
+      'days.day': format(date, 'EEEE'),
+    },
+    {
+      $set: {
+        'days.$[day].timeSlots.$[slot].isAvailable': status,
+      },
+    },
+    {
+      new: true,
+      session,
+      arrayFilters: [
+        { 'day.day': format(date, 'EEEE') },
+        {
+          'slot.timeCode': {
+            $gte: startTime,
+            $lt: endTime,
+          },
+        },
+      ],
+    },
+  );
+};
+
+export const ReservationHelper = {
+  validateReservationConflicts,
+  updateTimeSlotAvailability,
+};
