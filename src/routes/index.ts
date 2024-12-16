@@ -11,6 +11,7 @@ import { ScheduleRoutes } from '../app/modules/schedule/schedule.route';
 import { ServiceRoutes } from '../app/modules/service/service.route';
 import { ReviewRoutes } from '../app/modules/review/review.route';
 import { ReservationRoutes } from '../app/modules/reservation/reservation.route';
+import { ReportRoutes } from '../app/modules/report/report.route';
 
 const router = express.Router();
 
@@ -59,6 +60,10 @@ export const apiRoutes: { path: string; route: any }[] = [
   {
     path: '/reservation',
     route: ReservationRoutes,
+  },
+  {
+    path: '/report',
+    route: ReportRoutes,
   },
 ];
 

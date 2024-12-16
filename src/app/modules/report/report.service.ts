@@ -6,16 +6,43 @@ import { JwtPayload } from 'jsonwebtoken';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { USER_ROLES } from '../../../enums/user';
+import {
+  sendNotification,
+  sendNotificationToMultipleRecipients,
+} from '../../../helpers/sendNotificationHelper';
+import { Types } from 'mongoose';
 
 const createReportToDB = async (
   payload: IReport,
   user: JwtPayload,
 ): Promise<IReport> => {
-  payload.reporterId = user.userId;
+  payload.reporterId = user.id;
   const result = await Report.create(payload);
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create report');
   }
+
+  await sendNotificationToMultipleRecipients('report-created', [
+    {
+      recipient: payload.reportedId,
+      data: {
+        userId: user.id,
+        title: `You have been reported by someone.`,
+        message: payload.reason,
+        type: user.role,
+      },
+    },
+    {
+      recipient: 'ADMIN',
+      data: {
+        userId: new Types.ObjectId(),
+        title: 'New report has been created',
+        message: 'View reports and take necessary action.',
+        type: 'ADMIN',
+      },
+    },
+  ]);
+
   return result;
 };
 
@@ -28,7 +55,7 @@ const updateReportToDB = async (
   if (!isReportExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Report not found!');
   }
-  if (isReportExist.reporterId.toString() !== user.userId) {
+  if (isReportExist.reporterId.toString() !== user.id) {
     throw new ApiError(
       StatusCodes.UNAUTHORIZED,
       'You are not authorized to update this report',
@@ -49,12 +76,26 @@ const markReportResolvedToDB = async (
   payload: Pick<IReport, 'remark'>,
   user: JwtPayload,
 ): Promise<IReport | null> => {
-  const isReportExist = await Report.findById(reportId);
+  const isReportExist = await Report.findById(reportId)
+    .populate({
+      path: 'reportedId',
+      populate: {
+        path: 'auth',
+        select: { name: 1, email: 1 },
+      },
+    })
+    .populate({
+      path: 'reporterId',
+      populate: {
+        path: 'auth',
+        select: { name: 1, email: 1 },
+      },
+    });
   if (!isReportExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Report not found!');
   }
   if (
-    isReportExist.reporterId.toString() !== user.userId ||
+    isReportExist.reporterId.toString() !== user.id ||
     user.role !== USER_ROLES.ADMIN
   ) {
     throw new ApiError(
@@ -62,6 +103,7 @@ const markReportResolvedToDB = async (
       'You are not authorized to resolved this report',
     );
   }
+
   const result = await Report.findByIdAndUpdate(
     reportId,
     {
@@ -74,6 +116,36 @@ const markReportResolvedToDB = async (
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete report');
   }
+
+  if (user.role === USER_ROLES.ADMIN) {
+    await sendNotificationToMultipleRecipients('report-resolved', [
+      {
+        recipient: isReportExist.reporterId,
+        data: {
+          userId: user.id,
+          title: `Your report has been resolved by admin`,
+          message: payload.remark,
+          type: user.role,
+        },
+      },
+      {
+        recipient: isReportExist.reportedId,
+        data: {
+          userId: user.id,
+          title: `Your report has been resolved by admin`,
+          message: payload.remark,
+          type: user.role,
+        },
+      },
+    ]);
+  }
+  //@ts-ignore
+  await sendNotification('report-resolved', isReportExist.reportedId.auth._id, {
+    userId: user.id,
+    title: `Your report has been resolved by ${user.role}`,
+    message: payload.remark,
+    type: user.role,
+  });
   return result;
 };
 
