@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import { Types } from 'mongoose';
 import { Notification } from '../app/modules/notification/notification.model';
 import ApiError from '../errors/ApiError';
@@ -30,6 +29,36 @@ export const sendNotification = async (
   const socket = global.io;
 
   socket.emit(`${namespace}::${recipient}`, data);
+};
+
+export const sendNotificationToMultipleRecipients = async (
+  namespace: string,
+  recipientNotifications: {
+    recipient: Types.ObjectId | string;
+    data: INotification;
+  }[],
+) => {
+  const notifications = recipientNotifications.map(({ recipient, data }) => ({
+    ...data,
+    recipient,
+  }));
+
+  const result = await Notification.insertMany(notifications);
+  if (!result || result.length === 0) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to create notifications',
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  //@ts-ignore
+  const socket = global.io;
+
+  // Emit notifications to each recipient with their specific data
+  recipientNotifications.forEach(({ recipient, data }) => {
+    socket.emit(`${namespace}::${recipient}`, data);
+  });
 };
 
 export const handleNotificationForInvitation = async (
