@@ -23,6 +23,7 @@ router.post(
   },
 );
 router.get('/banner', OthersController.getBanners);
+router.get('/banner/:id', OthersController.getSingleBanner);
 router.patch(
   '/update-banner/:id',
   auth(USER_ROLES.ADMIN),
@@ -53,6 +54,12 @@ router.post(
   auth(USER_ROLES.ADMIN),
   validateRequest(othersValidation.createFaqsZodSchema),
   OthersController.createFaQs,
+);
+
+router.delete(
+  '/banner/:id',
+  auth(USER_ROLES.ADMIN),
+  OthersController.deleteBanner,
 );
 
 router.delete(

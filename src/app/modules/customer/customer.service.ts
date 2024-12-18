@@ -9,6 +9,11 @@ import { IGenericResponse } from '../../../types/response';
 import { ICustomer } from './customer.interface';
 import { handleObjectUpdate } from '../../../utils/handleObjectUpdate';
 import { JwtPayload } from 'jsonwebtoken';
+import multer from 'multer';
+import FileManager from '../../../helpers/awsS3Helper';
+import { IUser } from '../user/user.interface';
+
+const CustomerFileManager = new FileManager();
 
 const getCustomerProfile = async (user: JwtPayload) => {
   // const customerId = new Types.ObjectId(user.id);
@@ -41,24 +46,65 @@ const getCustomerProfile = async (user: JwtPayload) => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const updateCustomerProfile = async (id: Types.ObjectId, payload: any) => {
-  // const { address, ...restData } = payload;
-  // let updatedData = { ...restData };
-  // if (address && Object.keys(address).length > 0) {
-  //   updatedData = handleObjectUpdate(address, restData, 'address');
-  // }
-
-  const isUserExist = await User.findById(id);
+const updateCustomerProfile = async (
+  user: JwtPayload,
+  payload: Partial<ICustomer & IUser>,
+  file?: Express.Multer.File[],
+) => {
+  // Find the user and populate the customer relation
+  const isUserExist = await User.findById(user.id).populate('customer', {
+    profile: 1,
+  });
   if (!isUserExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
-  const result = await Customer.findOneAndUpdate({ auth: id }, payload, {
-    new: true,
-  });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update customer');
+
+  const session = await User.startSession();
+  session.startTransaction();
+
+  try {
+    // Update the `name` in the User collection if provided
+    if (payload.name) {
+      await User.findByIdAndUpdate(
+        user.id,
+        { name: payload.name },
+        { new: true, session },
+      );
+    }
+
+    // Upload the new profile image if provided
+    if (file) {
+      await CustomerFileManager.updateFile(
+        //@ts-ignore
+        isUserExist?.customer?.profile,
+        file[0],
+        'customer-image',
+      );
+    }
+
+    // Update the Customer profile
+    const result = await Customer.findByIdAndUpdate(
+      { auth: user.userId },
+      payload,
+      {
+        new: true,
+        session,
+      },
+    );
+
+    if (!result) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update customer');
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return result;
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
   }
-  return result;
 };
 
 const deleteCustomerProfile = async (id: Types.ObjectId) => {
@@ -77,34 +123,8 @@ const deleteCustomerProfile = async (id: Types.ObjectId) => {
   return 'Profile deleted successfully';
 };
 
-//Not needed for now
-const getAllCustomer = async (
-  paginationOption: IPaginationOptions,
-): Promise<IGenericResponse<ICustomer[]>> => {
-  const { limit, page, skip, sortBy, sortOrder } =
-    paginationHelper.calculatePagination(paginationOption);
-
-  const result = await Customer.find({})
-    .populate('auth')
-    .skip(skip)
-    .limit(limit)
-    .sort({ [sortBy]: sortOrder });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get all customer');
-  }
-  const total = await Customer.countDocuments();
-  return {
-    meta: {
-      total: total,
-      page,
-      totalPage: Math.ceil(total / limit),
-      limit,
-    },
-    data: result,
-  };
-};
-
 const getSingleCustomer = async (id: string) => {
+  console.log(id);
   const isDeleted = await User.findOne({ _id: id, status: 'delete' });
   if (isDeleted) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'User has been deleted');
@@ -137,6 +157,6 @@ export const CustomerService = {
   getCustomerProfile,
   updateCustomerProfile,
   deleteCustomerProfile,
-  getAllCustomer,
+
   getSingleCustomer,
 };

@@ -6,11 +6,7 @@ import validateRequest from '../../middlewares/validateRequest';
 import { ReservationValidations } from './reservation.validation';
 
 const router = express.Router();
-router.get(
-  '/:id',
-  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER, USER_ROLES.ADMIN),
-  ReservationController.getSingleReservation,
-);
+
 router.post(
   '/',
   auth(USER_ROLES.USER),
@@ -18,15 +14,21 @@ router.post(
   ReservationController.createReservation,
 );
 
+router.get(
+  '/:id',
+  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER, USER_ROLES.ADMIN),
+  ReservationController.getSingleReservation,
+);
+
 router.patch(
-  'confirm/:id',
+  '/confirm/:id',
   auth(USER_ROLES.PROFESSIONAL),
   validateRequest(ReservationValidations.confirmReservationZodSchema),
   ReservationController.confirmReservation,
 );
 
 router.patch(
-  'cancel/:id',
+  '/cancel/:id',
   auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
   ReservationController.cancelReservation,
 );
@@ -45,8 +47,8 @@ router.patch(
 
 router.get(
   '/',
-  auth(USER_ROLES.PROFESSIONAL),
-  ReservationController.getReservationsForProfessional,
+  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER, USER_ROLES.ADMIN),
+  ReservationController.getReservationsForUsers,
 );
 
 export const ReservationRoutes = router;

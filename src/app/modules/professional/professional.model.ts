@@ -93,6 +93,9 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
     previouslyUsedTools: {
       type: Boolean,
     },
+    portfolio: {
+      type: [String],
+    },
     socialLinks: {
       _id: false,
       type: {

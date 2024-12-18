@@ -8,7 +8,6 @@ import { paginationFields } from '../../../types/pagination';
 import pick from '../../../shared/pick';
 
 const getCustomerProfile = catchAsync(async (req: Request, res: Response) => {
-  console.log('INNNNNN');
   const user = req.user;
   const result = await CustomerService.getCustomerProfile(user);
   sendResponse<ICustomer | null>(res, {
@@ -22,22 +21,17 @@ const getCustomerProfile = catchAsync(async (req: Request, res: Response) => {
 
 const updateCustomerProfile = catchAsync(
   async (req: Request, res: Response) => {
-    const { id } = req.user;
+    const user = req.user;
 
     const customerData = req.body;
+    const file = req.files as Express.Multer.File[] | undefined;
 
-    let profile;
-    if (req.files && 'image' in req.files && req.files.image[0]) {
-      profile = `/images/${req.files.image[0].filename}`;
-    }
-
-    const data: ICustomer = {
-      ...customerData,
-      profile,
-    };
-
-    const result = await CustomerService.updateCustomerProfile(id, data);
-    sendResponse<ICustomer | null>(res, {
+    const result = await CustomerService.updateCustomerProfile(
+      user,
+      customerData,
+      file,
+    );
+    sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
       message: 'Profile updated successfully',
@@ -59,18 +53,6 @@ const deleteCustomerProfile = catchAsync(
   },
 );
 
-const getAllCustomer = catchAsync(async (req: Request, res: Response) => {
-  const paginationOptions = pick(req.query, paginationFields);
-  const result = await CustomerService.getAllCustomer(paginationOptions);
-  sendResponse(res, {
-    success: true,
-    statusCode: StatusCodes.OK,
-    message: 'All customer retrieved successfully',
-    meta: result.meta,
-    data: result.data,
-  });
-});
-
 //done
 const getSingleCustomer = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -87,6 +69,6 @@ export const CustomerController = {
   getCustomerProfile,
   updateCustomerProfile,
   deleteCustomerProfile,
-  getAllCustomer,
+
   getSingleCustomer,
 };
