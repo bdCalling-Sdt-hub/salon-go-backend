@@ -74,7 +74,7 @@ router.delete(
 
 router.get(
   '/:id',
-  auth(USER_ROLES.USER),
+  auth(USER_ROLES.USER, USER_ROLES.ADMIN),
   ProfessionalController.getSingleProfessional,
 );
 

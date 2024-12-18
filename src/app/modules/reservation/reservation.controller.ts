@@ -19,18 +19,17 @@ const createReservation = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const getReservationsForProfessional = catchAsync(
+const getReservationsForUsers = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
     const filters = pick(req.query, ['status', 'subSubCategory']);
     const paginationOptions = pick(req.query, paginationFields);
 
-    const result =
-      await ReservationServices.getReservationForProfessionalFromDB(
-        user,
-        filters,
-        paginationOptions,
-      );
+    const result = await ReservationServices.getReservationsForUsersFromDB(
+      user,
+      filters,
+      paginationOptions,
+    );
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
@@ -116,7 +115,7 @@ const rejectReservation = catchAsync(async (req: Request, res: Response) => {
 
 export const ReservationController = {
   createReservation,
-  getReservationsForProfessional,
+  getReservationsForUsers,
   getSingleReservation,
   confirmReservation,
   cancelReservation,

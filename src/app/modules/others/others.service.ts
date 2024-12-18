@@ -21,7 +21,15 @@ const addBanner = async (payload: IBanner, user: JwtPayload) => {
 };
 
 const getBanners = async (): Promise<IBanner[] | null> => {
-  const result = await Banner.find({}).sort({ createdAt: -1 });
+  const result = await Banner.find().sort({ createdAt: -1 });
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get banner');
+  }
+  return result;
+};
+
+const getSingleBanner = async (id: string): Promise<IBanner | null> => {
+  const result = await Banner.findById(id);
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get banner');
   }
@@ -41,6 +49,13 @@ const updateBanner = async (id: string, payload: Partial<IBanner>) => {
 const createPrivacyPolicy = async (
   payload: IPrivacyPolicy,
 ): Promise<IPrivacyPolicy | null> => {
+  const isExist = await PrivacyPolicy.findOne({ userType: payload.userType });
+  if (isExist) {
+    await PrivacyPolicy.findOneAndUpdate(
+      { userType: payload.userType },
+      payload,
+    );
+  }
   const result = await PrivacyPolicy.create(payload);
   if (!result) {
     throw new ApiError(
@@ -54,6 +69,16 @@ const createPrivacyPolicy = async (
 const createTermsAndConditions = async (
   payload: ITermsAndConditions,
 ): Promise<ITermsAndConditions | null> => {
+  const isExist = await TermsAndCondition.findOne({
+    userType: payload.userType,
+  });
+  if (isExist) {
+    await TermsAndCondition.findOneAndUpdate(
+      { userType: payload.userType },
+      payload,
+    );
+  }
+
   const result = await TermsAndCondition.create(payload);
   if (!result) {
     throw new ApiError(
@@ -65,6 +90,11 @@ const createTermsAndConditions = async (
 };
 
 const createFaQs = async (payload: IFaQs): Promise<IFaQs | null> => {
+  const isExist = await FaQs.findOne({ userType: payload.userType });
+  if (isExist) {
+    await FaQs.findOneAndUpdate({ userType: payload.userType }, payload);
+  }
+
   const result = await FaQs.create(payload);
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create FaQs');
@@ -134,6 +164,14 @@ const deleteFaQs = async (id: string) => {
   return result;
 };
 
+const deleteBanner = async (id: string) => {
+  const result = await Banner.findByIdAndDelete(id);
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete banner');
+  }
+  return result;
+};
+
 export const OthersService = {
   createPrivacyPolicy,
   getPrivacyPolicy,
@@ -147,4 +185,6 @@ export const OthersService = {
   addBanner,
   getBanners,
   updateBanner,
+  getSingleBanner,
+  deleteBanner,
 };

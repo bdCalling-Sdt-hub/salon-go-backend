@@ -15,27 +15,50 @@ import { Types } from 'mongoose';
 import { QueryHelper } from '../../../utils/queryHelper';
 import { Schedule } from '../schedule/schedule.model';
 import { User } from '../user/user.model';
+import { IUser } from '../user/user.interface';
 
 const updateProfessionalProfile = async (
   user: JwtPayload,
-  payload: Partial<IProfessional>,
+  payload: Partial<IProfessional & IUser>,
 ) => {
-  const { socialLinks, ...restData } = payload;
+  const { name, socialLinks, ...restData } = payload;
 
-  let updatedData = { ...restData };
-  if (socialLinks && Object.keys(socialLinks).length > 0) {
-    updatedData = handleObjectUpdate(socialLinks, updatedData, 'socialLinks');
-  }
-  const result = await Professional.findOneAndUpdate(
-    { _id: user.userId },
-    updatedData,
-    {
-      new: true,
-    },
-  );
+  const session = await Professional.startSession();
+  session.startTransaction();
 
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update profile!');
+  try {
+    if (name) {
+      await User.findByIdAndUpdate(
+        { _id: user.userId },
+        { name },
+        { new: true, session },
+      );
+    }
+
+    let updatedData = { ...restData };
+    if (socialLinks && Object.keys(socialLinks).length > 0) {
+      updatedData = handleObjectUpdate(socialLinks, updatedData, 'socialLinks');
+    }
+
+    // Update the `Professional` profile
+    const result = await Professional.findByIdAndUpdate(
+      { _id: user.userId },
+      updatedData,
+      { new: true, session },
+    );
+
+    if (!result) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update profile!');
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return result;
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
   }
 };
 

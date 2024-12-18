@@ -12,6 +12,7 @@ const updateAddressSchema = z
   .optional();
 
 const updateCustomerProfileZodSchema = z.object({
+  name: z.string().optional(),
   profile: z.string().optional(),
   address: updateAddressSchema,
   gender: z.string().optional(),

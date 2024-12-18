@@ -8,8 +8,12 @@ import { USER_ROLES } from '../../../enums/user';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IPaginationOptions } from '../../../types/pagination';
 import { JwtPayload } from 'jsonwebtoken';
-import { IDashboardProfessionalFilters } from './dasboard.interface';
+import {
+  IDashboardCustomerFilters,
+  IDashboardProfessionalFilters,
+} from './dasboard.interface';
 import { professionalDashboardSearchableFields } from './dashboard.constant';
+import { Customer } from '../customer/customer.model';
 
 const getGeneralStats = async () => {
   try {
@@ -23,16 +27,78 @@ const getGeneralStats = async () => {
       createdAt: { $gte: oneWeekAgo },
     });
 
-    // Active professionals
-    const activeProfessionals = await Professional.countDocuments({
-      'auth.status': 'active',
-    }).populate('auth');
+    const activeProfessionalsResult = await Professional.aggregate([
+      {
+        $lookup: {
+          from: 'users', // Collection name for the referenced auth module
+          localField: 'auth',
+          foreignField: '_id',
+          as: 'authDetails',
+        },
+      },
+      { $unwind: '$authDetails' },
+      {
+        $match: {
+          'authDetails.status': 'active',
+          isFreelancer: false,
+        },
+      },
+      {
+        $count: 'count', // Renaming the count field to 'count'
+      },
+    ]);
 
-    // Active freelancers
-    const activeFreelancers = await Professional.countDocuments({
-      isFreelancer: true,
-      'auth.status': 'active',
-    }).populate('auth');
+    const activeFreelancersResult = await Professional.aggregate([
+      {
+        $lookup: {
+          from: 'users', // Collection name for the referenced auth module
+          localField: 'auth',
+          foreignField: '_id',
+          as: 'authDetails',
+        },
+      },
+      { $unwind: '$authDetails' },
+      {
+        $match: {
+          'authDetails.status': 'active',
+          isFreelancer: true,
+        },
+      },
+      {
+        $count: 'count', // Renaming the count field to 'count'
+      },
+    ]);
+
+    const activeCustomerResult = await Customer.aggregate([
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'auth',
+          foreignField: '_id',
+          as: 'authDetails',
+        },
+      },
+      { $unwind: '$authDetails' },
+      {
+        $match: {
+          'authDetails.status': 'active',
+        },
+      },
+      {
+        $count: 'count',
+      },
+    ]);
+
+    const activeCustomers =
+      activeCustomerResult.length > 0 ? activeCustomerResult[0].count : 0;
+
+    const activeProfessionals =
+      activeProfessionalsResult.length > 0
+        ? activeProfessionalsResult[0].count
+        : 0;
+
+    const activeFreelancers =
+      activeFreelancersResult.length > 0 ? activeFreelancersResult[0].count : 0;
 
     // Total orders completed
     const totalOrdersCompleted = await Reservation.countDocuments({
@@ -42,6 +108,7 @@ const getGeneralStats = async () => {
     return {
       totalUsers,
       newSignups,
+      activeCustomers,
       activeProfessionals,
       activeFreelancers,
       totalOrdersCompleted,
@@ -96,89 +163,63 @@ const getReservationRate = async () => {
 };
 
 const getTopProfessionals = async () => {
-  // Step 1: Get professionals with reviews (average rating)
-  const professionalsWithReviews = await Review.aggregate([
+  // Step 1: Fetch professionals with review count and average rating
+  const professionalsWithRatings = await Professional.aggregate([
     {
-      $group: {
-        _id: '$professional',
-        averageRating: { $avg: '$rating' },
+      $project: {
+        name: 1,
+        image: 1,
+        isFreelance: 1,
+        totalReviews: 1,
+        rating: 1, // Average rating
       },
     },
-    {
-      $sort: { averageRating: -1 },
-    },
-    {
-      $limit: 10, // We fetch top 10 to split them later into freelancers and non-freelancers
-    },
-  ]);
-
-  // Extract professional IDs from the reviews data
-  const professionalIds = professionalsWithReviews.map((p) => p._id);
-
-  // Step 2: Get the completed reservations count
-  const completedReservationsData = await Reservation.aggregate([
     {
       $match: {
-        professional: { $in: professionalIds },
-        status: 'completed',
+        totalReviews: { $gte: 3 }, // Include professionals with at least 3 reviews
       },
     },
     {
-      $group: {
-        _id: '$professional',
-        completedReservations: { $sum: 1 },
+      $addFields: {
+        weightedRating: {
+          $add: [
+            { $multiply: ['$rating', '$totalReviews'] }, // Weight based on reviews
+            { $divide: ['$totalReviews', 10] }, // Small boost for higher review counts
+          ],
+        },
       },
+    },
+    {
+      $sort: { weightedRating: -1 },
+    },
+    {
+      $limit: 10, // Fetch top 10 professionals (freelancers + non-freelancers)
     },
   ]);
 
-  // Step 3: Get freelancer and non-freelancer data from the Professional model
-  const professionals = await Professional.find({
-    _id: { $in: professionalIds },
-  });
-
-  // Step 4: Split professionals into freelancers and non-freelancers
-  const freelancers = professionals.filter(
-    (professional) => professional?.isFreelance,
+  // Step 2: Split professionals into freelancers and non-freelancers
+  const freelancers = professionalsWithRatings.filter(
+    (professional) => professional.isFreelance,
   );
-  const nonFreelancers = professionals.filter(
-    (professional) => !professional?.isFreelance,
+  const nonFreelancers = professionalsWithRatings.filter(
+    (professional) => !professional.isFreelance,
   );
 
-  // Step 5: Combine data from reviews, reservations, and professionals
-  const processProfessionals = (
-    professionals: any[],
-    completedReservationsData: any[],
-  ) => {
-    return professionals.map((professional) => {
-      const review = professionalsWithReviews.find(
-        (p) => p._id.toString() === professional._id.toString(),
-      );
-      const reservationData = completedReservationsData.find(
-        (reservation) =>
-          reservation._id.toString() === professional._id.toString(),
-      );
-
-      return {
-        professionalId: professional._id,
-        name: professional.name,
-        image: professional.image,
-        successRate: review ? review.averageRating : 0,
-        completedReservations: reservationData
-          ? reservationData.completedReservations
-          : 0,
-      };
-    });
+  // Step 3: Combine data for freelancers and non-freelancers
+  const processProfessionals = (professionals: any[]) => {
+    return professionals.map((professional) => ({
+      professionalId: professional._id,
+      name: professional.name,
+      image: professional.image,
+      averageRating: professional.rating,
+      reviewCount: professional.totalReviews,
+      weightedRating: professional.weightedRating,
+    }));
   };
 
-  // Step 6: Get top 5 freelancers and top 5 non-freelancers
-  const topFreelancers = processProfessionals(
-    freelancers,
-    completedReservationsData,
-  ).slice(0, 5);
-  const topNonFreelancers = processProfessionals(
-    nonFreelancers,
-    completedReservationsData,
-  ).slice(0, 5);
+  // Step 4: Get top 5 freelancers and top 5 non-freelancers
+  const topFreelancers = processProfessionals(freelancers).slice(0, 5);
+  const topNonFreelancers = processProfessionals(nonFreelancers).slice(0, 5);
 
   // Return both lists
   return {
@@ -187,17 +228,94 @@ const getTopProfessionals = async () => {
   };
 };
 
+const getFreelancerVsProfessional = async () => {
+  // Step 1: Fetch all completed reservations along with professional details
+  const totalReservations = await Reservation.aggregate([
+    {
+      $lookup: {
+        from: 'professionals', // Collection name for professionals
+        localField: 'professional', // Foreign key in reservations
+        foreignField: '_id', // Key in professionals
+        as: 'professionalDetails',
+      },
+    },
+    { $unwind: '$professionalDetails' }, // Unwind professionalDetails for easier grouping
+    {
+      $group: {
+        _id: '$professionalDetails.isFreelancer', // Group by freelancer status
+        totalReservations: { $sum: 1 },
+      },
+    },
+  ]);
+
+  // Step 2: Fetch completed reservations grouped by freelancer status
+  const completedReservations = await Reservation.aggregate([
+    {
+      $match: { status: 'completed' }, // Match only completed reservations
+    },
+    {
+      $lookup: {
+        from: 'professionals',
+        localField: 'professional', // Foreign key in reservations
+        foreignField: '_id', // Key in professionals
+        as: 'professionalDetails',
+      },
+    },
+    { $unwind: '$professionalDetails' }, // Unwind professionalDetails for easier processing
+    {
+      $group: {
+        _id: '$professionalDetails.isFreelancer', // Group by freelancer status
+        totalCompleted: { $sum: 1 }, // Sum completed reservations
+      },
+    },
+  ]);
+  console.log(completedReservations);
+  // Map data for freelancer and professional completion rates
+  const freelancerData = completedReservations.find(
+    (data) => data._id === true,
+  ) || { totalCompleted: 0 };
+  const professionalData = completedReservations.find(
+    (data) => data._id === false,
+  ) || { totalCompleted: 0 };
+  console.log(freelancerData, professionalData);
+  const totalFreelancerReservations = totalReservations.find(
+    (data) => data._id === true,
+  ) || { totalReservations: 0 };
+  const totalProfessionalReservations = totalReservations.find(
+    (data) => data._id === false,
+  ) || { totalReservations: 0 };
+
+  // Calculate completion rates
+  const freelancerCompletionRate = totalFreelancerReservations.totalReservations
+    ? (freelancerData.totalCompleted /
+        totalFreelancerReservations.totalReservations) *
+      100
+    : 0;
+
+  const professionalCompletionRate =
+    totalProfessionalReservations.totalReservations
+      ? (professionalData.totalCompleted /
+          totalProfessionalReservations.totalReservations) *
+        100
+      : 0;
+
+  // Return the calculated rates
+  return {
+    freelancerCompletionRate: freelancerCompletionRate.toFixed(2),
+    professionalCompletionRate: professionalCompletionRate.toFixed(2),
+  };
+};
+
 //professional
 
 const getAllProfessionalForAdmin = async (
-  user: JwtPayload,
   filterOptions: IDashboardProfessionalFilters,
   paginationOptions: IPaginationOptions,
 ) => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
 
-  const { searchTerm, ...filters } = filterOptions;
+  const { searchTerm, isFreelancer, ...filters } = filterOptions;
   const andConditions = [];
 
   if (searchTerm) {
@@ -211,6 +329,10 @@ const getAllProfessionalForAdmin = async (
     });
   }
 
+  if (isFreelancer) {
+    andConditions.push({ isFreelancer: Boolean(isFreelancer) });
+  }
+
   if (filters) {
     andConditions.push({
       $and: Object.entries(filters).map(([field, value]) => ({
@@ -219,20 +341,16 @@ const getAllProfessionalForAdmin = async (
     });
   }
 
-  andConditions.push({ role: USER_ROLES.PROFESSIONAL });
-
   const whereConditions =
     andConditions.length > 0 ? { $and: andConditions } : {};
-
+  console.log(whereConditions);
   const result = await Professional.find(whereConditions)
     .populate('auth')
     .skip(skip)
     .limit(limit)
     .sort({ [sortBy]: sortOrder });
 
-  const total = await Professional.countDocuments({
-    role: USER_ROLES.PROFESSIONAL,
-  });
+  const total = await Professional.countDocuments(whereConditions);
 
   return {
     meta: {
@@ -247,8 +365,7 @@ const getAllProfessionalForAdmin = async (
 
 //customer
 const getAllCustomerForAdmin = async (
-  user: JwtPayload,
-  filterOptions: IDashboardProfessionalFilters,
+  filterOptions: IDashboardCustomerFilters,
   paginationOptions: IPaginationOptions,
 ) => {
   const { page, limit, skip, sortBy, sortOrder } =
@@ -276,20 +393,16 @@ const getAllCustomerForAdmin = async (
     });
   }
 
-  andConditions.push({ role: USER_ROLES.PROFESSIONAL });
-
   const whereConditions =
     andConditions.length > 0 ? { $and: andConditions } : {};
 
-  const result = await Professional.find(whereConditions)
+  const result = await Customer.find(whereConditions)
     .populate('auth')
     .skip(skip)
     .limit(limit)
     .sort({ [sortBy]: sortOrder });
 
-  const total = await Professional.countDocuments({
-    role: USER_ROLES.PROFESSIONAL,
-  });
+  const total = await Customer.countDocuments(whereConditions);
 
   return {
     meta: {
@@ -351,7 +464,7 @@ export const DashboardServices = {
   getGeneralStats,
   getReservationRate,
   getTopProfessionals,
-
+  getFreelancerVsProfessional,
   //professional
   getAllProfessionalForAdmin,
   //customer

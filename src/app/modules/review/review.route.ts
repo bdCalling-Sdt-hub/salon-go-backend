@@ -14,8 +14,16 @@ router.post(
   ReviewController.createReview,
 );
 
-router.get('/:id', ReviewController.getReviewsByProfessionalId);
+router.get(
+  '/:id',
+  auth(USER_ROLES.USER, USER_ROLES.PROFESSIONAL, USER_ROLES.ADMIN),
+  ReviewController.getReviewsByProfessionalId,
+);
 
-router.delete('/:id', ReviewController.deleteReview);
+router.delete(
+  '/:id',
+  auth(USER_ROLES.USER, USER_ROLES.ADMIN),
+  ReviewController.deleteReview,
+);
 
 export const ReviewRoutes = router;

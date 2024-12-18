@@ -41,6 +41,7 @@
     "@types/cookie-parser": "^1.4.8",
     "@types/cors": "^2.8.17",
     "@types/morgan": "^1.9.9",
+    "aws-sdk": "^2.1692.0",
     "bcrypt": "^5.1.1",
     "cloudinary": "^2.5.1",
     "colors": "^1.4.0",

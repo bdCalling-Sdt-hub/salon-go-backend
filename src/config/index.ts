@@ -28,4 +28,8 @@ export default {
     host: process.env.EMAIL_HOST,
     pass: process.env.EMAIL_PASS,
   },
+  aws: {
+    bucket_name: process.env.S3_BUCKET_NAME,
+    aws_region: process.env.AWS_REGION,
+  },
 };

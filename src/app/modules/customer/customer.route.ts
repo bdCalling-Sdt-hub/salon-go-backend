@@ -9,13 +9,6 @@ const router = express.Router();
 
 //done
 router.get(
-  '/customers',
-  auth(USER_ROLES.ADMIN),
-  CustomerController.getAllCustomer,
-);
-
-//done
-router.get(
   '/profile',
   auth(USER_ROLES.USER),
   CustomerController.getCustomerProfile,
@@ -37,7 +30,11 @@ router.patch(
   },
 );
 
-router.get('/:id', CustomerController.getSingleCustomer);
+router.get(
+  '/:id',
+  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.ADMIN),
+  CustomerController.getSingleCustomer,
+);
 
 //done
 router.delete(

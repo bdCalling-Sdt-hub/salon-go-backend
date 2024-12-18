@@ -306,7 +306,7 @@ const createReservationToDB = async (
 //   }
 // };
 
-const getReservationForProfessionalFromDB = async (
+const getReservationsForUsersFromDB = async (
   user: JwtPayload,
   filter: IReservationFilterableFields,
   paginationOptions: IPaginationOptions,
@@ -730,7 +730,7 @@ const rejectReservation = async (id: string, user: JwtPayload) => {
 
 export const ReservationServices = {
   createReservationToDB,
-  getReservationForProfessionalFromDB,
+  getReservationsForUsersFromDB,
   getSingleReservationFromDB,
   // updateReservationStatusToDB,
   cancelReservation,
