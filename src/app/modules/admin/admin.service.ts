@@ -5,9 +5,10 @@ import { StatusCodes } from 'http-status-codes';
 import { IAdmin } from './admin.interface';
 import { IUser } from '../user/user.interface';
 import { User } from '../user/user.model';
+import mongoose from 'mongoose';
 
 const getAdminProfile = async (user: JwtPayload) => {
-  const result = await Admin.findOne({ _id: user.userId }).populate('auth');
+  const result = await Admin.findById({ _id: user.userId }).populate('auth');
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Admin not found');
   }
@@ -18,29 +19,60 @@ const updateAdminProfile = async (
   user: JwtPayload,
   payload: Partial<IAdmin & IUser>,
 ) => {
-  const { name, profile, ...adminFields } = payload;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (name || profile) {
-    await User.findOneAndUpdate(
-      { _id: user.id },
-      { name, profile },
-      { new: true },
+  try {
+    const { name, profile, ...adminFields } = payload;
+
+    // Fetch Admin document
+    const admin = await Admin.findOne({ _id: user.userId }).session(session);
+    if (!admin) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Admin not found');
+    }
+
+    if (name) {
+      const userUpdateResult = await User.findOneAndUpdate(
+        { _id: user.id },
+        { ...(name && { name }) },
+        { new: true, session },
+      );
+      if (!userUpdateResult) {
+        throw new ApiError(
+          StatusCodes.INTERNAL_SERVER_ERROR,
+          'Failed to update user profile',
+        );
+      }
+    }
+
+    // Update Admin fields if present
+    if (Object.keys(adminFields).length > 0) {
+      const adminUpdateResult = await Admin.findOneAndUpdate(
+        { _id: user.userId },
+        adminFields,
+        { new: true, session },
+      );
+      if (!adminUpdateResult) {
+        throw new ApiError(
+          StatusCodes.INTERNAL_SERVER_ERROR,
+          'Failed to update admin fields',
+        );
+      }
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    const updatedAdmin = await Admin.findOne({ id: user.userId });
+    return updatedAdmin;
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to update admin profile',
     );
   }
-
-  const result = await Admin.findOne({ id: user.userId });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Admin not found');
-  }
-
-  if (Object.keys(adminFields).length > 0) {
-    await Admin.findOneAndUpdate({ _id: user.userId }, adminFields, {
-      new: true,
-    });
-  }
-
-  // Return the updated admin document
-  return result;
 };
 
 export const AdminService = {

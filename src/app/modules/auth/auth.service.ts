@@ -140,7 +140,7 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
   const { email, oneTimeCode } = payload;
   const isExistUser = await User.findOne(
     { email },
-    { vendor: 1, role: 1, _id: 1, email: 1 },
+    { vendor: 1, role: 1, _id: 1, email: 1, verified: 1 },
   ).select('+authentication');
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
@@ -246,6 +246,7 @@ const resetPasswordToDB = async (
   const { newPassword, confirmPassword } = payload;
   //isExist token
   const isExistToken = await ResetToken.isExistToken(token);
+
   if (!isExistToken) {
     throw new ApiError(StatusCodes.UNAUTHORIZED, 'You are not authorized');
   }
