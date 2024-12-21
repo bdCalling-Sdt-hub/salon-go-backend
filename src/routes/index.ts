@@ -13,6 +13,7 @@ import { ReviewRoutes } from '../app/modules/review/review.route';
 import { ReservationRoutes } from '../app/modules/reservation/reservation.route';
 import { ReportRoutes } from '../app/modules/report/report.route';
 import { DashboardRoutes } from '../app/modules/dashboard/dashboard.route';
+import { AdminRoutes } from '../app/modules/admin/admin.route';
 
 const router = express.Router();
 
@@ -69,6 +70,10 @@ export const apiRoutes: { path: string; route: any }[] = [
   {
     path: '/dashboard',
     route: DashboardRoutes,
+  },
+  {
+    path: '/admin',
+    route: AdminRoutes,
   },
 ];
 

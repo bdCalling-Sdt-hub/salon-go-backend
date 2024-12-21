@@ -5,7 +5,7 @@ const adminSchema = new Schema<IAdmin, AdminModel>(
   {
     auth: {
       type: Schema.Types.ObjectId,
-      ref: 'Auth',
+      ref: 'User',
     },
     profile: {
       type: String,
