@@ -62,7 +62,7 @@ const loginUserFromDB = async (
     );
   }
 
-  if (isExistUser.status === 'deleted') {
+  if (isExistUser.status === 'delete') {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'You don’t have permission to access this content. It looks like your account has been deactivated.',
