@@ -124,10 +124,12 @@ const deleteCustomerProfile = async (id: Types.ObjectId) => {
 };
 
 const getSingleCustomer = async (id: string) => {
-  console.log(id);
   const isDeleted = await User.findOne({ _id: id, status: 'delete' });
   if (isDeleted) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'User has been deleted');
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Customer account has been deleted',
+    );
   }
 
   const result = await Customer.findOne(
@@ -136,6 +138,7 @@ const getSingleCustomer = async (id: string) => {
       address: 1,
       gender: 1,
       dob: 1,
+      profile: 1,
       receivePromotionalNotification: 1,
     },
   ).populate({
@@ -147,9 +150,7 @@ const getSingleCustomer = async (id: string) => {
       status: 1,
     },
   });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get customer');
-  }
+
   return result;
 };
 

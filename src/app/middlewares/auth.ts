@@ -12,30 +12,37 @@ const auth =
       const tokenWithBearer = req.headers.authorization;
 
       if (!tokenWithBearer) {
-        throw new ApiError(StatusCodes.UNAUTHORIZED, 'You are not authorized');
+        throw new ApiError(StatusCodes.NOT_FOUND, 'Token not found!');
       }
 
       if (tokenWithBearer && tokenWithBearer.startsWith('Bearer')) {
         const token = tokenWithBearer.split(' ')[1];
 
-        //verify token
-        const verifyUser = jwtHelper.verifyToken(
-          token,
-          config.jwt.jwt_secret as Secret,
-        );
+        try {
+          // Verify token
+          const verifyUser = jwtHelper.verifyToken(
+            token,
+            config.jwt.jwt_secret as Secret,
+          );
 
-        //set user to header
-        req.user = verifyUser;
+          // Set user to header
+          req.user = verifyUser;
 
-        //guard user
-        if (roles.length && !roles.includes(verifyUser.role)) {
+          // Guard user
+          if (roles.length && !roles.includes(verifyUser.role)) {
+            throw new ApiError(
+              StatusCodes.FORBIDDEN,
+              "You don't have permission to access this API",
+            );
+          }
+
+          next();
+        } catch (error) {
           throw new ApiError(
-            StatusCodes.FORBIDDEN,
-            "You don't have permission to access this api",
+            StatusCodes.UNAUTHORIZED,
+            'You are not authorized',
           );
         }
-
-        next();
       }
     } catch (error) {
       next(error);

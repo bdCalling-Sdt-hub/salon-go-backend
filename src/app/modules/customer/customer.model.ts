@@ -36,6 +36,10 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
   },
 );
 
+customerSchema.index({ location: '2dsphere' });
+
+customerSchema.index({ auth: 1 });
+
 export const Customer = model<ICustomer, CustomerModel>(
   'Customer',
   customerSchema,

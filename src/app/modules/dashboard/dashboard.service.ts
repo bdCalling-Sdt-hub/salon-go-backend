@@ -14,6 +14,8 @@ import {
 } from './dasboard.interface';
 import { professionalDashboardSearchableFields } from './dashboard.constant';
 import { Customer } from '../customer/customer.model';
+import { IReservationFilterableFields } from '../reservation/reservation.interface';
+import { Types } from 'mongoose';
 
 const getGeneralStats = async () => {
   try {
@@ -315,7 +317,7 @@ const getAllProfessionalForAdmin = async (
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
 
-  const { searchTerm, isFreelancer, ...filters } = filterOptions;
+  const { searchTerm, ...filters } = filterOptions;
   const andConditions = [];
 
   if (searchTerm) {
@@ -329,10 +331,6 @@ const getAllProfessionalForAdmin = async (
     });
   }
 
-  if (isFreelancer) {
-    andConditions.push({ isFreelancer: Boolean(isFreelancer) });
-  }
-
   if (filters) {
     andConditions.push({
       $and: Object.entries(filters).map(([field, value]) => ({
@@ -343,6 +341,7 @@ const getAllProfessionalForAdmin = async (
 
   const whereConditions =
     andConditions.length > 0 ? { $and: andConditions } : {};
+  console.log(andConditions);
   console.log(whereConditions);
   const result = await Professional.find(whereConditions)
     .populate('auth')
@@ -415,6 +414,98 @@ const getAllCustomerForAdmin = async (
   };
 };
 
+const getAllReservationsFromDB = async (
+  filters: IReservationFilterableFields,
+  paginationOptions: IPaginationOptions,
+) => {
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(paginationOptions);
+
+  const { ...filtersData } = filters;
+
+  const andConditions = [];
+
+  if (Object.keys(filtersData).length) {
+    andConditions.push({
+      $and: Object.entries(filtersData).map(([field, value]) => ({
+        [field]: value,
+      })),
+    });
+  }
+
+  const whereConditions =
+    andConditions.length > 0 ? { $and: andConditions } : {};
+
+  const result = await Reservation.find(whereConditions)
+    .sort({ [sortBy]: sortOrder })
+    .skip(skip)
+    .limit(limit);
+
+  const total = await Reservation.countDocuments(whereConditions);
+
+  return {
+    meta: {
+      total,
+      page,
+      limit,
+      totalPage: Math.ceil(total / limit),
+    },
+    data: result,
+  };
+};
+
+const getUserWiseReservationsFromDB = async (
+  id: string,
+  filters: IReservationFilterableFields,
+  paginationOptions: IPaginationOptions,
+) => {
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(paginationOptions);
+
+  const filtersData = { ...filters };
+  const andConditions: any[] = [];
+
+  // Add filters to the query
+  if (Object.keys(filtersData).length) {
+    andConditions.push(
+      ...Object.entries(filtersData).map(([field, value]) => ({
+        [field]: value,
+      })),
+    );
+  }
+
+  // Add professional or customer-specific condition
+  andConditions.push({
+    $or: [
+      { professional: new Types.ObjectId(id) },
+      { customer: new Types.ObjectId(id) },
+    ],
+  });
+
+  // Combine all conditions
+  const whereConditions =
+    andConditions.length > 0 ? { $and: andConditions } : {};
+  console.log(whereConditions);
+  // Fetch reservations
+  const result = await Reservation.find(whereConditions)
+    .sort({ [sortBy || 'createdAt']: sortOrder === 'desc' ? -1 : 1 })
+    .skip(skip)
+    .limit(limit);
+
+  // Fetch total count for pagination
+  const total = await Reservation.countDocuments(whereConditions);
+
+  return {
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+    data: result,
+  };
+};
+
 //------------------------------
 
 const generateTimeSlots = async (
@@ -469,7 +560,9 @@ export const DashboardServices = {
   getAllProfessionalForAdmin,
   //customer
   getAllCustomerForAdmin,
-
+  //reservations
+  getAllReservationsFromDB,
+  getUserWiseReservationsFromDB,
   //-----------
   generateTimeSlots,
 };

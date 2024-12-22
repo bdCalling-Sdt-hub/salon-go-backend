@@ -10,14 +10,16 @@ import mongoose, { Types } from 'mongoose';
 
 const getAllCategories = async (): Promise<ICategory[]> => {
   const result = await Category.find()
-    .populate('subCategories')
     .populate({
       path: 'subCategories',
-      populate: { path: 'subSubCategories' },
-    });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get categories');
-  }
+      select: '_id name',
+      populate: {
+        path: 'subSubCategories',
+        select: '_id name',
+      },
+    })
+    .exec();
+
   return result;
 };
 

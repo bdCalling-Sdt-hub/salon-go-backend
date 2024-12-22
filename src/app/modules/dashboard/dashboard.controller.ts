@@ -117,6 +117,44 @@ const getTimeSchedule = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAllReservations = catchAsync(async (req: Request, res: Response) => {
+  const filterOptions = pick(req.query, [
+    'status',
+    'subSubCategory',
+    'searchTerm',
+  ]);
+  const paginationOptions = pick(req.query, paginationFields);
+  const result = await DashboardServices.getAllReservationsFromDB(
+    filterOptions,
+    paginationOptions,
+  );
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Reservations retrieved successfully',
+    data: result,
+  });
+});
+
+const getUserWiseReservations = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const paginationOptions = pick(req.query, paginationFields);
+    const filterOptions = pick(req.query, ['status', 'subSubCategory']);
+    const result = await DashboardServices.getUserWiseReservationsFromDB(
+      id,
+      filterOptions,
+      paginationOptions,
+    );
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Reservation retrieved successfully',
+      data: result,
+    });
+  },
+);
+
 export const DashboardController = {
   // getAllProfessionals,
   getReservationRate,
@@ -125,6 +163,8 @@ export const DashboardController = {
   getProfessionalVsFreelancer,
   getAllProfessionalForAdmin,
   getAllCustomerForAdmin,
+  getAllReservations,
+  getUserWiseReservations,
   //-------
 
   getTimeSchedule,

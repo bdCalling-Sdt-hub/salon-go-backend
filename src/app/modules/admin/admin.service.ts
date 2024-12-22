@@ -23,7 +23,7 @@ const updateAdminProfile = async (
   session.startTransaction();
 
   try {
-    const { name, profile, ...adminFields } = payload;
+    const { name, ...adminFields } = payload;
 
     // Fetch Admin document
     const admin = await Admin.findOne({ _id: user.userId }).session(session);
@@ -49,7 +49,7 @@ const updateAdminProfile = async (
     if (Object.keys(adminFields).length > 0) {
       const adminUpdateResult = await Admin.findOneAndUpdate(
         { _id: user.userId },
-        adminFields,
+        { name: name, ...adminFields },
         { new: true, session },
       );
       if (!adminUpdateResult) {

@@ -28,6 +28,7 @@ export type IReservation = {
 };
 
 export type IReservationFilterableFields = {
+  searchTerm?: string;
   status?: string;
   subSubCategory?: string;
 };

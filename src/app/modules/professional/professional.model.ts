@@ -131,6 +131,9 @@ professionalSchema.index({
   targetAudience: 'text',
 });
 
+professionalSchema.index({
+  auth: 1,
+});
 export const Professional = model<IProfessional, ProfessionalModel>(
   'Professional',
   professionalSchema,

@@ -126,7 +126,11 @@ router.patch(
   CategoriesController.removeSubSubCategoryFromSubCategory,
 );
 
+router.get(
+  '/all',
+  // auth(USER_ROLES.ADMIN),
+  CategoriesController.getAllCategories,
+);
 //filter categories
 router.get('/', CategoriesController.filterCategories);
-
 export const CategoriesRoutes = router;

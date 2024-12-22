@@ -33,6 +33,14 @@ const loginUserFromDB = async (
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
+
+  if (isExistUser.status === 'restricted') {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Your account has been restricted, please contact admin',
+    );
+  }
+
   let authUser;
   if (isExistUser.role === USER_ROLES.ADMIN) {
     authUser = await Admin.findOne({ auth: isExistUser._id });
@@ -54,7 +62,7 @@ const loginUserFromDB = async (
     );
   }
 
-  if (isExistUser.status === 'delete') {
+  if (isExistUser.status === 'deleted') {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'You don’t have permission to access this content. It looks like your account has been deactivated.',

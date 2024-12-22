@@ -226,6 +226,7 @@ const getSingleProfessional = async (id: string) => {
     name: 1,
     email: 1,
     role: 1,
+    profile: 1,
     status: 1,
   });
   if (!result) {
