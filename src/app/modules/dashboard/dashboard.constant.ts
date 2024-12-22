@@ -1,5 +1,6 @@
 export const professionalDashboardFilterableFields = [
   'serviceType',
+  'isFreelancer',
   'targetAudience',
 ];
 export const professionalDashboardSearchableFields = [

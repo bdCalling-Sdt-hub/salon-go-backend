@@ -3,7 +3,6 @@ import express, { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
 import router from './routes';
-import helmet from 'helmet';
 import { Morgan } from './shared/morgan';
 import globalErrorHandler from './app/middlewares/globalErrorHandler';
 import cookieParser from 'cookie-parser';
@@ -12,7 +11,6 @@ const app = express();
 //morgan
 app.use(Morgan.successHandler);
 app.use(Morgan.errorHandler);
-app.use(helmet());
 //body parser
 app.use(
   cors({

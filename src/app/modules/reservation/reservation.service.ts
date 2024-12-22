@@ -380,16 +380,6 @@ const getSingleReservationFromDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Reservation not found');
   }
 
-  if (
-    isReservationExists.professional !== userId ||
-    isReservationExists.customer !== userId
-  ) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'You are not authorized to view this reservation',
-    );
-  }
-
   return isReservationExists;
 };
 

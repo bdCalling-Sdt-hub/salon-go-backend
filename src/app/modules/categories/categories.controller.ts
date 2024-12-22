@@ -7,6 +7,7 @@ import { Types } from 'mongoose';
 
 const getAllCategories = catchAsync(async (req: Request, res: Response) => {
   const result = await CategoriesServices.getAllCategories();
+
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
