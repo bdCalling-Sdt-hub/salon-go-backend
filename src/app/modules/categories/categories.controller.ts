@@ -16,6 +16,28 @@ const getAllCategories = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAllSubCategories = catchAsync(async (req: Request, res: Response) => {
+  const result = await CategoriesServices.getAllSubCategories();
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'All sub categories retrieved successfully',
+    data: result,
+  });
+});
+
+const getAllSubSubCategories = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await CategoriesServices.getAllSubSubCategories();
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'All sub sub categories retrieved successfully',
+      data: result,
+    });
+  },
+);
+
 const createCategory = catchAsync(async (req: Request, res: Response) => {
   let categoryImage;
   if (req.files && 'image' in req.files && req.files.image[0]) {
@@ -247,6 +269,8 @@ const filterCategories = catchAsync(async (req: Request, res: Response) => {
 
 export const CategoriesController = {
   getAllCategories,
+  getAllSubCategories,
+  getAllSubSubCategories,
   createCategory,
   createSubCategory,
   createSubSubCategory,

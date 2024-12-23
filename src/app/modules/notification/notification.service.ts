@@ -71,9 +71,24 @@ const changeNotificationStatus = async (id: string) => {
   return result;
 };
 
+const makeCountTrueToDB = async () => {
+  const result = await Notification.updateMany(
+    { isCounted: false },
+    { isCounted: true },
+  );
+  if (!result) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to update notification status',
+    );
+  }
+  return result;
+};
+
 export const NotificationService = {
   storeNotificationToDB,
   getNotifications,
   getSingleNotification,
   changeNotificationStatus,
+  makeCountTrueToDB,
 };

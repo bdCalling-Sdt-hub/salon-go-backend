@@ -131,6 +131,11 @@ router.get(
   // auth(USER_ROLES.ADMIN),
   CategoriesController.getAllCategories,
 );
+
+router.get('/sub-categories', CategoriesController.getAllSubCategories);
+
+router.get('/sub-sub-categories', CategoriesController.getAllSubSubCategories);
 //filter categories
 router.get('/', CategoriesController.filterCategories);
+
 export const CategoriesRoutes = router;

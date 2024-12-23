@@ -437,6 +437,24 @@ const getAllReservationsFromDB = async (
     andConditions.length > 0 ? { $and: andConditions } : {};
 
   const result = await Reservation.find(whereConditions)
+    .populate({
+      path: 'professional',
+      select: { auth: 1 },
+      populate: { path: 'auth', select: { name: 1 } },
+    })
+    .populate({
+      path: 'customer',
+      select: { auth: 1 },
+      populate: { path: 'auth', select: { name: 1 } },
+    })
+    .populate({
+      path: 'service',
+      select: { title: 1 },
+    })
+    .populate({
+      path: 'subSubCategory',
+      select: { name: 1 },
+    })
     .sort({ [sortBy]: sortOrder })
     .skip(skip)
     .limit(limit);
