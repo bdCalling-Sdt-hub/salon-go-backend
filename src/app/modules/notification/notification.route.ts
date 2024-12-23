@@ -16,6 +16,13 @@ router.get(
   auth(USER_ROLES.USER, USER_ROLES.PROFESSIONAL, USER_ROLES.ADMIN),
   NotificationController.getNotifications,
 );
+
+router.patch(
+  '/',
+  auth(USER_ROLES.USER, USER_ROLES.PROFESSIONAL, USER_ROLES.ADMIN),
+  NotificationController.makeCountTrue,
+);
+
 router.get(
   '/:id',
   auth(USER_ROLES.USER, USER_ROLES.PROFESSIONAL, USER_ROLES.ADMIN),

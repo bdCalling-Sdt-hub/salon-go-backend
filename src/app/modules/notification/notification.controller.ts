@@ -49,8 +49,19 @@ const getSingleNotification = catchAsync(
   },
 );
 
+const makeCountTrue = catchAsync(async (req: Request, res: Response) => {
+  const result = await NotificationService.makeCountTrueToDB();
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Count updated successfully',
+    data: result,
+  });
+});
+
 export const NotificationController = {
   createNotification,
   getNotifications,
   getSingleNotification,
+  makeCountTrue,
 };

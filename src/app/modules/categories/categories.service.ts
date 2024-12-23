@@ -23,6 +23,18 @@ const getAllCategories = async (): Promise<ICategory[]> => {
   return result;
 };
 
+const getAllSubCategories = async (): Promise<ISubCategory[]> => {
+  const result = await SubCategory.find()
+    .populate({ path: 'subSubCategories', select: '_id name' })
+    .exec();
+  return result;
+};
+
+const getAllSubSubCategories = async (): Promise<ISubSubCategory[]> => {
+  const result = await SubSubCategory.find().exec();
+  return result;
+};
+
 const createCategoryToDB = async (payload: ICategory): Promise<ICategory> => {
   const result = await Category.create(payload);
   if (!result) {
@@ -388,6 +400,8 @@ const getCategoryForProfessionalUpdateFromDB = async (categoryId?: string) => {
 
 export const CategoriesServices = {
   getAllCategories,
+  getAllSubCategories,
+  getAllSubSubCategories,
   createCategoryToDB,
   updateCategoryToDB,
   deleteCategoryToDB,
@@ -406,4 +420,6 @@ export const CategoriesServices = {
 
   //filter categories
   filterCategories,
+
+  //get category for professional update
 };
