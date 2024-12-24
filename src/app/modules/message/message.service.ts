@@ -8,6 +8,8 @@ import ApiError from '../../../errors/ApiError';
 import { Chat } from '../chat/chat.model';
 import { Types } from 'mongoose';
 import { Message } from './message.model';
+import { IPaginationOptions } from '../../../types/pagination';
+import { paginationHelper } from '../../../helpers/paginationHelper';
 
 const sendMessage = async (
   user: JwtPayload,
@@ -65,7 +67,13 @@ const sendMessage = async (
   return populatedResult;
 };
 
-const getMessagesByChatId = async (chatId: string) => {
+const getMessagesByChatId = async (
+  chatId: string,
+  paginationOptions: IPaginationOptions,
+) => {
+  const { limit, page, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(paginationOptions);
+
   const result = await Message.find({ chatId })
     .populate({
       path: 'senderId',
@@ -82,12 +90,25 @@ const getMessagesByChatId = async (chatId: string) => {
 
         role: 1,
       },
-    });
+    })
+    .sort({ [sortBy]: sortOrder })
+    .skip(skip)
+    .limit(limit);
+
+  const total = await Message.countDocuments({ chatId });
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get messages.');
   }
-  return result;
+  return {
+    meta: {
+      page,
+      limit,
+      total: total,
+      totalPage: Math.ceil(total / limit),
+    },
+    data: result,
+  };
 };
 
 export const MessageService = {
