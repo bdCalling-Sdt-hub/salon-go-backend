@@ -12,12 +12,11 @@ const accessChat = async (
   payload: { participantId: string },
 ) => {
   const participantAuthId = new Types.ObjectId(payload.participantId);
-
-  let getRequestUserAuthId = user.id;
+  const requestUserAuthId = new Types.ObjectId(user.id);
 
   const [isRequestedUserExists, isParticipantExists] = await Promise.all([
-    User.findById({ _id: getRequestUserAuthId, status: 'active' }),
-    User.findById({ _id: participantAuthId, status: 'active' }),
+    User.findOne({ _id: requestUserAuthId, status: 'active' }),
+    User.findOne({ _id: participantAuthId, status: 'active' }),
   ]);
 
   if (!isRequestedUserExists) {
@@ -28,56 +27,64 @@ const accessChat = async (
     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found!');
   }
 
-  const isChatExists = await Chat.findOne({
-    participants: {
-      $all: [getRequestUserAuthId, participantAuthId],
-    },
-  }).populate('participants', {
-    name: 1,
-
-    role: 1,
+  let chat = await Chat.findOne({
+    participants: { $all: [requestUserAuthId, participantAuthId] },
+  }).populate({
+    path: 'participants',
+    select: { name: 1, profile: 1 },
   });
 
-  if (isChatExists) {
-    return isChatExists;
+  if (!chat) {
+    await Chat.create({
+      participants: [requestUserAuthId, participantAuthId],
+    });
+
+    chat = await Chat.findOne({
+      participants: { $all: [requestUserAuthId, participantAuthId] },
+    }).populate({
+      path: 'participants',
+      select: { name: 1, profile: 1 },
+    });
+
+    if (!chat) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create chat.');
+    }
   }
 
-  const result = await Chat.create({
-    participants: [getRequestUserAuthId, participantAuthId],
-  });
+  const participantData = chat.participants.find(
+    (participant: any) => participant._id.toString() !== user.id,
+  );
 
-  const newChat = await Chat.findOne({
-    participants: {
-      $all: [getRequestUserAuthId, participantAuthId],
-    },
-  }).populate('participants', {
-    name: 1,
-
-    role: 1,
-  });
-
-  if (!newChat) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create chat.');
-  }
-
-  return newChat;
+  return { chatId: chat._id, ...participantData!.toObject() };
 };
 
 const getChatListByUserId = async (user: JwtPayload) => {
-  const result = await Chat.find({ participants: { $in: [user.id] } }).populate(
+  // Find chats where the user is a participant
+  const chats = await Chat.find({ participants: { $in: [user.id] } }).populate(
     'participants',
     {
       name: 1,
-
-      role: 1,
+      profile: 1,
     },
   );
-  if (!result) {
+
+  if (!chats || chats.length === 0) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get chat list.');
   }
+
+  // Transform chats to only include the other participant's data
+  const result = chats.map((chat) => {
+    const otherParticipant = chat.participants.find(
+      (participant) => participant._id.toString() !== user.id,
+    );
+    return {
+      chatId: chat._id,
+      ...otherParticipant!.toObject(),
+    };
+  });
+
   return result;
 };
-
 export const ChatService = {
   accessChat,
   getChatListByUserId,

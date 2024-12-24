@@ -56,12 +56,12 @@ const updateCategoryToDB = async (
   return result;
 };
 
-const deleteCategoryToDB = async (id: string): Promise<ICategory> => {
+const deleteCategoryToDB = async (id: string): Promise<string> => {
   const result = await Category.findOneAndDelete({ _id: id });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete category');
   }
-  return result;
+  return 'Category deleted successfully';
 };
 
 const createSubCategoryToDB = async (
@@ -93,9 +93,7 @@ const updateSubCategoryToDB = async (
   return result;
 };
 
-export const deleteSubCategoryToDB = async (
-  id: string,
-): Promise<ISubCategory | null> => {
+export const deleteSubCategoryToDB = async (id: string): Promise<string> => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
@@ -123,7 +121,7 @@ export const deleteSubCategoryToDB = async (
     }
 
     await session.commitTransaction();
-    return subCategory;
+    return 'Sub Category deleted successfully';
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -148,8 +146,8 @@ const createSubSubCategoryToDB = async (
 const updateSubSubCategoryToDB = async (
   id: string,
   payload: Partial<ISubSubCategory>,
-): Promise<ISubCategory> => {
-  const result = await SubCategory.findOneAndUpdate({ _id: id }, payload, {
+): Promise<ISubSubCategory> => {
+  const result = await SubSubCategory.findOneAndUpdate({ _id: id }, payload, {
     new: true,
   });
   if (!result) {
@@ -161,9 +159,7 @@ const updateSubSubCategoryToDB = async (
   return result;
 };
 
-export const deleteSubSubCategoryToDB = async (
-  id: string,
-): Promise<ISubSubCategory | null> => {
+export const deleteSubSubCategoryToDB = async (id: string): Promise<string> => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
@@ -178,13 +174,6 @@ export const deleteSubSubCategoryToDB = async (
       { new: true, session },
     );
 
-    if (!subCategory) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'SubCategory not associated with any Category',
-      );
-    }
-
     const subSubCategory = await SubSubCategory.findOneAndDelete(
       { _id: id },
       { session },
@@ -198,7 +187,7 @@ export const deleteSubSubCategoryToDB = async (
     }
 
     await session.commitTransaction();
-    return subCategory;
+    return 'Sub Sub Category deleted successfully';
   } catch (error) {
     await session.abortTransaction();
     throw error;

@@ -1,26 +1,5 @@
 import { z } from 'zod';
 
-// Reusable address schema
-const addressSchema = z.object({
-  street: z.string({ required_error: 'Street is required' }),
-  apartmentOrSuite: z.string().optional(),
-  city: z.string({ required_error: 'City is required' }),
-  state: z.string({ required_error: 'State is required' }),
-  zip: z.string({ required_error: 'ZIP is required' }),
-  country: z.string({ required_error: 'Country is required' }),
-});
-
-const updateAddressSchema = z
-  .object({
-    street: z.string().optional(),
-    apartmentOrSuite: z.string().optional(),
-    city: z.string().optional(),
-    state: z.string().optional(),
-    zip: z.string().optional(),
-    country: z.string().default('United States').optional(),
-  })
-  .optional();
-
 const travelFeeSchema = z.object({
   fee: z.number().min(0, { message: 'Fee must be a positive number' }),
   distance: z

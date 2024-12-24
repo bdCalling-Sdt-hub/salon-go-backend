@@ -1,9 +1,8 @@
 import { Model, Types } from 'mongoose';
-import { IAuth } from '../auth/auth.interface';
+import { IUser } from '../user/user.interface';
 
 export type IAdmin = {
-  auth: Types.ObjectId | IAuth;
-  profile: string;
+  auth: Types.ObjectId | IUser;
   address: string;
 };
 

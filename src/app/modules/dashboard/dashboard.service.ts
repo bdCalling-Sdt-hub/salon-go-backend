@@ -569,6 +569,125 @@ const generateTimeSlots = async (
   return slots;
 };
 
+const getUserEngagement = async (year?: string) => {
+  console.log(year);
+  const startOfYear = new Date(`${year}-01-01T00:00:00.000Z`);
+  const endOfYear = new Date(`${year}-12-31T23:59:59.999Z`);
+  console.log(startOfYear, endOfYear);
+  try {
+    const [professionalEngagement, reservationEngagement] = await Promise.all([
+      Professional.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startOfYear, $lte: endOfYear },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              month: { $month: '$createdAt' },
+              isFreelancer: '$isFreelancer',
+            },
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $group: {
+            _id: '$_id.month',
+            freelancers: {
+              $sum: {
+                $cond: [{ $eq: ['$_id.isFreelancer', true] }, '$count', 0],
+              },
+            },
+            salons: {
+              $sum: {
+                $cond: [{ $eq: ['$_id.isFreelancer', false] }, '$count', 0],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            month: '$_id',
+            freelancers: 1,
+            salons: 1,
+          },
+        },
+        {
+          $sort: { month: 1 },
+        },
+      ]),
+
+      Reservation.aggregate([
+        {
+          $match: {
+            date: { $gte: startOfYear, $lte: endOfYear },
+          },
+        },
+        {
+          $group: {
+            _id: { month: { $month: '$date' } },
+            reservations: { $sum: 1 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            month: '$_id.month',
+            reservations: 1,
+          },
+        },
+        {
+          $sort: { month: 1 },
+        },
+      ]),
+    ]);
+
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    const engagementData = Array.from({ length: 12 }, (_, i) => {
+      const month = i + 1;
+      const professionalData = professionalEngagement.find(
+        (item) => item.month === month,
+      ) || {
+        freelancers: 0,
+        salons: 0,
+      };
+
+      const reservationData = reservationEngagement.find(
+        (item) => item.month === month,
+      ) || {
+        reservations: 0,
+      };
+
+      return {
+        month: monthNames[i],
+        freelancers: professionalData.freelancers,
+        salons: professionalData.salons,
+        reservations: reservationData.reservations,
+      };
+    });
+
+    return engagementData;
+  } catch (error) {
+    throw new Error(`Failed to retrieve user engagement data`);
+  }
+};
+
 export const DashboardServices = {
   getGeneralStats,
   getReservationRate,
@@ -583,4 +702,5 @@ export const DashboardServices = {
   getUserWiseReservationsFromDB,
   //-----------
   generateTimeSlots,
+  getUserEngagement,
 };

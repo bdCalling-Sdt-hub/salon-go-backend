@@ -54,6 +54,11 @@ router.get(
 );
 
 router.get(
+  '/user-engagement',
+  auth(USER_ROLES.ADMIN),
+  DashboardController.getUserEngagement,
+);
+router.get(
   '/time-slots',
   auth(USER_ROLES.ADMIN),
   DashboardController.getTimeSchedule,
