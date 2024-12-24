@@ -16,8 +16,6 @@ import { IUser } from '../user/user.interface';
 const CustomerFileManager = new FileManager();
 
 const getCustomerProfile = async (user: JwtPayload) => {
-  // const customerId = new Types.ObjectId(user.id);
-
   const isUserExist = await Customer.findOne(
     { auth: user.id },
     { address: 1, gender: 1, dob: 1 },
@@ -49,43 +47,24 @@ const getCustomerProfile = async (user: JwtPayload) => {
 const updateCustomerProfile = async (
   user: JwtPayload,
   payload: Partial<ICustomer & IUser>,
-  file?: Express.Multer.File[],
 ) => {
-  // Find the user and populate the customer relation
-  const isUserExist = await User.findById(user.id).populate('customer', {
-    profile: 1,
-  });
-  if (!isUserExist) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
-  }
-
   const session = await User.startSession();
   session.startTransaction();
-
+  const { name, profile, ...restData } = payload;
   try {
-    // Update the `name` in the User collection if provided
-    if (payload.name) {
+    if (name || profile) {
+      console.log(profile);
       await User.findByIdAndUpdate(
-        user.id,
-        { name: payload.name },
+        { _id: user.id },
+        { ...(name && { name }), ...(profile && { profile }) },
         { new: true, session },
-      );
-    }
-
-    // Upload the new profile image if provided
-    if (file) {
-      await CustomerFileManager.updateFile(
-        //@ts-ignore
-        isUserExist?.customer?.profile,
-        file[0],
-        'customer-image',
       );
     }
 
     // Update the Customer profile
     const result = await Customer.findByIdAndUpdate(
-      { auth: user.userId },
-      payload,
+      { _id: user.userId },
+      restData,
       {
         new: true,
         session,

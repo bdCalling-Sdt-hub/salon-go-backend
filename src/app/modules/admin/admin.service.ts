@@ -23,7 +23,7 @@ const updateAdminProfile = async (
   session.startTransaction();
 
   try {
-    const { name, ...adminFields } = payload;
+    const { name, profile, ...adminFields } = payload;
 
     // Fetch Admin document
     const admin = await Admin.findOne({ _id: user.userId }).session(session);
@@ -31,10 +31,10 @@ const updateAdminProfile = async (
       throw new ApiError(StatusCodes.NOT_FOUND, 'Admin not found');
     }
 
-    if (name) {
+    if (name || profile) {
       const userUpdateResult = await User.findOneAndUpdate(
         { _id: user.id },
-        { ...(name && { name }) },
+        { ...(name && { name }), ...(profile && { profile }) },
         { new: true, session },
       );
       if (!userUpdateResult) {

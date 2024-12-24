@@ -22,6 +22,10 @@ const userSchema = new Schema<IUser, UserModel>(
       type: String,
       required: true,
     },
+    profile: {
+      type: String,
+      default: 'https://cdn-icons-png.flaticon.com/512/1253/1253756.png',
+    },
     password: {
       type: String,
       required: true,

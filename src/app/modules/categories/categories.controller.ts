@@ -102,6 +102,7 @@ const createSubCategory = catchAsync(async (req: Request, res: Response) => {
 const updateSubCategory = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { ...subCategoryData } = req.body;
+  console.log(subCategoryData);
   const result = await CategoriesServices.updateSubCategoryToDB(
     id,
     subCategoryData,
@@ -141,6 +142,7 @@ const createSubSubCategory = catchAsync(async (req: Request, res: Response) => {
 const updateSubSubCategory = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { ...subCategoryData } = req.body;
+  console.log(subCategoryData);
   const result = await CategoriesServices.updateSubSubCategoryToDB(
     id,
     subCategoryData,

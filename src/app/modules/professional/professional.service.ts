@@ -6,11 +6,9 @@ import { IProfessional, IProfessionalFilters } from './professional.interface';
 import ApiError from '../../../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
 import { Professional } from './professional.model';
-import { professionalSearchableFields } from './professional.constants';
 import { Service } from '../service/service.model';
 import { handleObjectUpdate } from './professional.utils';
 import { paginationHelper } from '../../../helpers/paginationHelper';
-import { IGenericResponse } from '../../../types/response';
 import { Types } from 'mongoose';
 import { QueryHelper } from '../../../utils/queryHelper';
 import { Schedule } from '../schedule/schedule.model';
@@ -21,16 +19,16 @@ const updateProfessionalProfile = async (
   user: JwtPayload,
   payload: Partial<IProfessional & IUser>,
 ) => {
-  const { name, socialLinks, ...restData } = payload;
+  const { name, profile, socialLinks, ...restData } = payload;
 
   const session = await Professional.startSession();
   session.startTransaction();
 
   try {
-    if (name) {
+    if (name || profile) {
       await User.findByIdAndUpdate(
-        { _id: user.userId },
-        { name },
+        { _id: user.id },
+        { ...(name && { name }), ...(profile && { profile }) },
         { new: true, session },
       );
     }

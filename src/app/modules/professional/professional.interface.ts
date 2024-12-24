@@ -33,7 +33,6 @@ export type IProfessional = {
   description: string;
   license: string;
   ID: string;
-  profile: string;
   socialLinks: ISocialLink;
   rating: number;
   totalReviews: number;

@@ -24,12 +24,14 @@ const updateCustomerProfile = catchAsync(
     const user = req.user;
 
     const customerData = req.body;
-    const file = req.files as Express.Multer.File[] | undefined;
+
+    if (req.files && 'image' in req.files && req.files.image[0]) {
+      customerData.profile = `/images/${req.files.image[0].filename}`;
+    }
 
     const result = await CustomerService.updateCustomerProfile(
       user,
       customerData,
-      file,
     );
     sendResponse(res, {
       success: true,

@@ -14,20 +14,15 @@ import { ProfessionalService } from './professional.service';
 const updateProfessionalProfile = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
+    const updatedData = req.body;
 
-    let profileImg;
     if (req.files && 'image' in req.files && req.files.image[0]) {
-      profileImg = `/images/${req.files.image[0].filename}`;
+      updatedData.profile = `/images/${req.files.image[0].filename}`;
     }
-
-    const data = {
-      profileImg,
-      ...req.body,
-    };
 
     const result = await ProfessionalService.updateProfessionalProfile(
       user,
-      data,
+      updatedData,
     );
 
     sendResponse(res, {

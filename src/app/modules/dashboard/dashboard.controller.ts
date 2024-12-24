@@ -155,6 +155,17 @@ const getUserWiseReservations = catchAsync(
   },
 );
 
+const getUserEngagement = catchAsync(async (req: Request, res: Response) => {
+  const { year } = req.query;
+  const result = await DashboardServices.getUserEngagement(year);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Engagement retrieved successfully',
+    data: result,
+  });
+});
+
 export const DashboardController = {
   // getAllProfessionals,
   getReservationRate,
@@ -168,4 +179,5 @@ export const DashboardController = {
   //-------
 
   getTimeSchedule,
+  getUserEngagement,
 };

@@ -6,6 +6,7 @@ export type IUser = {
   name: string;
   email: string;
   contact: string;
+  profile: string;
   password: string;
   role: USER_ROLES;
   status: 'active' | 'restricted' | 'delete';
