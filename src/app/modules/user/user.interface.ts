@@ -3,6 +3,7 @@ import { Model, Types } from 'mongoose';
 import { USER_ROLES } from '../../../enums/user';
 
 export type IUser = {
+  _id: Types.ObjectId;
   name: string;
   email: string;
   contact: string;
@@ -19,6 +20,8 @@ export type IUser = {
     oneTimeCode: number;
     expireAt: Date;
   };
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type IUserFilters = {

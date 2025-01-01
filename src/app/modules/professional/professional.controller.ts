@@ -17,7 +17,7 @@ const updateProfessionalProfile = catchAsync(
     const updatedData = req.body;
 
     if (req.files && 'image' in req.files && req.files.image[0]) {
-      updatedData.profile = `/images/${req.files.image[0].filename}`;
+      updatedData.profile = req.files.image[0];
     }
 
     const result = await ProfessionalService.updateProfessionalProfile(

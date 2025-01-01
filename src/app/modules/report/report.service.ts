@@ -22,7 +22,7 @@ const createReportToDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create report');
   }
 
-  await sendNotificationToMultipleRecipients('report-created', [
+  await sendNotificationToMultipleRecipients('getNotification', [
     {
       recipient: payload.reportedId,
       data: {
@@ -118,7 +118,7 @@ const markReportResolvedToDB = async (
   }
 
   if (user.role === USER_ROLES.ADMIN) {
-    await sendNotificationToMultipleRecipients('report-resolved', [
+    await sendNotificationToMultipleRecipients('getNotification', [
       {
         recipient: isReportExist.reporterId,
         data: {
@@ -140,7 +140,7 @@ const markReportResolvedToDB = async (
     ]);
   }
   //@ts-ignore
-  await sendNotification('report-resolved', isReportExist.reportedId.auth._id, {
+  await sendNotification('getNotification', isReportExist.reportedId.auth._id, {
     userId: user.id,
     title: `Your report has been resolved by ${user.role}`,
     message: payload.remark,

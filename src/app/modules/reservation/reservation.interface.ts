@@ -4,6 +4,7 @@ type Point = {
   coordinates: [number, number];
 };
 export type IReservation = {
+  _id: Types.ObjectId;
   service: Types.ObjectId;
   serviceType: string | 'home' | 'in-place';
   professional: Types.ObjectId;
@@ -25,6 +26,8 @@ export type IReservation = {
   serviceEndDateTime: Date;
   duration: number;
   isStarted: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type IReservationFilterableFields = {

@@ -4,6 +4,7 @@ import ApiError from '../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
 
 import { INotification } from '../app/modules/notification/notification.interface';
+import { IReservation } from '../app/modules/reservation/reservation.interface';
 
 type IBulkNotification = {
   users: Types.ObjectId[];
@@ -98,4 +99,16 @@ export const handleNotificationForInvitation = async (
   data?.users.forEach((userId) => {
     socket.emit(`${namespace}::${userId}`, data);
   });
+};
+
+export const sendDataWithSocket = async (
+  namespace: string,
+  recipient: Types.ObjectId,
+  data: IReservation,
+) => {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  //@ts-ignore
+  const socket = global.io;
+
+  socket.emit(`${namespace}::${recipient}`, data);
 };

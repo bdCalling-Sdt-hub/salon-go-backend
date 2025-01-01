@@ -12,6 +12,10 @@ import { JwtPayload } from 'jsonwebtoken';
 import multer from 'multer';
 import FileManager from '../../../helpers/awsS3Helper';
 import { IUser } from '../user/user.interface';
+import {
+  deleteResourcesFromCloudinary,
+  uploadToCloudinary,
+} from '../../../utils/cloudinary';
 
 const CustomerFileManager = new FileManager();
 
@@ -44,44 +48,80 @@ const getCustomerProfile = async (user: JwtPayload) => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const updateCustomerProfile = async (
   user: JwtPayload,
   payload: Partial<ICustomer & IUser>,
 ) => {
   const session = await User.startSession();
   session.startTransaction();
+
   const { name, profile, ...restData } = payload;
+
+  const { path } = profile as any;
+
   try {
-    if (name || profile) {
-      console.log(profile);
-      await User.findByIdAndUpdate(
+    // 🖼️ Handle image upload if profile exists
+    let uploadedImageUrl: string | null = null;
+    if (path) {
+      const uploadedImage = await uploadToCloudinary(path, 'customer', 'image');
+
+      if (!uploadedImage || uploadedImage.length === 0) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to upload image.');
+      }
+
+      uploadedImageUrl = uploadedImage[0];
+    }
+
+    // 📝 Update User Profile
+    if (name || uploadedImageUrl) {
+      const userUpdateResult = await User.findByIdAndUpdate(
         { _id: user.id },
-        { ...(name && { name }), ...(profile && { profile }) },
+        {
+          $set: {
+            ...(name && { name }),
+            ...(uploadedImageUrl && { profile: uploadedImageUrl }),
+          },
+        },
         { new: true, session },
+      );
+
+      // Rollback uploaded image if User update fails
+      if (!userUpdateResult) {
+        if (uploadedImageUrl) {
+          await deleteResourcesFromCloudinary(uploadedImageUrl, 'image', true);
+        }
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'Failed to update user profile.',
+        );
+      }
+    }
+
+    // 📝 Update Customer Profile
+    const customerUpdateResult = await Customer.findByIdAndUpdate(
+      { _id: user.userId },
+      restData,
+      { new: true, session },
+    );
+
+    if (!customerUpdateResult) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to update customer profile.',
       );
     }
 
-    // Update the Customer profile
-    const result = await Customer.findByIdAndUpdate(
-      { _id: user.userId },
-      restData,
-      {
-        new: true,
-        session,
-      },
-    );
-
-    if (!result) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update customer');
-    }
-
+    // ✅ Commit the transaction if everything is successful
     await session.commitTransaction();
     session.endSession();
 
-    return result;
+    return customerUpdateResult;
   } catch (error) {
+    // ❌ Rollback the transaction on failure
     await session.abortTransaction();
     session.endSession();
+
     throw error;
   }
 };
