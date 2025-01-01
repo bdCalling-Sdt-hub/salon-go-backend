@@ -14,6 +14,10 @@ import { QueryHelper } from '../../../utils/queryHelper';
 import { Schedule } from '../schedule/schedule.model';
 import { User } from '../user/user.model';
 import { IUser } from '../user/user.interface';
+import {
+  deleteResourcesFromCloudinary,
+  uploadToCloudinary,
+} from '../../../utils/cloudinary';
 
 const updateProfessionalProfile = async (
   user: JwtPayload,
@@ -25,14 +29,47 @@ const updateProfessionalProfile = async (
   session.startTransaction();
 
   try {
-    if (name || profile) {
-      await User.findByIdAndUpdate(
+    // 🖼️ Handle image upload if profile exists
+    let uploadedImageUrl: string | null = null;
+    if (profile) {
+      const { path } = profile as any;
+      const uploadedImage = await uploadToCloudinary(
+        path,
+        'professional',
+        'image',
+      );
+
+      if (!uploadedImage || uploadedImage.length === 0) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to upload image.');
+      }
+      uploadedImageUrl = uploadedImage[0];
+    }
+    // 📝 Update User Profile
+
+    if (name || uploadedImageUrl) {
+      const userUpdateResult = await User.findByIdAndUpdate(
         { _id: user.id },
-        { ...(name && { name }), ...(profile && { profile }) },
+        {
+          $set: {
+            ...(name && { name }),
+            ...(uploadedImageUrl && { profile: uploadedImageUrl }),
+          },
+        },
         { new: true, session },
       );
-    }
 
+      // Rollback uploaded image if User update fails
+      if (!userUpdateResult) {
+        if (uploadedImageUrl) {
+          await deleteResourcesFromCloudinary(uploadedImageUrl, 'image', true);
+        }
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'Failed to update user profile.',
+        );
+      }
+    }
+    // 📝 Update Professional Profile
     let updatedData = { ...restData };
     if (socialLinks && Object.keys(socialLinks).length > 0) {
       updatedData = handleObjectUpdate(socialLinks, updatedData, 'socialLinks');
@@ -49,11 +86,13 @@ const updateProfessionalProfile = async (
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update profile!');
     }
 
+    // ✅ Commit the transaction if everything is successful
     await session.commitTransaction();
     session.endSession();
 
     return result;
   } catch (error) {
+    // ❌ Rollback the transaction on failure
     await session.abortTransaction();
     session.endSession();
     throw error;

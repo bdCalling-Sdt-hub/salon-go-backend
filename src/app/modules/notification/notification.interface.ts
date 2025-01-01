@@ -5,7 +5,7 @@ export type INotification = {
   title: string;
   message: string;
   isRead?: boolean;
-  isCounted: boolean;
+  isCounted?: boolean;
   type: string;
 };
 

@@ -28,6 +28,11 @@ export default {
     host: process.env.EMAIL_HOST,
     pass: process.env.EMAIL_PASS,
   },
+  cloudinary: {
+    cloudinary_name: process.env.CLOUDINARY_NAME,
+    cloudinary_api_key: process.env.CLOUDINARY_API_KEY,
+    cloudinary_secret: process.env.CLOUDINARY_SECRET,
+  },
   aws: {
     bucket_name: process.env.S3_BUCKET_NAME,
     aws_region: process.env.AWS_REGION,

@@ -19,6 +19,7 @@ type ITravelFee = {
 };
 
 export type IProfessional = {
+  _id: Types.ObjectId;
   auth: Types.ObjectId;
   businessName: string;
   targetAudience: 'men' | 'women';
@@ -45,6 +46,8 @@ export type IProfessional = {
   informationCount: number;
   portfolio: string[];
   helpingTags: string[];
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type ProfessionalModel = Model<IProfessional>;

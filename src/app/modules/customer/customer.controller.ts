@@ -26,7 +26,7 @@ const updateCustomerProfile = catchAsync(
     const customerData = req.body;
 
     if (req.files && 'image' in req.files && req.files.image[0]) {
-      customerData.profile = `/images/${req.files.image[0].filename}`;
+      customerData.profile = req.files.image[0];
     }
 
     const result = await CustomerService.updateCustomerProfile(

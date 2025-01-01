@@ -42,7 +42,7 @@ const sendInvitation = async (payload: IInvitation, user: JwtPayload) => {
     throw new Error('Failed to create invitation');
   }
 
-  await handleNotificationForInvitation('invitation', {
+  await handleNotificationForInvitation('getNotification', {
     users: invitation?.users as Types.ObjectId[],
     title: `${isValidUser?.businessName} has set you an invitation.`,
     message: `Please visit our salon profile to get information about our services and prices.`,

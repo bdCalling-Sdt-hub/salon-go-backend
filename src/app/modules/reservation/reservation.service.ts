@@ -15,6 +15,10 @@ import { JwtPayload } from 'jsonwebtoken';
 import mongoose, { ClientSession, Types } from 'mongoose';
 import { DateHelper } from '../../../utils/date.helper';
 import { format, isAfter, isBefore } from 'date-fns';
+import {
+  sendDataWithSocket,
+  sendNotification,
+} from '../../../helpers/sendNotificationHelper';
 
 const createReservationToDB = async (
   payload: IReservation,
@@ -141,6 +145,17 @@ const createReservationToDB = async (
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create reservation');
   }
+
+  await sendNotification('getNotification', user.userId, {
+    userId: user.id,
+    title: 'Reservation Created',
+    message: 'Reservation created successfully',
+    type: 'reservation',
+  });
+
+  await sendDataWithSocket('reservationCreated', user.id, {
+    ...result,
+  });
 
   return result;
 };
@@ -606,10 +621,25 @@ const confirmReservation = async (
       );
     }
 
-    // Update reservation status to confirmed
-    reservation.status = 'confirmed';
-    reservation.amount = amount;
-    await reservation.save({ session });
+    const result = await Reservation.findByIdAndUpdate(
+      {
+        _id: id,
+      },
+      { $set: { status: 'confirmed', amount: amount } },
+      { new: true, session },
+    );
+
+    if (!result) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
+        'Failed to confirm reservation',
+      );
+    }
+
+    await sendDataWithSocket('reservationConfirmed', user.id, {
+      ...result,
+    });
+
     await session.commitTransaction();
     return reservation;
   } catch (error) {
@@ -665,8 +695,21 @@ const cancelReservation = async (id: string, user: JwtPayload) => {
       true,
     );
 
-    reservation.status = 'canceled';
-    await reservation.save({ session });
+    const result = await Reservation.findByIdAndUpdate(
+      {
+        _id: id,
+      },
+      { $set: { status: 'canceled' } },
+      { new: true, session },
+    );
+
+    if (!result) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Failed to cancel reservation');
+    }
+
+    await sendDataWithSocket('reservationCanceled', user.id, {
+      ...result,
+    });
 
     await session.commitTransaction();
     return { message: 'Reservation canceled successfully' };
@@ -693,9 +736,20 @@ const markReservationAsCompleted = async (id: string, user: JwtPayload) => {
     );
   }
 
-  reservation.status = 'completed';
-  await reservation.save();
-
+  const result = await Reservation.findOneAndUpdate(
+    { _id: id },
+    { $set: { status: 'completed' } },
+    { new: true },
+  );
+  if (!result) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to mark reservation as completed',
+    );
+  }
+  await sendDataWithSocket('reservationCompleted', user.id, {
+    ...result,
+  });
   return reservation;
 };
 
@@ -712,8 +766,19 @@ const rejectReservation = async (id: string, user: JwtPayload) => {
     );
   }
 
-  reservation.status = 'rejected';
-  await reservation.save();
+  const result = await Reservation.findOneAndUpdate(
+    { _id: id },
+    { $set: { status: 'rejected' } },
+    { new: true },
+  );
+
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to reject reservation');
+  }
+
+  await sendDataWithSocket('reservationRejected', user.id, {
+    ...result,
+  });
 
   return reservation;
 };
