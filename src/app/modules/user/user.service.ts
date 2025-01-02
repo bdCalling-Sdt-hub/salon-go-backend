@@ -7,7 +7,7 @@ import { emailTemplate } from '../../../shared/emailTemplate';
 
 import { IUser, IUserFilters } from './user.interface';
 import { User } from './user.model';
-import mongoose, { SortOrder } from 'mongoose';
+import mongoose, { SortOrder, Types } from 'mongoose';
 
 import { userSearchableFields } from './user.constants';
 import { IPaginationOptions } from '../../../types/pagination';
@@ -31,12 +31,12 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
 
   try {
     session.startTransaction();
-
+    console.log(user);
     const newUser = await User.create([user], { session });
     if (!newUser?.length) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create User');
     }
-
+    console.log(newUser);
     if (user.role === USER_ROLES.ADMIN) {
       createdUser = await Admin.create([{ auth: newUser[0]._id }], { session });
     } else if (user.role === USER_ROLES.PROFESSIONAL) {
@@ -54,14 +54,15 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
     }
 
     newUserData = newUser[0];
-    console.log(newUserData);
 
     await session.commitTransaction();
     session.endSession();
   } catch (error) {
     await session.abortTransaction();
-    session.endSession();
+
     throw error;
+  } finally {
+    session.endSession();
   }
 
   if (newUserData) {
@@ -92,22 +93,6 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
   return newUserData!;
 };
 
-const updateUser = async (
-  id: string,
-  payload: Partial<IUser>,
-): Promise<IUser | null> => {
-  const isExistUser = await User.findOne({ id: id });
-  if (!isExistUser) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
-  }
-
-  const updateDoc = await User.findOneAndUpdate({ id: id }, payload, {
-    new: true,
-  });
-
-  return updateDoc;
-};
-
 const getUserProfileFromDB = async (user: JwtPayload) => {
   let userData = null;
 
@@ -115,16 +100,15 @@ const getUserProfileFromDB = async (user: JwtPayload) => {
   if (!isUserExists) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
-  console.log(user.role);
-  console.log(isUserExists, 'isUserExists');
+
   if (user.role === USER_ROLES.ADMIN) {
-    userData = await Admin.findOne({ auth: user.id }).lean();
+    userData = await Admin.findOne({ _id: user.userId }).lean();
     if (!userData) {
       throw new ApiError(StatusCodes.NOT_FOUND, "Admin doesn't exist!");
     }
   } else if (user.role === USER_ROLES.USER) {
     userData = await Customer.findOne(
-      { auth: user.id },
+      { _id: user.userId },
       { address: 1, gender: 1, dob: 1, receivePromotionalNotification: 1 },
     )
       .populate({
@@ -136,11 +120,10 @@ const getUserProfileFromDB = async (user: JwtPayload) => {
       throw new ApiError(StatusCodes.NOT_FOUND, "Customer doesn't exist!");
     }
   } else if (user.role === USER_ROLES.PROFESSIONAL) {
-    userData = await Professional.findOne({ auth: user.id }).populate({
+    userData = await Professional.findOne({ _id: user.userId }).populate({
       path: 'auth',
       select: { name: 1, email: 1, role: 1, status: 1, needInformation: 1 },
     });
-    console.log(userData);
     if (!userData) {
       throw new ApiError(StatusCodes.NOT_FOUND, "Professional doesn't exist!");
     }
@@ -210,7 +193,7 @@ const getAllUser = async (
 };
 
 const deleteUser = async (id: string): Promise<IUser | null> => {
-  const isUserExists = await User.findOne({ id: id });
+  const isUserExists = await User.findOne({ _id: id });
   if (!isUserExists) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
@@ -218,16 +201,19 @@ const deleteUser = async (id: string): Promise<IUser | null> => {
     status: 'delete',
   };
 
-  const result = await User.findOneAndUpdate({ id: id }, updatedData, {
-    new: true,
-  });
+  const result = await User.findByIdAndUpdate(
+    { _id: id },
+    { $set: { ...updatedData } },
+    {
+      new: true,
+    },
+  );
   return result;
 };
 
 export const UserService = {
   createUserToDB,
   getUserProfileFromDB,
-  updateUser,
   getAllUser,
   deleteUser,
 };

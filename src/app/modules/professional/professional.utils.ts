@@ -1,7 +1,11 @@
+import { ClientSession } from 'mongoose';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { Service } from '../service/service.model';
-
+import { IProfessional } from './professional.interface';
+import { Mongoose, Types } from 'mongoose';
+import { User } from '../user/user.model';
+import { IUser } from '../user/user.interface';
 export const buildRangeFilter = (field: string, min?: number, max?: number) => {
   const rangeFilter: any = {};
   if (min !== undefined) rangeFilter.$gte = min;
@@ -47,3 +51,58 @@ export const handleObjectUpdate = (
 
   return updatedData;
 };
+
+export function getNextOnboardingStep(professional: IProfessional): string {
+  console.log(professional);
+  if (!professional.serviceType) {
+    return 'service-type';
+  }
+
+  if (professional.serviceType === 'in-place') {
+    if (!professional.teamSize?.min || !professional.teamSize?.max) {
+      return 'service-team-size';
+    }
+  } else if (professional.serviceType === 'home') {
+    if (!professional.travelFee?.fee || !professional.travelFee?.distance) {
+      return 'service-travel-fee';
+    }
+  }
+
+  if (!professional.categories || professional.categories.length === 0) {
+    return 'category';
+  }
+
+  if (!professional.subCategories || professional.subCategories.length === 0) {
+    return 'sub-category';
+  }
+
+  if (
+    !professional.location ||
+    professional.location.coordinates.every((coord) => coord === 0)
+  ) {
+    return 'address';
+  }
+
+  if (!professional.address) {
+    return 'address';
+  }
+
+  if (!professional.scheduleId) {
+    return 'schedule';
+  }
+
+  if (!professional.helpingTags || professional.helpingTags.length === 0) {
+    return 'helping-tags';
+  }
+
+  if (
+    professional.previouslyUsedTools === undefined ||
+    professional.previouslyUsedTools === null
+  ) {
+    return 'tools';
+  }
+
+  return 'thank-you'; // All necessary information is filled
+}
+
+export default getNextOnboardingStep;

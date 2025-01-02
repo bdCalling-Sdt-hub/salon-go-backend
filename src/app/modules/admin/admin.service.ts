@@ -67,11 +67,13 @@ const updateAdminProfile = async (
     return updatedAdmin;
   } catch (error) {
     await session.abortTransaction();
-    session.endSession();
+
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Failed to update admin profile',
     );
+  } finally {
+    session.endSession();
   }
 };
 

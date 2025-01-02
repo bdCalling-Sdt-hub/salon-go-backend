@@ -49,6 +49,15 @@ const baseProfessionalBusinessSchema = z.object({
 
 const updatePortfolioZodSchema = z.object({
   removedImages: z.array(z.string()).optional(),
+  link: z.string().optional(),
+});
+
+const updateProfessionalProfileZodSchema = z.object({
+  name: z.string().optional(),
+  address: z.string().optional(),
+  dob: z.string().optional(),
+  location: locationSchema.optional(),
+  gender: z.string().optional(),
 });
 
 export const partialProfessionalBusinessSchema =
@@ -58,4 +67,5 @@ export const ProfessionalValidation = {
   baseProfessionalBusinessSchema,
   partialProfessionalBusinessSchema,
   updatePortfolioZodSchema,
+  updateProfessionalProfileZodSchema,
 };

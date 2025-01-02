@@ -157,7 +157,7 @@ const getUserWiseReservations = catchAsync(
 
 const getUserEngagement = catchAsync(async (req: Request, res: Response) => {
   const { year } = req.query;
-  const result = await DashboardServices.getUserEngagement(year);
+  const result = await DashboardServices.getUserEngagement(year as string);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,

@@ -20,14 +20,6 @@ router.post(
   UserController.createUser,
 );
 
-//update user
-router.patch(
-  '/:id',
-  auth(USER_ROLES.ADMIN),
-  validateRequest(UserValidation.updateUserZodSchema),
-  UserController.updateUser,
-);
-
 router.delete('/delete/:id', auth(USER_ROLES.ADMIN), UserController.deleteUser);
 
 //get all user

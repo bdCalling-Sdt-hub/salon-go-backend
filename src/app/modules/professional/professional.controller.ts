@@ -36,41 +36,32 @@ const updateProfessionalProfile = catchAsync(
 
 //portfolio
 
-const addToPortfolio = catchAsync(async (req: Request, res: Response) => {
+const managePortfolio = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
-  const { portfolioData, replacedImage } = req.body;
-  if (req.files && 'image' in req.files && req.files.image) {
-    req.files.image.map((file: any) => {
-      portfolioData.portfolio = `/images/${file.filename}`;
-    });
-  }
+  const { removedImages, link } = req.body;
 
-  const result = await ProfessionalService.addPortfolioImageToDB(
-    user,
-    portfolioData,
-  );
-  sendResponse(res, {
-    success: true,
-    statusCode: StatusCodes.OK,
-    message: 'Portfolio updated successfully',
-    data: portfolioData,
-  });
-});
-
-const updatePortfolioImage = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user;
-  const { removedImages } = req.body;
-  const newImages = [] as string[];
-  if (req.files && 'image' in req.files && req.files.image) {
-    req.files.image.map((file: any) => {
-      newImages.push(`/images/${file.filename}`);
-    });
+  // Handle Single Image Upload
+  let portfolioImage: { path: string; link?: string } | null = null;
+  if (req.files && 'image' in req.files && req.files.image[0]) {
+    portfolioImage = {
+      path: `${req.files.image[0].path}`,
+      link: link || undefined,
+    };
   }
-  const result = await ProfessionalService.updatePortfolioImageToDB(
+  // Handle Multiple Removed Images
+  const removedImagesArray: string[] = Array.isArray(removedImages)
+    ? removedImages
+    : removedImages
+    ? [removedImages]
+    : [];
+
+  // Call the service
+  const result = await ProfessionalService.managePortfolio(
     user,
-    newImages,
-    removedImages,
+    portfolioImage,
+    removedImagesArray,
   );
+
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -115,19 +106,6 @@ const getProfessionalProfile = catchAsync(
   },
 );
 
-const deleteProfessionalProfile = catchAsync(
-  async (req: Request, res: Response) => {
-    const user = req.user;
-    const result = await ProfessionalService.deleteProfessionalProfile(user);
-    sendResponse(res, {
-      success: true,
-      statusCode: StatusCodes.OK,
-      message: 'Profile deleted successfully',
-      data: result,
-    });
-  },
-);
-
 const getSingleProfessional = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
@@ -162,9 +140,7 @@ export const ProfessionalController = {
   updateProfessionalProfile,
   getBusinessInformationForProfessional,
   getProfessionalProfile,
-  deleteProfessionalProfile,
   getAllProfessional,
   getSingleProfessional,
-  addToPortfolio,
-  updatePortfolioImage,
+  managePortfolio,
 };

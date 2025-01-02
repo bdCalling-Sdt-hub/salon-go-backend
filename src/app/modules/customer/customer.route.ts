@@ -36,11 +36,4 @@ router.get(
   CustomerController.getSingleCustomer,
 );
 
-//done
-router.delete(
-  '/delete',
-  auth(USER_ROLES.USER),
-  CustomerController.deleteCustomerProfile,
-);
-
 export const CustomerRoutes = router;
