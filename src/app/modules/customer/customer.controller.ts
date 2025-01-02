@@ -42,19 +42,6 @@ const updateCustomerProfile = catchAsync(
   },
 );
 
-const deleteCustomerProfile = catchAsync(
-  async (req: Request, res: Response) => {
-    const { id } = req.user;
-    const result = await CustomerService.deleteCustomerProfile(id);
-    sendResponse(res, {
-      success: true,
-      statusCode: StatusCodes.OK,
-      message: 'Profile deleted successfully',
-      data: result,
-    });
-  },
-);
-
 //done
 const getSingleCustomer = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -70,7 +57,5 @@ const getSingleCustomer = catchAsync(async (req: Request, res: Response) => {
 export const CustomerController = {
   getCustomerProfile,
   updateCustomerProfile,
-  deleteCustomerProfile,
-
   getSingleCustomer,
 };

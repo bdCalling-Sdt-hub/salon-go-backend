@@ -19,6 +19,11 @@ import {
   sendDataWithSocket,
   sendNotification,
 } from '../../../helpers/sendNotificationHelper';
+import { Customer } from '../customer/customer.model';
+import { IUser } from '../user/user.interface';
+import { IService } from '../service/service.interface';
+import { Service } from '../service/service.model';
+import { IProfessional } from '../professional/professional.interface';
 
 const createReservationToDB = async (
   payload: IReservation,
@@ -26,17 +31,34 @@ const createReservationToDB = async (
 ) => {
   const { professional, date, time, serviceLocation, amount } = payload;
 
-  const isProfessionalExists = await Professional.findById(
-    professional,
-  ).populate('auth');
+  const [isProfessionalExists, isCustomerExist, isServiceExist] =
+    await Promise.all([
+      Professional.findById(professional).populate<{ auth: IUser }>('auth'),
+      Customer.findById({ _id: user.userId }).populate<{
+        auth: IUser;
+      }>('auth', {
+        name: 1,
+        status: 1,
+        profile: 1,
+      }),
+      Service.findById({ _id: payload.service }, { title: 1 }),
+    ]);
+
+  if (isCustomerExist?.auth.status !== 'active') {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'You are not allowed to book');
+  }
 
   if (!isProfessionalExists) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Professional doesn't exist!");
   }
 
+  if (!isServiceExist) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Service doesn't exist!");
+  }
+
   const { auth, isFreelancer, location, travelFee, teamSize } =
     isProfessionalExists;
-  //@ts-ignore
+
   if (auth.status !== 'active') {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -140,186 +162,27 @@ const createReservationToDB = async (
   payload.serviceEndDateTime = serviceEnd;
   payload.amount = amount;
 
-  const result = await Reservation.create(payload);
+  const result = await Reservation.create([payload]);
 
-  if (!result) {
+  if (!result.length) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create reservation');
   }
 
-  await sendNotification('getNotification', user.userId, {
-    userId: user.id,
-    title: 'Reservation Created',
-    message: 'Reservation created successfully',
+  await sendNotification('getNotification', professional, {
+    userId: professional,
+    title: `You have a new reservation request from ${isCustomerExist.auth.name}`,
+    message: `${isCustomerExist.auth.name} has requested a reservation for ${
+      isServiceExist.title
+    } on ${serviceStart.toDateString()}. Please check your dashboard for more details.`,
     type: 'reservation',
   });
 
-  await sendDataWithSocket('reservationCreated', user.id, {
-    ...result,
+  await sendDataWithSocket('reservationCreated', user.userId, {
+    ...result[0],
   });
 
-  return result;
+  return result[0];
 };
-
-// const changeReservationStatusToDB = async (
-//   id: string,
-//   payload: { status: string; amount?: number; isStarted?: boolean },
-//   user: JwtPayload,
-// ) => {
-//   const { status, amount, isStarted } = payload;
-
-//   if (status === 'confirmed' && !amount) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Amount is required');
-//   }
-
-//   const updateReservation = async (updateFields: object) => {
-//     const result = await Reservation.findOneAndUpdate(
-//       { _id: id },
-//       updateFields,
-//       { new: true },
-//     );
-//     if (!result) {
-//       throw new ApiError(
-//         StatusCodes.BAD_REQUEST,
-//         'Failed to change reservation status.',
-//       );
-//     }
-//     return result;
-//   };
-
-//   if (isStarted) {
-//     return await updateReservation({ isStarted });
-//   }
-
-//   // Handle simple status updates
-//   if (['rejected'].includes(status)) {
-//     return await updateReservation({ status });
-//   }
-
-//   // Handle confirmed status with additional logic
-//   if (status === 'confirmed') {
-//     const session = await mongoose.startSession();
-//     try {
-//       session.startTransaction();
-
-//       const result = await updateReservation({ status, amount });
-
-//       const {
-//         professional,
-//         serviceStartDateTime,
-//         serviceEndDateTime,
-//         date,
-//         customer,
-//       } = result;
-
-//       // Check if the reservation conflicts with existing reservations
-//       const conflictingReservation = await Reservation.findOne({
-//         professional,
-//         status: 'confirmed',
-//         serviceStartDateTime: { $lt: serviceEndDateTime },
-//         serviceEndDateTime: { $gt: serviceStartDateTime },
-//       }).session(session);
-
-//       if (conflictingReservation) {
-//         throw new ApiError(
-//           StatusCodes.BAD_REQUEST,
-//           'This reservation conflicts with an existing confirmed reservation.',
-//         );
-//       }
-
-//       // Retrieve the schedule
-//       const schedule = await Schedule.findOne({
-//         professional,
-//         'days.day': format(date, 'EEEE'),
-//       }).session(session);
-
-//       if (!schedule) {
-//         throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found');
-//       }
-
-//       const isProfessionalExists = await Professional.findById(professional);
-
-//       if (!isProfessionalExists) {
-//         throw new ApiError(StatusCodes.NOT_FOUND, 'Professional not found');
-//       }
-
-//       // Check if the professional is a freelancer or part of a team
-//       const isFreelancer = isProfessionalExists.isFreelancer; // Assuming `isFreelancer` is part of the `Schedule` model
-//       const maxTeamSize = isProfessionalExists.teamSize?.max || 0;
-
-//       if (isFreelancer) {
-//         // For freelancers, mark the slots as unavailable
-//         await Schedule.findOneAndUpdate(
-//           {
-//             professional,
-//             'days.day': format(date, 'EEEE'),
-//           },
-//           {
-//             $set: {
-//               'days.$[day].timeSlots.$[slot].isAvailable': false,
-//             },
-//           },
-//           {
-//             new: true,
-//             session,
-//             arrayFilters: [
-//               { 'day.day': format(date, 'EEEE') },
-//               {
-//                 'slot.time': {
-//                   $gte: serviceStartDateTime,
-//                   $lt: serviceEndDateTime,
-//                 },
-//               },
-//             ],
-//           },
-//         );
-//       } else {
-//         // For team-based professionals, check the reservation count
-//         const reservationCount = await Reservation.countDocuments({
-//           professional,
-//           status: 'confirmed',
-//           serviceStartDateTime: { $lt: serviceEndDateTime },
-//           serviceEndDateTime: { $gt: serviceStartDateTime },
-//         }).session(session);
-
-//         if (reservationCount >= maxTeamSize) {
-//           // Mark the slots as unavailable if the max team size is reached
-//           await Schedule.findOneAndUpdate(
-//             {
-//               professional,
-//               'days.day': format(date, 'EEEE'),
-//             },
-//             {
-//               $set: {
-//                 'days.$[day].timeSlots.$[slot].isAvailable': false,
-//               },
-//             },
-//             {
-//               new: true,
-//               session,
-//               arrayFilters: [
-//                 { 'day.day': format(date, 'EEEE') },
-//                 {
-//                   'slot.time': {
-//                     $gte: serviceStartDateTime,
-//                     $lt: serviceEndDateTime,
-//                   },
-//                 },
-//               ],
-//             },
-//           );
-//         }
-//       }
-
-//       await session.commitTransaction();
-//       return result;
-//     } catch (error) {
-//       await session.abortTransaction();
-//       throw error;
-//     } finally {
-//       session.endSession();
-//     }
-//   }
-// };
 
 const getReservationsForUsersFromDB = async (
   user: JwtPayload,
@@ -398,154 +261,6 @@ const getSingleReservationFromDB = async (
   return isReservationExists;
 };
 
-// const confirmReservation = async (
-//   id: string,
-//   payload: { amount: number },
-//   user: JwtPayload,
-// ) => {
-//   const { amount } = payload;
-//   if (!amount) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Amount is required');
-//   }
-
-//   const session = await mongoose.startSession();
-//   try {
-//     session.startTransaction();
-
-//     // Update the reservation status to confirmed
-//     const reservation = await Reservation.findOneAndUpdate(
-//       { _id: id },
-//       { status: 'confirmed', amount },
-//       { new: true, session },
-//     );
-
-//     if (!reservation) {
-//       throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
-//     }
-
-//     if (user.userId != reservation.professional) {
-//       throw new ApiError(
-//         StatusCodes.BAD_REQUEST,
-//         'You are not authorized to confirm this reservation',
-//       );
-//     }
-
-//     const { professional, serviceStartDateTime, serviceEndDateTime, date } =
-//       reservation;
-
-//     const start = DateHelper.parseTimeTo24Hour(
-//       DateHelper.convertISOTo12HourFormat(serviceStartDateTime + ''),
-//     );
-//     const end = DateHelper.parseTimeTo24Hour(
-//       DateHelper.convertISOTo12HourFormat(serviceEndDateTime + ''),
-//     );
-
-//     const professionalData = await Professional.findById(user.userId);
-//     if (!professionalData) {
-//       throw new ApiError(StatusCodes.NOT_FOUND, 'Professional not found');
-//     }
-
-//     const isFreelancer = professionalData.isFreelancer;
-//     const maxTeamSize = professionalData.teamSize?.max || 0;
-
-//     if (isFreelancer) {
-//       const conflictingReservation = await Reservation.findOne({
-//         professional,
-//         status: 'confirmed',
-//         serviceStartDateTime: { $lt: serviceEndDateTime },
-//         serviceEndDateTime: { $gt: serviceStartDateTime },
-//       }).session(session);
-
-//       if (conflictingReservation) {
-//         throw new ApiError(
-//           StatusCodes.BAD_REQUEST,
-//           'This reservation conflicts with an existing confirmed reservation.',
-//         );
-//       }
-
-//       // Mark slots as unavailable for freelancers
-
-//       await Schedule.findOneAndUpdate(
-//         {
-//           professional, // Ensure you are targeting the correct professional
-//           'days.day': format(date, 'EEEE'), // Format the date correctly
-//         },
-
-//         {
-//           $set: {
-//             'days.$[day].timeSlots.$[slot].isAvailable': false, // Mark the slot as unavailable
-//           },
-//         },
-//         {
-//           new: true, // Return the updated document
-//           session, // Use the session if you're in a transaction
-//           arrayFilters: [
-//             { 'days.day': format(date, 'EEEE') }, // Ensure the day matches
-//             {
-//               'slot.timeCode': {
-//                 // Extract time only (HH:mm) for both service start and end time
-//                 $gte: start,
-//                 $lt: end,
-//               },
-//             },
-//           ],
-//         },
-//       );
-//     } else {
-//       // For team-based professionals, check the reservation count
-//       const reservationCount = await Reservation.countDocuments({
-//         professional,
-//         status: 'confirmed',
-//         serviceStartDateTime: { $lt: serviceEndDateTime },
-//         serviceEndDateTime: { $gt: serviceStartDateTime },
-//       }).session(session);
-
-//       if (reservationCount > maxTeamSize) {
-//         throw new ApiError(
-//           StatusCodes.BAD_REQUEST,
-//           'You have conflicting reservations in this time slot.',
-//         );
-//       }
-
-//       if (reservationCount == maxTeamSize) {
-//         await Schedule.findOneAndUpdate(
-//           {
-//             professional, // Ensure you are targeting the correct professional
-//             'days.day': format(date, 'EEEE'), // Format the date correctly
-//           },
-//           {
-//             $set: {
-//               'days.$[day].timeSlots.$[slot].isAvailable': false, // Mark the slot as unavailable
-//             },
-//           },
-//           {
-//             new: true, // Return the updated document
-//             session, // Use the session if you're in a transaction
-//             arrayFilters: [
-//               { 'day.day': format(date, 'EEEE') }, // Ensure the day matches
-//               {
-//                 'slot.timeCode': {
-//                   // Extract time only (HH:mm) for both service start and end time
-//                   $gte: start,
-//                   $lt: end,
-//                 },
-//               },
-//             ],
-//           },
-//         );
-//       }
-//     }
-
-//     await session.commitTransaction();
-//     return reservation;
-//   } catch (error) {
-//     await session.abortTransaction();
-//     throw error;
-//   } finally {
-//     session.endSession();
-//   }
-// };
-
 // Cancel Reservation
 
 const confirmReservation = async (
@@ -565,7 +280,16 @@ const confirmReservation = async (
     const reservation = await Reservation.findOne({
       _id: id,
       status: 'pending',
-    }).session(session);
+    })
+      .populate<{ service: IService }>({
+        path: 'service',
+        select: { title: 1, price: 1, duration: 1 },
+      })
+      .populate<{ professional: IProfessional }>({
+        path: 'professional',
+        select: { businessName: 1 },
+      })
+      .session(session);
 
     if (!reservation) {
       throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
@@ -603,7 +327,7 @@ const confirmReservation = async (
     const hasReachedMaxTeamSize =
       await ReservationHelper.validateReservationConflicts(
         isFreelancer,
-        professional,
+        professional._id,
         serviceStartDateTime,
         serviceEndDateTime,
         maxTeamSize,
@@ -612,7 +336,7 @@ const confirmReservation = async (
 
     if (hasReachedMaxTeamSize) {
       await ReservationHelper.updateTimeSlotAvailability(
-        professional,
+        professional._id,
         date,
         startTime,
         endTime,
@@ -636,8 +360,27 @@ const confirmReservation = async (
       );
     }
 
-    await sendDataWithSocket('reservationConfirmed', user.id, {
+    await sendDataWithSocket('reservationConfirmed', user.userId, {
       ...result,
+    });
+
+    const isCustomerExist = await Customer.findById(result.customer)
+      .populate<{ auth: IUser }>({
+        path: 'auth',
+        select: { name: 1, email: 1, status: 1 },
+      })
+      .session(session);
+    if (!isCustomerExist?.auth.status) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Customer not found');
+    }
+
+    await sendNotification('getNotification', reservation.customer, {
+      userId: reservation.customer,
+      title: `Your reservation for ${reservation.service.title} has been confirmed by ${professional.businessName}.`,
+      message: `You have a confirmed reservation for ${
+        reservation.service.title
+      } on ${date.toDateString()}. Please check your dashboard for more details.`,
+      type: 'reservation',
     });
 
     await session.commitTransaction();
@@ -659,7 +402,16 @@ const cancelReservation = async (id: string, user: JwtPayload) => {
     const reservation = await Reservation.findOne({
       _id: id,
       status: 'confirmed',
-    }).session(session);
+    })
+      .populate<{ service: IService }>({
+        path: 'service',
+        select: { title: 1, price: 1, duration: 1 },
+      })
+      .populate<{ professional: IProfessional }>({
+        path: 'professional',
+        select: { businessName: 1, auth: 1 },
+      })
+      .session(session);
 
     if (!reservation) {
       throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
@@ -687,7 +439,7 @@ const cancelReservation = async (id: string, user: JwtPayload) => {
     );
 
     await ReservationHelper.updateTimeSlotAvailability(
-      professional,
+      professional._id,
       date,
       startTime,
       endTime,
@@ -707,8 +459,17 @@ const cancelReservation = async (id: string, user: JwtPayload) => {
       throw new ApiError(StatusCodes.NOT_FOUND, 'Failed to cancel reservation');
     }
 
-    await sendDataWithSocket('reservationCanceled', user.id, {
+    await sendDataWithSocket('reservationCanceled', user.userId, {
       ...result,
+    });
+
+    await sendNotification('getNotification', reservation.customer, {
+      userId: reservation.customer,
+      title: `Your reservation for ${reservation.service.title} has been canceled by ${professional.businessName}.`,
+      message: `Your reservation for ${
+        reservation.service.title
+      } on ${date.toDateString()} has been canceled. Please check your dashboard for more details.`,
+      type: 'reservation',
     });
 
     await session.commitTransaction();
@@ -723,7 +484,17 @@ const cancelReservation = async (id: string, user: JwtPayload) => {
 
 // Reject or Start Reservation
 const markReservationAsCompleted = async (id: string, user: JwtPayload) => {
-  const reservation = await Reservation.findOne({ _id: id });
+  const reservation = await Reservation.findOne({ _id: id })
+    .populate<{
+      service: IService;
+    }>({
+      path: 'service',
+      select: { title: 1, duration: 1 },
+    })
+    .populate<{ professional: IProfessional }>({
+      path: 'professional',
+      select: { businessName: 1 },
+    });
 
   if (!reservation) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
@@ -747,15 +518,35 @@ const markReservationAsCompleted = async (id: string, user: JwtPayload) => {
       'Failed to mark reservation as completed',
     );
   }
-  await sendDataWithSocket('reservationCompleted', user.id, {
+  await sendDataWithSocket('reservationCompleted', user.userId, {
     ...result,
   });
+
+  await sendNotification('getNotification', reservation.customer, {
+    userId: reservation.customer,
+    title: `Your reservation for ${reservation.service.title} has been marked as completed by ${reservation.professional.businessName}.`,
+    message: `Your reservation for ${
+      reservation.service.title
+    } on ${reservation.date.toDateString()} has been marked as completed. Please check your dashboard for more details.`,
+    type: 'reservation',
+  });
+
   return reservation;
 };
 
 const rejectReservation = async (id: string, user: JwtPayload) => {
   //change the reservation status to rejected
-  const reservation = await Reservation.findOne({ _id: id });
+  const reservation = await Reservation.findOne({ _id: id })
+    .populate<{
+      service: IService;
+    }>({
+      path: 'service',
+      select: { title: 1, price: 1, duration: 1 },
+    })
+    .populate<{ professional: IProfessional }>({
+      path: 'professional',
+      select: { businessName: 1 },
+    });
 
   if (!reservation) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
@@ -776,8 +567,17 @@ const rejectReservation = async (id: string, user: JwtPayload) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to reject reservation');
   }
 
-  await sendDataWithSocket('reservationRejected', user.id, {
+  await sendDataWithSocket('reservationRejected', user.userId, {
     ...result,
+  });
+
+  await sendNotification('getNotification', reservation.customer, {
+    userId: reservation.customer,
+    title: `Your reservation for ${reservation.service.title} has been rejected by ${reservation.professional.businessName}.`,
+    message: `Your reservation for ${
+      reservation.service.title
+    } on ${reservation.date.toDateString()} has been rejected. Please check your dashboard for more details.`,
+    type: 'reservation',
   });
 
   return reservation;

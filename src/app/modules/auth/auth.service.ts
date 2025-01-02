@@ -23,6 +23,7 @@ import { USER_ROLES } from '../../../enums/user';
 import { Admin } from '../admin/admin.model';
 import { Professional } from '../professional/professional.model';
 import { Customer } from '../customer/customer.model';
+import { IUser } from '../user/user.interface';
 
 //login
 const loginUserFromDB = async (
@@ -41,16 +42,16 @@ const loginUserFromDB = async (
     );
   }
 
-  let authUser;
+  let user;
   if (isExistUser.role === USER_ROLES.ADMIN) {
-    authUser = await Admin.findOne({ auth: isExistUser._id });
+    user = await Admin.findOne({ auth: isExistUser._id });
   } else if (isExistUser.role === USER_ROLES.PROFESSIONAL) {
-    authUser = await Professional.findOne({ auth: isExistUser._id });
+    user = await Professional.findOne({ auth: isExistUser._id });
   } else {
-    authUser = await Customer.findOne({ auth: isExistUser._id });
+    user = await Customer.findOne({ auth: isExistUser._id });
   }
 
-  if (!authUser) {
+  if (!user) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'User details is not found!');
   }
 
@@ -79,8 +80,8 @@ const loginUserFromDB = async (
 
   const accessToken = jwtHelper.createToken(
     {
-      id: isExistUser._id, //authId
-      userId: authUser._id,
+      id: isExistUser._id,
+      userId: user._id,
       role: isExistUser.role,
       email: isExistUser.email,
     },
@@ -91,6 +92,7 @@ const loginUserFromDB = async (
   const refreshToken = jwtHelper.createToken(
     {
       id: isExistUser._id,
+      userId: user._id,
       role: isExistUser.role,
       email: isExistUser.email,
     },
@@ -98,7 +100,7 @@ const loginUserFromDB = async (
     config.jwt.jwt_refresh_expire_in as string,
   );
 
-  return { accessToken, refreshToken };
+  return { accessToken, refreshToken, role: isExistUser.role };
 };
 
 const refreshToken = async (
@@ -112,9 +114,7 @@ const refreshToken = async (
       config.jwt.jwt_refresh_secret as Secret,
     );
   } catch (error) {
-    // If the token verification fails, it might be expired or invalid
-    //@ts-ignore
-    if (error.name === 'TokenExpiredError') {
+    if (error instanceof Error && error.name === 'TokenExpiredError') {
       throw new ApiError(StatusCodes.UNAUTHORIZED, 'Refresh Token has expired');
     }
     throw new ApiError(StatusCodes.FORBIDDEN, 'Invalid Refresh Token');
@@ -122,17 +122,32 @@ const refreshToken = async (
 
   const { email } = verifiedToken;
 
-  const isUserExist = await User.isExistUserByEmail(email);
+  let isUserExist;
+
+  if (verifiedToken.role === USER_ROLES.ADMIN) {
+    isUserExist = await Admin.findById(verifiedToken.userId).populate<{
+      auth: IUser;
+    }>({ path: 'auth', select: { role: 1 } });
+  } else if (verifiedToken.role === USER_ROLES.PROFESSIONAL) {
+    isUserExist = await Professional.findById(verifiedToken.userId).populate<{
+      auth: IUser;
+    }>({ path: 'auth', select: { role: 1 } });
+  } else {
+    isUserExist = await Customer.findById(verifiedToken.userId).populate<{
+      auth: IUser;
+    }>({ path: 'auth', select: { role: 1 } });
+  }
+
   if (!isUserExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found!');
   }
-
+  const { role } = isUserExist.auth;
   const newAccessToken = jwtHelper.createToken(
     {
-      id: isUserExist._id,
-      email: isUserExist.email,
-      role: isUserExist.role,
-      isSubscribe: isUserExist.isSubscribe,
+      id: isUserExist.auth._id,
+      userId: isUserExist._id,
+      email: email,
+      role: role,
     },
     config.jwt.jwt_secret as Secret,
     config.jwt.jwt_expire_in as string,
@@ -182,11 +197,30 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
       { verified: true, authentication: { oneTimeCode: null, expireAt: null } },
     );
     message = 'Email verify successfully';
+    let roleUser;
+    if (isExistUser.role === USER_ROLES.ADMIN) {
+      roleUser = await Admin.findOne({ auth: isExistUser._id }, { _id: 1 });
+    } else if (isExistUser.role === USER_ROLES.PROFESSIONAL) {
+      roleUser = await Professional.findOne(
+        { auth: isExistUser._id },
+        { _id: 1 },
+      );
+    } else {
+      roleUser = await Customer.findOne({ auth: isExistUser._id }, { _id: 1 });
+    }
+
+    if (!roleUser) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to get role based user',
+      );
+    }
 
     //create accessToken
     const accessToken = jwtHelper.createToken(
       {
         id: isExistUser._id,
+        userId: roleUser._id,
         email: isExistUser.email,
         role: isExistUser.role,
       },

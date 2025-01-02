@@ -16,9 +16,10 @@ router.patch(
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
     if (req.body.data) {
-      req.body = ProfessionalValidation.partialProfessionalBusinessSchema.parse(
-        JSON.parse(req.body.data),
-      );
+      req.body =
+        ProfessionalValidation.updateProfessionalProfileZodSchema.parse(
+          JSON.parse(req.body.data),
+        );
     }
 
     return ProfessionalController.updateProfessionalProfile(req, res, next);
@@ -31,25 +32,12 @@ router.patch(
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
     if (req.body.data) {
-      req.body = JSON.parse(req.body.data);
-    }
-
-    return ProfessionalController.addToPortfolio(req, res, next);
-  },
-);
-
-router.patch(
-  '/update-portfolio',
-  auth(USER_ROLES.PROFESSIONAL),
-  fileUploadHandler(),
-  (req: Request, res: Response, next: NextFunction) => {
-    if (req.body.data) {
       req.body = ProfessionalValidation.updatePortfolioZodSchema.parse(
         JSON.parse(req.body.data),
       );
     }
 
-    return ProfessionalController.updatePortfolioImage(req, res, next);
+    return ProfessionalController.managePortfolio(req, res, next);
   },
 );
 
@@ -64,12 +52,6 @@ router.get(
   '/profile',
   auth(USER_ROLES.PROFESSIONAL),
   ProfessionalController.getProfessionalProfile,
-);
-
-router.delete(
-  '/delete',
-  auth(USER_ROLES.PROFESSIONAL),
-  ProfessionalController.deleteProfessionalProfile,
 );
 
 router.get(

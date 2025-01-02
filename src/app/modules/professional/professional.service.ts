@@ -7,9 +7,10 @@ import ApiError from '../../../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
 import { Professional } from './professional.model';
 import { Service } from '../service/service.model';
-import { handleObjectUpdate } from './professional.utils';
+import getNextOnboardingStep, {
+  handleObjectUpdate,
+} from './professional.utils';
 import { paginationHelper } from '../../../helpers/paginationHelper';
-import { Types } from 'mongoose';
 import { QueryHelper } from '../../../utils/queryHelper';
 import { Schedule } from '../schedule/schedule.model';
 import { User } from '../user/user.model';
@@ -24,6 +25,13 @@ const updateProfessionalProfile = async (
   payload: Partial<IProfessional & IUser>,
 ) => {
   const { name, profile, socialLinks, ...restData } = payload;
+
+  const userExist = await Professional.findById({ _id: user.userId }).populate<{
+    auth: IUser;
+  }>({ path: 'auth', select: { profile: 1 } });
+  if (!userExist) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Professional not found!');
+  }
 
   const session = await Professional.startSession();
   session.startTransaction();
@@ -51,16 +59,21 @@ const updateProfessionalProfile = async (
         { _id: user.id },
         {
           $set: {
-            ...(name && { name }),
+            ...(name && { name: name }),
             ...(uploadedImageUrl && { profile: uploadedImageUrl }),
           },
         },
         { new: true, session },
       );
-
+      console.log(userUpdateResult, 'userUpdate');
       // Rollback uploaded image if User update fails
-      if (!userUpdateResult) {
+      if (userUpdateResult?.profile !== uploadedImageUrl || !userUpdateResult) {
         if (uploadedImageUrl) {
+          console.log(
+            uploadedImageUrl,
+            userUpdateResult?.profile,
+            !userUpdateResult,
+          );
           await deleteResourcesFromCloudinary(uploadedImageUrl, 'image', true);
         }
         throw new ApiError(
@@ -68,7 +81,15 @@ const updateProfessionalProfile = async (
           'Failed to update user profile.',
         );
       }
+      //remove old image from cloudinary
+      const { profile: oldProfile } = userExist.auth;
+      console.log(oldProfile, 'oldProfile', uploadedImageUrl);
+      if (oldProfile && uploadedImageUrl) {
+        console.log(oldProfile, uploadedImageUrl);
+        await deleteResourcesFromCloudinary(oldProfile, 'image', true);
+      }
     }
+
     // 📝 Update Professional Profile
     let updatedData = { ...restData };
     if (socialLinks && Object.keys(socialLinks).length > 0) {
@@ -78,7 +99,7 @@ const updateProfessionalProfile = async (
     // Update the `Professional` profile
     const result = await Professional.findByIdAndUpdate(
       { _id: user.userId },
-      updatedData,
+      { $set: { ...updatedData } },
       { new: true, session },
     );
 
@@ -90,126 +111,33 @@ const updateProfessionalProfile = async (
     await session.commitTransaction();
     session.endSession();
 
-    return result;
+    return result as IProfessional;
   } catch (error) {
     // ❌ Rollback the transaction on failure
     await session.abortTransaction();
-    session.endSession();
     throw error;
+  } finally {
+    session.endSession();
   }
-};
-
-const addPortfolioImageToDB = async (user: JwtPayload, payload: string[]) => {
-  // Check if the user exists and is active
-  const isUserExist = await Professional.findById(user.userId).populate(
-    'auth',
-    { status: 1 }, // Only select the status field from the referenced User
-  );
-
-  if (
-    !isUserExist ||
-    !isUserExist.auth ||
-    //@ts-ignore
-    isUserExist.auth.status !== 'active'
-  ) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found or inactive!');
-  }
-
-  // Add new images to the portfolio, avoiding duplicates
-  const uniqueNewImages = payload.filter(
-    (image) => !isUserExist.portfolio.includes(image),
-  );
-
-  if (uniqueNewImages.length === 0) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'No new images to add!');
-  }
-
-  const result = await Professional.findByIdAndUpdate(
-    user.userId,
-    { $addToSet: { portfolio: { $each: uniqueNewImages } } },
-    { new: true },
-  );
-
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update portfolio!');
-  }
-
-  return result;
-};
-
-const updatePortfolioImageToDB = async (
-  user: JwtPayload,
-  newImages: string[],
-  removedImages: string[],
-) => {
-  const isUserExist = await Professional.findById(user.userId).populate(
-    'auth',
-    { status: 1 }, // Only select the status field from the referenced User
-  );
-  if (
-    !isUserExist ||
-    !isUserExist.auth ||
-    //@ts-ignore
-    isUserExist.auth.status !== 'active'
-  ) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found or inactive!');
-  }
-
-  let updatedPortfolio = isUserExist.portfolio || [];
-
-  if (removedImages.length > 0) {
-    updatedPortfolio = updatedPortfolio.filter(
-      (image) => !removedImages.includes(image),
-    );
-  }
-
-  if (newImages.length > 0) {
-    const uniqueNewImages = newImages.filter(
-      (image) => !updatedPortfolio.includes(image),
-    );
-    updatedPortfolio.push(...uniqueNewImages);
-  }
-
-  const result = await Professional.findByIdAndUpdate(
-    user.userId,
-    { portfolio: updatedPortfolio },
-    { new: true },
-  );
-
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update portfolio!');
-  }
-
-  return result;
 };
 
 const getBusinessInformationForProfessional = async (
   user: JwtPayload,
   payload: Partial<IProfessional>,
 ) => {
-  const existingProfessional = await Professional.findOne({
-    auth: new Types.ObjectId(user.id),
-  }).populate('auth', { status: 1 });
+  console.log(payload);
+
+  const existingProfessional = await Professional.findById({
+    _id: user.userId,
+  }).populate<{ auth: IUser }>('auth', { status: 1 });
+
   if (!existingProfessional) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional not found!');
   }
 
-  const updatedFields: string[] = [];
-  for (const key in payload) {
-    if (
-      Object.prototype.hasOwnProperty.call(payload, key) &&
-      existingProfessional[key as keyof IProfessional] !==
-        payload[key as keyof IProfessional]
-    ) {
-      updatedFields.push(key);
-    }
-  }
-
-  console.log(payload);
-
-  const result = await Professional.findOneAndUpdate(
-    { auth: new Types.ObjectId(user.id) },
-    payload,
+  const result = await Professional.findByIdAndUpdate(
+    { _id: user.userId },
+    { $set: { ...payload } },
     {
       new: true,
     },
@@ -222,13 +150,10 @@ const getBusinessInformationForProfessional = async (
     );
   }
 
-  result.informationCount += 1;
-  if (result.informationCount > 8) result.informationCount = 0;
-  await result.save();
+  const nextStep = getNextOnboardingStep(result);
 
   return {
-    updatedFields,
-    informationCount: result.informationCount,
+    nextStep,
     result,
   };
 };
@@ -236,30 +161,35 @@ const getBusinessInformationForProfessional = async (
 const getProfessionalProfile = async (
   user: JwtPayload,
 ): Promise<IProfessional | null> => {
-  const result = await Professional.findOne({ auth: user.id }).populate(
-    'auth',
-    { name: 1, email: 1, role: 1, status: 1 },
-  );
+  const result = await Professional.findById({
+    _id: user.userId,
+  }).populate<{ auth: Partial<IUser> }>('auth', {
+    name: 1,
+    email: 1,
+    role: 1,
+    profile: 1,
+    status: 1,
+  });
   if (!result) {
     throw new ApiError(
       StatusCodes.NOT_FOUND,
       'Requested professional profile not found',
     );
   }
-  //@ts-ignore
-  if (result.auth.status === 'delete') {
+  // const { status } = result?.auth as unknown as IUser;
+  if (result?.auth?.status === 'delete') {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Requested professional profile has been deleted.',
     );
   }
-  return result;
+  return result as unknown as IProfessional;
 };
 
-const deleteProfessionalProfile = async (user: JwtPayload) => {};
-
 const getSingleProfessional = async (id: string) => {
-  const result = await Professional.findById(id).populate('auth', {
+  const result = await Professional.findById(id).populate<{
+    auth: Partial<IUser>;
+  }>('auth', {
     name: 1,
     email: 1,
     role: 1,
@@ -272,7 +202,7 @@ const getSingleProfessional = async (id: string) => {
       'Requested professional not found',
     );
   }
-  //@ts-ignore
+
   if (result.auth.status === 'delete') {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -413,13 +343,104 @@ const getAllProfessional = async (
   };
 };
 
+const managePortfolio = async (
+  user: JwtPayload,
+  portfolioImage: { path: string; link?: string } | null,
+  removedImages: string[] | [],
+) => {
+  const session = await Professional.startSession();
+  session.startTransaction();
+
+  try {
+    // 🖼️ Upload New Portfolio Image
+    let uploadedImage: { path: string; link?: string } | null = null;
+    if (portfolioImage?.path) {
+      const uploadedImages = await uploadToCloudinary(
+        portfolioImage.path,
+        'portfolio',
+        'image',
+      );
+
+      if (uploadedImages && uploadedImages.length > 0) {
+        uploadedImage = {
+          path: uploadedImages[0],
+          link: portfolioImage.link || undefined,
+        };
+      } else {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'Failed to upload image to Cloudinary',
+        );
+      }
+    }
+
+    // 🗑️ Delete Removed Images
+    if (removedImages.length > 0) {
+      console.log(removedImages);
+      await deleteResourcesFromCloudinary(removedImages, 'image', true);
+    }
+
+    // 📝 Update Portfolio in Database
+    const updateQuery: any = {};
+
+    if (uploadedImage) {
+      updateQuery.$push = {
+        portfolio: uploadedImage,
+      };
+    }
+
+    if (removedImages.length > 0) {
+      updateQuery.$pull = {
+        portfolio: {
+          path: { $in: removedImages },
+        },
+      };
+    }
+
+    const result = await Professional.findOneAndUpdate(
+      { _id: user.userId },
+      updateQuery,
+      { new: true, session },
+    );
+
+    if (!result) {
+      // Rollback uploaded image if the database update fails
+      if (uploadedImage) {
+        await deleteResourcesFromCloudinary(
+          [uploadedImage.path],
+          'image',
+          true,
+        );
+      }
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Could not update portfolio, please try again',
+      );
+    }
+
+    // ✅ Commit Transaction
+    await session.commitTransaction();
+    return result;
+  } catch (error) {
+    // ❌ Rollback Transaction
+    await session.abortTransaction();
+
+    // Rollback uploaded image if an error occurs
+    if (portfolioImage) {
+      await deleteResourcesFromCloudinary(portfolioImage.path, 'image', true);
+    }
+
+    throw error;
+  } finally {
+    session.endSession();
+  }
+};
+
 export const ProfessionalService = {
   updateProfessionalProfile,
   getBusinessInformationForProfessional,
   getProfessionalProfile,
-  deleteProfessionalProfile,
   getAllProfessional,
   getSingleProfessional,
-  addPortfolioImageToDB,
-  updatePortfolioImageToDB,
+  managePortfolio,
 };

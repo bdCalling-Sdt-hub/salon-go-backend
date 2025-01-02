@@ -75,11 +75,7 @@ const deleteResourcesFromCloudinary = async (
     const publicIds = urls
       .map((url) => getPublicIdFromUrl(url))
       .filter((id): id is string => id !== null); // Remove null values
-
-    if (publicIds.length === 0) {
-      throw new Error('No valid public IDs found from the provided URLs');
-    }
-
+    if (publicIds.length == 0) return {};
     // Delete resources
     const deletionResult = await cloudinary.api.delete_resources(publicIds, {
       resource_type: file_type,
@@ -88,7 +84,6 @@ const deleteResourcesFromCloudinary = async (
 
     return deletionResult;
   } catch (error) {
-    console.error('Failed to delete resources from Cloudinary:', error);
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Failed to delete files from Cloudinary',

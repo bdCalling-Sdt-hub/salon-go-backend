@@ -91,7 +91,15 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: Boolean,
     },
     portfolio: {
-      type: [String],
+      _id: false,
+      type: [
+        {
+          _id: false,
+          path: { type: String, required: true },
+          link: { type: String },
+        },
+      ],
+      default: [],
     },
     socialLinks: {
       _id: false,

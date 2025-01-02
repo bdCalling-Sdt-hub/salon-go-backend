@@ -29,11 +29,9 @@ const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
       })),
     });
 
-    console.log(result);
-
     // Update the professional's scheduleId
     await Professional.findOneAndUpdate(
-      { auth: user.id },
+      { _id: user.userId },
       { scheduleId: result._id },
       { new: true },
     );
@@ -58,7 +56,7 @@ const updateScheduleForDaysInDB = async (
     }
 
     // Find the professional and their existing schedule
-    const professional = await Professional.findOne({ auth: user.id });
+    const professional = await Professional.findOne({ _id: user.userId });
     if (!professional || !professional.scheduleId) {
       throw new ApiError(
         StatusCodes.NOT_FOUND,

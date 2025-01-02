@@ -44,7 +44,7 @@ export type IProfessional = {
   totalServiceProvided: number;
   previouslyUsedTools: boolean;
   informationCount: number;
-  portfolio: string[];
+  portfolio: [{ path: string; link?: string }];
   helpingTags: string[];
   createdAt: Date;
   updatedAt: Date;
