@@ -5,9 +5,9 @@ import sendResponse from '../../../shared/sendResponse';
 import { AuthService } from './auth.service';
 import config from '../../../config';
 
-const verifyEmail = catchAsync(async (req: Request, res: Response) => {
+const verifyEmailOrPhone = catchAsync(async (req: Request, res: Response) => {
   const { ...verifyData } = req.body;
-  const result = await AuthService.verifyEmailToDB(verifyData);
+  const result = await AuthService.verifyEmailOrPhoneToDB(verifyData);
 
   sendResponse(res, {
     success: true,
@@ -90,11 +90,38 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const deleteAccount = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user;
+  const { password } = req.body;
+  const result = await AuthService.deleteAccount(user, password);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Account deleted successfully',
+    data: result,
+  });
+});
+
+const verifyPhone = catchAsync(async (req: Request, res: Response) => {
+  const { ...verifyData } = req.body;
+  const result = await AuthService.verifyPhoneToDB(verifyData);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: result.message,
+    data: result.data,
+  });
+});
+
 export const AuthController = {
-  verifyEmail,
+  verifyEmailOrPhone,
   loginUser,
   refreshToken,
   forgetPassword,
   resetPassword,
   changePassword,
+  deleteAccount,
+  verifyPhone,
 };

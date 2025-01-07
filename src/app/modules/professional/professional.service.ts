@@ -20,6 +20,9 @@ import {
   uploadToCloudinary,
 } from '../../../utils/cloudinary';
 
+import { Types } from 'mongoose';
+import { Bookmark } from '../bookmark/bookmark.model';
+
 const updateProfessionalProfile = async (
   user: JwtPayload,
   payload: Partial<IProfessional & IUser>,
@@ -149,9 +152,9 @@ const getBusinessInformationForProfessional = async (
       'Failed to update business information',
     );
   }
-
+  console.log(result);
   const nextStep = getNextOnboardingStep(result);
-
+  console.log(nextStep);
   return {
     nextStep,
     result,
@@ -215,6 +218,7 @@ const getSingleProfessional = async (id: string) => {
 const getAllProfessional = async (
   filterOptions: IProfessionalFilters,
   paginationOptions: IPaginationOptions,
+  user: JwtPayload,
 ) => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
@@ -316,21 +320,58 @@ const getAllProfessional = async (
     anyCondition.push({ _id: { $in: availableProfessionals } });
   }
 
-  const activeProfessional = await User.find(
+  const activeProfessionals = await User.find(
     {
       status: 'active',
     },
     '_id',
   ).distinct('_id');
 
-  anyCondition.push({ auth: { $in: activeProfessional } });
+  anyCondition.push({ auth: { $in: activeProfessionals } });
 
   const professionals = await Professional.find({ $and: anyCondition })
     .skip(skip)
     .limit(limit)
-    .sort({ [sortBy || 'createdAt']: sortOrder === 'desc' ? -1 : 1 });
+    .sort({ [sortBy || 'createdAt']: sortOrder === 'desc' ? -1 : 1 })
+    .lean();
 
-  const total = await Professional.countDocuments({ $and: anyCondition });
+  const total = await Professional.countDocuments({
+    $and: anyCondition,
+  });
+
+  const bookmarkedProfessionals = await Bookmark.find({
+    customer: user.userId,
+    professional: { $in: activeProfessionals },
+  }).distinct('professional');
+
+  const enrichProfessional = await Promise.all(
+    professionals.map(async (professional) => {
+      // Find the schedule for the current professional
+      const schedule = await Schedule.findOne({
+        professional: professional._id,
+      });
+
+      // Get the maximum discount from the available time slots
+      let maxDiscount = 0;
+      if (schedule) {
+        schedule.days.forEach((day) => {
+          day.timeSlots.forEach((slot) => {
+            if (slot.discount && Number(slot.discount) > maxDiscount) {
+              maxDiscount = Number(slot.discount);
+            }
+          });
+        });
+      }
+
+      return {
+        ...professional,
+        isBookmarked: bookmarkedProfessionals
+          .map((_id) => _id.toString())
+          .includes(professional._id.toString()),
+        discount: maxDiscount, // Add the discount field
+      };
+    }),
+  );
 
   return {
     meta: {
@@ -339,8 +380,13 @@ const getAllProfessional = async (
       total,
       totalPage: Math.ceil(total / limit),
     },
-    data: professionals,
+    data: enrichProfessional,
   };
+};
+
+const getProfessionalPortfolio = async (professionalId: Types.ObjectId) => {
+  const professional = await Professional.findById(professionalId, 'portfolio');
+  return professional?.portfolio;
 };
 
 const managePortfolio = async (
@@ -443,4 +489,5 @@ export const ProfessionalService = {
   getAllProfessional,
   getSingleProfessional,
   managePortfolio,
+  getProfessionalPortfolio,
 };

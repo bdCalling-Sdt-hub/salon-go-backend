@@ -21,31 +21,30 @@ type ITravelFee = {
 export type IProfessional = {
   _id: Types.ObjectId;
   auth: Types.ObjectId;
-  businessName: string;
-  targetAudience: 'men' | 'women';
-  serviceType: 'home' | 'in-place';
-  travelFee: ITravelFee;
-  teamSize: {
+  businessName?: string;
+  targetAudience?: 'men' | 'women';
+  serviceType?: 'home' | 'in-place';
+  travelFee?: ITravelFee;
+  teamSize?: {
     min: number;
     max: number;
   };
-  isFreelancer: boolean;
+  isFreelancer?: boolean;
   scheduleId?: Types.ObjectId;
-  description: string;
-  license: string;
-  ID: string;
-  socialLinks: ISocialLink;
-  rating: number;
-  totalReviews: number;
-  address: string;
-  location: Point;
-  categories: Types.ObjectId[];
-  subCategories: Types.ObjectId[];
-  totalServiceProvided: number;
-  previouslyUsedTools: boolean;
-  informationCount: number;
-  portfolio: [{ path: string; link?: string }];
-  helpingTags: string[];
+  description?: string;
+  license?: string;
+  ID?: string;
+  socialLinks?: ISocialLink;
+  rating?: number;
+  totalReviews?: number;
+  address?: string;
+  location?: Point;
+  categories?: Types.ObjectId[];
+  subCategories?: Types.ObjectId[];
+  totalServiceProvided?: number;
+  previouslyUsedTools?: boolean;
+  portfolio?: [{ path: string; link?: string }];
+  helpingTags?: string[];
   createdAt: Date;
   updatedAt: Date;
 };
@@ -66,3 +65,5 @@ export type IProfessionalFilters = {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 };
+
+export type IEnrichProfessional = {};

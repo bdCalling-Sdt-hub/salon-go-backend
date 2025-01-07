@@ -1,24 +1,33 @@
-import { z } from 'zod'
+import { z } from 'zod';
 
-const createVerifyEmailZodSchema = z.object({
+const createVerifyEmailOrPhoneZodSchema = z.object({
   body: z.object({
-    email: z.string({ required_error: 'Email is required' }),
+    email: z.string().optional(),
+    contact: z.string().optional(),
     oneTimeCode: z.number({ required_error: 'One time code is required' }),
   }),
-})
+});
+
+const createVerifyPhoneZodSchema = z.object({
+  body: z.object({
+    contact: z.string({ required_error: 'Contact is required' }),
+    oneTimeCode: z.number({ required_error: 'One time code is required' }),
+  }),
+});
 
 const createLoginZodSchema = z.object({
   body: z.object({
     email: z.string({ required_error: 'Email is required' }),
     password: z.string({ required_error: 'Password is required' }),
   }),
-})
+});
 
 const createForgetPasswordZodSchema = z.object({
   body: z.object({
-    email: z.string({ required_error: 'Email is required' }),
+    email: z.string().optional(),
+    contact: z.string().optional(),
   }),
-})
+});
 
 const createResetPasswordZodSchema = z.object({
   body: z.object({
@@ -27,7 +36,7 @@ const createResetPasswordZodSchema = z.object({
       required_error: 'Confirm Password is required',
     }),
   }),
-})
+});
 
 const createChangePasswordZodSchema = z.object({
   body: z.object({
@@ -39,12 +48,20 @@ const createChangePasswordZodSchema = z.object({
       required_error: 'Confirm Password is required',
     }),
   }),
-})
+});
+
+const deleteAccountZodSchema = z.object({
+  body: z.object({
+    password: z.string({ required_error: 'Password is required' }),
+  }),
+});
 
 export const AuthValidation = {
-  createVerifyEmailZodSchema,
+  createVerifyEmailOrPhoneZodSchema,
   createForgetPasswordZodSchema,
   createLoginZodSchema,
   createResetPasswordZodSchema,
   createChangePasswordZodSchema,
-}
+  deleteAccountZodSchema,
+  createVerifyPhoneZodSchema,
+};

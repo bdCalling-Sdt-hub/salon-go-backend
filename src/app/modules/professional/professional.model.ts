@@ -77,10 +77,7 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: { type: String, default: 'Point', enum: ['Point'] },
       coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude] // Default to [0, 0] if coordinates are not provided
     },
-    informationCount: {
-      type: Number,
-      default: 0,
-    },
+
     license: {
       type: String,
     },

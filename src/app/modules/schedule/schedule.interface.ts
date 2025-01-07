@@ -9,7 +9,7 @@ type TimeSlots = {
   time: string; // 'HH:mm' format
   timeCode: number;
   isAvailable: boolean;
-  discount: Types.ObjectId;
+  discount: Number;
 };
 
 type Day = {

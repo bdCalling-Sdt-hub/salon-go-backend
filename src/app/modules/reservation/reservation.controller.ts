@@ -6,6 +6,7 @@ import { paginationHelper } from '../../../helpers/paginationHelper';
 import pick from '../../../shared/pick';
 import { paginationFields } from '../../../types/pagination';
 import { StatusCodes } from 'http-status-codes';
+import { reservationFilterableFields } from './reservation.constants';
 
 const createReservation = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
@@ -22,7 +23,7 @@ const createReservation = catchAsync(async (req: Request, res: Response) => {
 const getReservationsForUsers = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
-    const filters = pick(req.query, ['status', 'subSubCategory']);
+    const filters = pick(req.query, reservationFilterableFields);
     const paginationOptions = pick(req.query, paginationFields);
 
     const result = await ReservationServices.getReservationsForUsersFromDB(

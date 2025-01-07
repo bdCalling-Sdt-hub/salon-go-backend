@@ -12,7 +12,8 @@ export type IUser = {
   role: USER_ROLES;
   status: 'active' | 'restricted' | 'delete';
   verified: boolean;
-  termsAndCondition: boolean;
+  wrongLoginAttempts: number;
+  restrictionLeftAt: Date | null;
   appId: string;
   authentication?: {
     passwordChangedAt: Date;
@@ -32,8 +33,7 @@ export type IUserFilters = {
   role?: USER_ROLES;
   status?: 'active' | 'restricted' | 'delete';
   verified?: boolean;
-  termsAndCondition?: boolean;
-  needInformation?: boolean;
+
   appId?: string;
 };
 
