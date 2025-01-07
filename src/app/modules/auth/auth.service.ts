@@ -10,7 +10,8 @@ import {
   IAuthResetPassword,
   IChangePassword,
   ILoginData,
-  IVerifyEmail,
+  IPhoneVerify,
+  IVerifyEmailOrPhone,
 } from '../../../types/auth';
 
 import generateOTP from '../../../utils/generateOtp';
@@ -24,7 +25,15 @@ import { Admin } from '../admin/admin.model';
 import { Professional } from '../professional/professional.model';
 import { Customer } from '../customer/customer.model';
 import { IUser } from '../user/user.interface';
+import { Reservation } from '../reservation/reservation.model';
+import { verifyOtp } from '../../../helpers/twillio.helper';
+import getNextOnboardingStep from '../professional/professional.utils';
+import twilio from 'twilio';
 
+const accountSid = config.twilio.account_sid;
+const authToken = config.twilio.auth_token;
+const twilioPhoneNumber = config.twilio.phone_number;
+const client = twilio(accountSid, authToken);
 //login
 const loginUserFromDB = async (
   payload: ILoginData,
@@ -36,9 +45,32 @@ const loginUserFromDB = async (
   }
 
   if (isExistUser.status === 'restricted') {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Your account has been restricted, please contact admin',
+    if (
+      isExistUser.restrictionLeftAt &&
+      new Date() < isExistUser.restrictionLeftAt
+    ) {
+      const remainingMinutes = Math.ceil(
+        (isExistUser.restrictionLeftAt.getTime() - Date.now()) / 60000,
+      );
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `You are restricted to login for ${remainingMinutes} minutes`,
+      );
+    }
+
+    isExistUser.status = 'active';
+    isExistUser.wrongLoginAttempts = 0;
+    isExistUser.restrictionLeftAt = null;
+
+    await User.findByIdAndUpdate(
+      { _id: isExistUser._id },
+      {
+        $set: {
+          status: isExistUser.status,
+          wrongLoginAttempts: isExistUser.wrongLoginAttempts,
+          restrictionLeftAt: isExistUser.restrictionLeftAt,
+        },
+      },
     );
   }
 
@@ -75,6 +107,21 @@ const loginUserFromDB = async (
     password &&
     !(await User.isMatchPassword(password, isExistUser.password))
   ) {
+    if (isExistUser.wrongLoginAttempts >= 5) {
+      isExistUser.status = 'restricted';
+      isExistUser.restrictionLeftAt = new Date(Date.now() + 10 * 60 * 1000); // Restrict for 1 day
+    }
+
+    await User.findByIdAndUpdate(
+      { _id: isExistUser._id },
+      {
+        $set: {
+          wrongLoginAttempts: isExistUser.wrongLoginAttempts,
+          status: isExistUser.status,
+          restrictionLeftAt: isExistUser.restrictionLeftAt,
+        },
+      },
+    );
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!');
   }
 
@@ -99,6 +146,17 @@ const loginUserFromDB = async (
     config.jwt.jwt_refresh_secret as Secret,
     config.jwt.jwt_refresh_expire_in as string,
   );
+
+  //get information status
+
+  if (
+    isExistUser.role === USER_ROLES.PROFESSIONAL &&
+    user &&
+    user instanceof Professional
+  ) {
+    const nextStep = getNextOnboardingStep(user);
+    return { accessToken, refreshToken, role: isExistUser.role, nextStep };
+  }
 
   return { accessToken, refreshToken, role: isExistUser.role };
 };
@@ -158,11 +216,87 @@ const refreshToken = async (
   };
 };
 
-//forget password
-const verifyEmailToDB = async (payload: IVerifyEmail) => {
-  const { email, oneTimeCode } = payload;
+const verifyPhoneToDB = async (payload: IPhoneVerify) => {
+  const { contact, oneTimeCode } = payload;
   const isExistUser = await User.findOne(
-    { email },
+    { contact },
+    { vendor: 1, role: 1, _id: 1, contact: 1, verified: 1 },
+  ).select('+authentication');
+
+  if (!isExistUser) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+
+  if (!oneTimeCode) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Please provide the OTP sent to your phone.',
+    );
+  }
+
+  const isValidOtp = await verifyOtp(contact, oneTimeCode.toString());
+  if (!isValidOtp) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid or expired OTP.');
+  }
+
+  let message;
+  let data;
+  console.log(isExistUser);
+  console.log(isExistUser.verified);
+
+  await User.findByIdAndUpdate(
+    { _id: isExistUser._id },
+    {
+      $set: {
+        verified: true,
+        authentication: { oneTimeCode: null, expireAt: null },
+      },
+    },
+  );
+
+  message = 'Phone number verified successfully';
+
+  let roleUser;
+  if (isExistUser.role === USER_ROLES.ADMIN) {
+    roleUser = await Admin.findOne({ auth: isExistUser._id }, { _id: 1 });
+  } else if (isExistUser.role === USER_ROLES.PROFESSIONAL) {
+    roleUser = await Professional.findOne(
+      { auth: isExistUser._id },
+      { _id: 1 },
+    );
+  } else {
+    roleUser = await Customer.findOne({ auth: isExistUser._id }, { _id: 1 });
+  }
+
+  if (!roleUser) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to get role-based user.',
+    );
+  }
+
+  // Create accessToken
+  const accessToken = jwtHelper.createToken(
+    {
+      id: isExistUser._id,
+      userId: roleUser._id,
+      contact: isExistUser.contact,
+      role: isExistUser.role,
+    },
+    config.jwt.jwt_secret as Secret,
+    config.jwt.jwt_expire_in as string,
+  );
+
+  data = { accessToken };
+
+  return { data, message };
+};
+
+//forget password
+const verifyEmailOrPhoneToDB = async (payload: IVerifyEmailOrPhone) => {
+  const { email, contact, oneTimeCode } = payload;
+  const isExistUser = await User.findOne(
+    { $or: [{ email: email }, { contact: contact }] },
     { vendor: 1, role: 1, _id: 1, email: 1, verified: 1 },
   ).select('+authentication');
   if (!isExistUser) {
@@ -181,7 +315,10 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
   }
 
   const date = new Date();
-  if (date > isExistUser.authentication?.expireAt) {
+  if (
+    !isExistUser.authentication?.expireAt ||
+    date > isExistUser.authentication.expireAt
+  ) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Otp already expired, Please try again',
@@ -196,7 +333,9 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
       { _id: isExistUser._id },
       { verified: true, authentication: { oneTimeCode: null, expireAt: null } },
     );
-    message = 'Email verify successfully';
+    message = `${
+      email !== null ? 'Email' : 'Phone number'
+    } verified successfully`;
     let roleUser;
     if (isExistUser.role === USER_ROLES.ADMIN) {
       roleUser = await Admin.findOne({ auth: isExistUser._id }, { _id: 1 });
@@ -246,7 +385,7 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
     await ResetToken.create({
       user: isExistUser._id,
       token: createToken,
-      expireAt: new Date(Date.now() + 3 * 60000),
+      expireAt: new Date(Date.now() + 5 * 60000),
     });
     message =
       'Verification Successful: Please securely store and utilize this code for reset password';
@@ -257,27 +396,38 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
 };
 
 //forget password
-const forgetPasswordToDB = async (email: string) => {
-  const isExistUser = await User.isExistUserByEmail(email);
+const forgetPasswordToDB = async (email?: string, contact?: string) => {
+  const isExistUser = await User.findOne({ $or: [{ email }, { contact }] });
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
-
-  //send mail
   const otp = generateOTP();
-  const value = {
-    otp,
-    email: isExistUser.email,
-  };
-  const forgetPassword = emailTemplate.resetPassword(value);
-  emailHelper.sendEmail(forgetPassword);
 
   //save to DB
   const authentication = {
     oneTimeCode: otp,
-    expireAt: new Date(Date.now() + 3 * 60000),
+    expireAt: new Date(Date.now() + 5 * 60000),
   };
-  await User.findOneAndUpdate({ email }, { $set: { authentication } });
+
+  if (email) {
+    const emailValue = {
+      otp,
+      email: isExistUser.email,
+    };
+
+    //send mail
+    const forgetPassword = emailTemplate.resetPassword(emailValue);
+    emailHelper.sendEmail(forgetPassword);
+
+    await User.findOneAndUpdate({ email }, { $set: { authentication } });
+  } else {
+    await client.messages.create({
+      body: `Your Salon go one time verification code is ${otp}. It will expire in 5 minutes.`,
+      from: twilioPhoneNumber,
+      to: isExistUser.contact,
+    });
+    await User.findOneAndUpdate({ contact }, { $set: { authentication } });
+  }
 };
 
 //forget password
@@ -416,12 +566,63 @@ const resendOtp = async (email: string) => {
   await User.findOneAndUpdate({ email }, { $set: { authentication } });
 };
 
+const deleteAccount = async (user: JwtPayload, password: string) => {
+  const isUserExist = await User.findById(user.id, '+password');
+  if (!isUserExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+
+  const isPasswordMatched = await User.isMatchPassword(
+    password,
+    isUserExist.password,
+  );
+
+  if (!isPasswordMatched) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect');
+  }
+
+  if (isUserExist.role === USER_ROLES.PROFESSIONAL) {
+    // Check for running orders
+    const professional = await Professional.findOne({ auth: isUserExist._id });
+    if (!professional) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Professional doesn't exist!",
+      );
+    }
+    const hasRunningOrder = await Reservation.exists({
+      professional: professional._id,
+      status: { $in: ['ongoing', 'accepted', 'confirmed'] },
+    });
+
+    if (hasRunningOrder) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'You have ongoing reservation. Please complete them before deleting your profile.',
+      );
+    }
+  }
+
+  if (isUserExist.status === 'delete') {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'User already deleted!');
+  }
+
+  await User.findByIdAndUpdate(
+    { _id: user.id },
+    { $set: { status: 'delete' } },
+  );
+
+  return isUserExist;
+};
+
 export const AuthService = {
-  verifyEmailToDB,
+  verifyEmailOrPhoneToDB,
   loginUserFromDB,
   forgetPasswordToDB,
   changePasswordToDB,
   refreshToken,
+  verifyPhoneToDB,
   resendOtp,
   resetPasswordToDB,
+  deleteAccount,
 };

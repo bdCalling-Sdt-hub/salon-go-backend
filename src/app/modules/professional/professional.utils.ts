@@ -63,7 +63,15 @@ export function getNextOnboardingStep(professional: IProfessional): string {
       return 'service-team-size';
     }
   } else if (professional.serviceType === 'home') {
-    if (!professional.travelFee?.fee || !professional.travelFee?.distance) {
+    console.log(
+      professional.serviceType,
+      professional.travelFee?.fee,
+      professional.travelFee?.distance,
+    );
+    if (
+      professional.travelFee?.fee == null ||
+      professional.travelFee?.distance == null
+    ) {
       return 'service-travel-fee';
     }
   }

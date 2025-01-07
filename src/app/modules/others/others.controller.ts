@@ -28,8 +28,9 @@ const addBanner = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getBanners = catchAsync(async (req: Request, res: Response) => {
-  const result = await OthersService.getBanners();
-  sendResponse<IBanner[] | null>(res, {
+  const user = req.user;
+  const result = await OthersService.getBanners(user);
+  sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'Banner retrieved successfully',

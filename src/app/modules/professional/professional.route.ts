@@ -41,6 +41,12 @@ router.patch(
   },
 );
 
+router.get(
+  '/portfolio/:id',
+  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+  ProfessionalController.getProfessionalPortfolio,
+);
+
 router.patch(
   '/business-information',
   auth(USER_ROLES.PROFESSIONAL),
@@ -62,7 +68,7 @@ router.get(
 
 router.get(
   '/',
-  auth(USER_ROLES.USER),
+  auth(USER_ROLES.USER, USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL),
   ProfessionalController.getAllProfessional,
 );
 

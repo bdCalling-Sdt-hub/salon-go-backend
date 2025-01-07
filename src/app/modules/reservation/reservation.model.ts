@@ -15,7 +15,14 @@ const reservationSchema = new Schema<IReservation, ReservationModel>({
   time: { type: String, required: true },
   status: {
     type: String,
-    enum: ['pending', 'rejected', 'confirmed', 'completed', 'cancelled'],
+    enum: [
+      'pending',
+      'rejected',
+      'confirmed',
+      'completed',
+      'cancelled',
+      'started',
+    ],
     default: 'pending',
   },
   subSubCategory: { type: Schema.Types.ObjectId, ref: 'SubSubCategory' },

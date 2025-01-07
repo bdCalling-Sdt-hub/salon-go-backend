@@ -27,7 +27,10 @@ const reservationValidationZodSchema = z.object({
 
 const reservationStatusChangeZodValidation = z.object({
   body: z.object({
-    status: z.enum(['accepted', 'rejected', 'completed', 'confirmed']),
+    status: z.enum(
+      ['accepted', 'rejected', 'completed', 'confirmed', 'started'],
+      {},
+    ),
     amount: z.number().optional(),
     isStarted: z.boolean().optional(),
   }),

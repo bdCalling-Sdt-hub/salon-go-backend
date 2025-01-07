@@ -52,9 +52,13 @@ const userSchema = new Schema<IUser, UserModel>(
       type: Boolean,
       default: false,
     },
-    termsAndCondition: {
-      type: Boolean,
-      required: true,
+    wrongLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    restrictionLeftAt: {
+      type: Date,
+      default: null,
     },
     authentication: {
       type: {

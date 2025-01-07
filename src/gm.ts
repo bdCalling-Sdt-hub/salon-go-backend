@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 
-// Function to convert a string to camelCase
 function toCamelCase(str: string): string {
   return str
     .replace(/(?:^\w|[A-Z]|\b\w|\s+)/g, (match, index) =>
@@ -10,7 +9,6 @@ function toCamelCase(str: string): string {
     .replace(/\s+/g, '');
 }
 
-// Define types for the templates
 type Templates = {
   interface: string;
   model: string;
@@ -21,10 +19,9 @@ type Templates = {
   constants: string;
 };
 
-// Function to create a module with files and starter code
 function createModule(name: string): void {
   const camelCaseName = toCamelCase(name);
-  const folderName = camelCaseName.toLowerCase(); // Use camelCase for folder
+  const folderName = camelCaseName.toLowerCase();
   const folderPath = path.join(__dirname, 'app', 'modules', folderName);
 
   // Check if the folder already exists
@@ -36,7 +33,6 @@ function createModule(name: string): void {
     return;
   }
 
-  // Templates with dynamic insertion of the module name in camelCase
   const templates: Templates = {
     interface: `import { Model } from 'mongoose';\n\nexport type I${camelCaseName} = {\n  // Define the interface for ${camelCaseName} here\n};\n\nexport type ${camelCaseName}Model = Model<I${camelCaseName}>;\n`,
     model: `import { Schema, model } from 'mongoose';\nimport { I${camelCaseName}, ${camelCaseName}Model } from './${folderName}.interface'; \n\nconst ${folderName}Schema = new Schema<I${camelCaseName}, ${camelCaseName}Model>({\n  // Define schema fields here\n});\n\nexport const ${camelCaseName} = model<I${camelCaseName}, ${camelCaseName}Model>('${camelCaseName}', ${folderName}Schema);\n`,
@@ -47,12 +43,14 @@ function createModule(name: string): void {
     constants: `export const ${camelCaseName.toUpperCase()}_CONSTANT = 'someValue';\n`,
   };
 
-  // Create each file with corresponding template content
   Object.entries(templates).forEach(([key, content]) => {
     const filePath = path.join(folderPath, `${folderName}.${key}.ts`);
     fs.writeFileSync(filePath, content);
     console.log(`Created file: ${filePath}`);
   });
+
+  // Add the new module to the central `apiRoutes` array
+  updateRouterFile(folderName, camelCaseName);
 }
 
 // Get the module name from command line arguments
@@ -63,4 +61,50 @@ if (!moduleName) {
   );
 } else {
   createModule(moduleName);
+}
+
+/**
+ * Updates the central router file by adding a new module route import and entry.
+ *
+ * @param folderName - The name of the folder/module (in lowercase or kebab-case).
+ * @param camelCaseName - The camelCase name of the module (used for route import/export).
+ */
+function updateRouterFile(folderName: string, camelCaseName: string): void {
+  const routerPath = path.join(__dirname, 'routes', 'index.ts');
+  const routeImport = `import { ${camelCaseName}Routes } from '../app/modules/${folderName}/${folderName}.route';`;
+  const routeEntry = `{ path: '/${folderName}', route: ${camelCaseName}Routes }`;
+
+  let routerFileContent = fs.readFileSync(routerPath, 'utf-8');
+
+  // Check if the import statement is already present
+  if (!routerFileContent.includes(routeImport)) {
+    routerFileContent = `${routeImport}\n${routerFileContent}`;
+  }
+
+  // Find the `apiRoutes` array and update it
+  const apiRoutesRegex =
+    /export const apiRoutes: \{ path: string; route: any \}\[] = \[(.*?)\]/s;
+  const match = routerFileContent.match(apiRoutesRegex);
+
+  if (match) {
+    const currentRoutes = match[1].trim();
+    if (!currentRoutes.includes(routeEntry)) {
+      const updatedRoutes = currentRoutes
+        ? `${currentRoutes}\n  ${routeEntry}`
+        : `${routeEntry}`;
+      routerFileContent = routerFileContent.replace(
+        apiRoutesRegex,
+        `export const apiRoutes: { path: string; route: any }[] = [\n  ${updatedRoutes}\n]`,
+      );
+    }
+  } else {
+    console.error(
+      'Failed to find apiRoutes array. Ensure the index.ts file has a properly defined apiRoutes array.',
+    );
+    return;
+  }
+
+  // Write the updated content back to the `index.ts` file
+  fs.writeFileSync(routerPath, routerFileContent, 'utf-8');
+  console.log(`✅ Added route for ${camelCaseName} to central router.`);
 }

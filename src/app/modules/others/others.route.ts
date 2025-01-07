@@ -22,8 +22,16 @@ router.post(
     return OthersController.addBanner(req, res, next);
   },
 );
-router.get('/banner', OthersController.getBanners);
-router.get('/banner/:id', OthersController.getSingleBanner);
+router.get(
+  '/banner',
+  auth(USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+  OthersController.getBanners,
+);
+router.get(
+  '/banner/:id',
+  auth(USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+  OthersController.getSingleBanner,
+);
 router.patch(
   '/update-banner/:id',
   auth(USER_ROLES.ADMIN),
@@ -74,11 +82,20 @@ router.delete(
 );
 router.delete('/faq/:id', auth(USER_ROLES.ADMIN), OthersController.deleteFaQs);
 
-router.get('/privacy-policy/:type', OthersController.getPrivacyPolicy);
+router.get(
+  '/privacy-policy/:type',
+  auth(USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+  OthersController.getPrivacyPolicy,
+);
 router.get(
   '/terms-and-conditions/:type',
+  auth(USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
   OthersController.getTermsAndConditions,
 );
-router.get('/faq/:type', OthersController.getFaQs);
+router.get(
+  '/faq/:type',
+  auth(USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+  OthersController.getFaQs,
+);
 
 export const OthersRoutes = router;

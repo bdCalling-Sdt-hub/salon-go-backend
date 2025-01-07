@@ -18,6 +18,7 @@ import { Admin } from '../admin/admin.model';
 import { Customer } from '../customer/customer.model';
 import { Professional } from '../professional/professional.model';
 import { JwtPayload } from 'jsonwebtoken';
+import { sendOtp } from '../../../helpers/twillio.helper';
 
 type IPayload = Pick<IUser, 'email' | 'password' | 'name' | 'role' | 'contact'>;
 
@@ -36,7 +37,7 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
     if (!newUser?.length) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create User');
     }
-    console.log(newUser);
+
     if (user.role === USER_ROLES.ADMIN) {
       createdUser = await Admin.create([{ auth: newUser[0]._id }], { session });
     } else if (user.role === USER_ROLES.PROFESSIONAL) {
@@ -69,21 +70,13 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
     newUserData = await User.findOne({ _id: newUserData._id });
   }
 
-  //send email
-  const otp = generateOTP();
-  const values = {
-    name: newUserData!.name,
-    otp: otp,
-    email: newUserData!.email!,
-  };
+  // Send OTP via Twilio
+  await sendOtp(newUserData!.contact, newUserData!._id);
 
-  const createAccountTemplate = emailTemplate.createAccount(values);
-  emailHelper.sendEmail(createAccountTemplate);
-
-  //save to DB
+  // Save OTP metadata to authentication
   const authentication = {
-    oneTimeCode: otp,
-    expireAt: new Date(Date.now() + 3 * 60000),
+    oneTimeCode: null, // OTP is saved in Otp model, not directly in User model
+    expireAt: new Date(Date.now() + 5 * 60000),
   };
   await User.findOneAndUpdate(
     { _id: newUserData!._id },

@@ -18,6 +18,7 @@ export type IReservation = {
     | 'confirmed'
     | 'rejected'
     | 'completed'
+    | 'started'
     | 'cancelled';
   travelFee: number;
   subSubCategory: Types.ObjectId;
@@ -33,6 +34,7 @@ export type IReservation = {
 export type IReservationFilterableFields = {
   searchTerm?: string;
   status?: string;
+  date?: string;
   subSubCategory?: string;
 };
 

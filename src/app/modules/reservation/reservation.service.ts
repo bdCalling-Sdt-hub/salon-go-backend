@@ -24,6 +24,7 @@ import { IUser } from '../user/user.interface';
 import { IService } from '../service/service.interface';
 import { Service } from '../service/service.model';
 import { IProfessional } from '../professional/professional.interface';
+import { object } from 'zod';
 
 const createReservationToDB = async (
   payload: IReservation,
@@ -139,7 +140,7 @@ const createReservationToDB = async (
       [serviceLocation.coordinates[0], serviceLocation.coordinates[1]],
     );
 
-    payload.travelFee = travelFee.fee * distance;
+    payload.travelFee = travelFee!.fee * distance;
   } else {
     const reservationCount = await Reservation.countDocuments({
       professional,
@@ -182,71 +183,6 @@ const createReservationToDB = async (
   });
 
   return result[0];
-};
-
-const getReservationsForUsersFromDB = async (
-  user: JwtPayload,
-  filter: IReservationFilterableFields,
-  paginationOptions: IPaginationOptions,
-) => {
-  const { page, limit, skip, sortBy, sortOrder } =
-    paginationHelper.calculatePagination(paginationOptions);
-
-  const { status, subSubCategory } = filter;
-
-  const query: any = {
-    professional: user.userId,
-    status: status || 'pending',
-  };
-
-  if (subSubCategory) {
-    query.subSubCategory = subSubCategory;
-  }
-
-  const result = await Reservation.find(query)
-    .populate({
-      path: 'customer',
-      select: { auth: 1 },
-      populate: { path: 'auth', select: { name: 1, email: 1 } },
-    })
-    .populate({
-      path: 'professional',
-      select: { auth: 1 },
-      populate: { path: 'auth', select: { name: 1, email: 1 } },
-    })
-    .populate('service', {
-      title: 1,
-      price: 1,
-      duration: 1,
-    })
-    .populate('subSubCategory', {
-      name: 1,
-    })
-    .sort({
-      [sortBy]: sortOrder,
-    })
-    .skip(skip)
-    .limit(limit);
-
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get reservation');
-  }
-
-  const total = await Reservation.countDocuments({
-    professional: user.userId,
-    status: status || 'pending',
-    subSubCategory: subSubCategory || null,
-  });
-
-  return {
-    meta: {
-      page,
-      limit,
-      total: total,
-      totalPage: Math.ceil(total / limit),
-    },
-    data: result,
-  };
 };
 
 const getSingleReservationFromDB = async (
@@ -320,7 +256,7 @@ const confirmReservation = async (
       throw new ApiError(StatusCodes.NOT_FOUND, 'Professional not found');
     }
 
-    const isFreelancer = professionalData.isFreelancer;
+    const isFreelancer = professionalData?.isFreelancer ? true : false;
     const maxTeamSize = professionalData?.teamSize?.max || 0;
 
     // Handle freelancer or team-based reservation logic
@@ -379,7 +315,7 @@ const confirmReservation = async (
       title: `Your reservation for ${reservation.service.title} has been confirmed by ${professional.businessName}.`,
       message: `You have a confirmed reservation for ${
         reservation.service.title
-      } on ${date.toDateString()}. Please check your dashboard for more details.`,
+      } on ${date.toDateString()}. Please be on time.`,
       type: 'reservation',
     });
 
@@ -468,7 +404,9 @@ const cancelReservation = async (id: string, user: JwtPayload) => {
       title: `Your reservation for ${reservation.service.title} has been canceled by ${professional.businessName}.`,
       message: `Your reservation for ${
         reservation.service.title
-      } on ${date.toDateString()} has been canceled. Please check your dashboard for more details.`,
+      } on ${date.toDateString()} has been canceled. Please chat with ${
+        professional.businessName
+      } for more details.`,
       type: 'reservation',
     });
 
@@ -527,7 +465,7 @@ const markReservationAsCompleted = async (id: string, user: JwtPayload) => {
     title: `Your reservation for ${reservation.service.title} has been marked as completed by ${reservation.professional.businessName}.`,
     message: `Your reservation for ${
       reservation.service.title
-    } on ${reservation.date.toDateString()} has been marked as completed. Please check your dashboard for more details.`,
+    } on ${reservation.date.toDateString()} has been marked as completed. Please provide feedback to improve our services.`,
     type: 'reservation',
   });
 
@@ -576,11 +514,98 @@ const rejectReservation = async (id: string, user: JwtPayload) => {
     title: `Your reservation for ${reservation.service.title} has been rejected by ${reservation.professional.businessName}.`,
     message: `Your reservation for ${
       reservation.service.title
-    } on ${reservation.date.toDateString()} has been rejected. Please check your dashboard for more details.`,
+    } on ${reservation.date.toDateString()} has been rejected. Please try again to book another service.`,
     type: 'reservation',
   });
 
   return reservation;
+};
+
+const getReservationsForUsersFromDB = async (
+  user: JwtPayload,
+  filters: IReservationFilterableFields,
+  paginationOptions: IPaginationOptions,
+) => {
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(paginationOptions);
+  const { searchTerm, status, subSubCategory, date } = filters;
+
+  const andCondition = [];
+
+  if (status) {
+    andCondition.push({
+      status: status,
+    });
+  }
+  if (subSubCategory) {
+    andCondition.push({
+      subSubCategory: subSubCategory,
+    });
+  }
+
+  if (date) {
+    //add date filter to find reservation on that particular date [ date will be in this format 2025-01-01 ] but he service and professional will be in this format 2025-01-01T00:00:00.000Z
+    console.log(new Date(date));
+    andCondition.push({
+      date: new Date(date),
+    });
+  } else {
+    andCondition.push({
+      date: new Date(),
+    });
+  }
+
+  const result = await Reservation.find({
+    $and: [
+      {
+        $or: [{ customer: user.userId }, { professional: user.userId }],
+      },
+      ...andCondition,
+    ],
+  })
+    .populate<{
+      service: IService;
+    }>({
+      path: 'service',
+      select: { title: 1, price: 1, duration: 1 },
+    })
+    .populate<{ professional: IProfessional }>({
+      path: 'professional',
+      select: { businessName: 1 },
+    })
+    .populate<{ customer: IUser }>({
+      path: 'customer',
+      select: { name: 1 },
+    })
+    .sort({
+      [sortBy]: sortOrder,
+    })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  const totalEarning = result.reduce((total, reservation) => {
+    return total + (reservation.amount + (reservation.travelFee ?? 0));
+  }, 0);
+
+  const total = await Reservation.countDocuments({
+    $and: [
+      {
+        $or: [{ customer: user.userId }, { professional: user.userId }],
+      },
+      ...andCondition,
+    ],
+  });
+
+  return {
+    meta: {
+      total,
+      page,
+      totalPage: Math.ceil(total / limit),
+      limit,
+    },
+    data: { ...result, totalEarning },
+  };
 };
 
 export const ReservationServices = {

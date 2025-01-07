@@ -60,7 +60,7 @@ router.get(
 );
 router.get(
   '/time-slots',
-  auth(USER_ROLES.ADMIN),
+  auth(USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL),
   DashboardController.getTimeSchedule,
 );
 

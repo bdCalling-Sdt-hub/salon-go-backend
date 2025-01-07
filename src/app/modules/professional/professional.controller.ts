@@ -10,6 +10,7 @@ import sendResponse from '../../../shared/sendResponse';
 import { professionalFilterableFields } from './professional.constants';
 import { IProfessional } from './professional.interface';
 import { ProfessionalService } from './professional.service';
+import { Types } from 'mongoose';
 
 const updateProfessionalProfile = catchAsync(
   async (req: Request, res: Response) => {
@@ -70,6 +71,21 @@ const managePortfolio = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getProfessionalPortfolio = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await ProfessionalService.getProfessionalPortfolio(
+      new Types.ObjectId(id),
+    );
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Portfolio retrieved successfully',
+      data: result,
+    });
+  },
+);
+
 const getBusinessInformationForProfessional = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
@@ -123,9 +139,11 @@ const getSingleProfessional = catchAsync(
 const getAllProfessional = catchAsync(async (req: Request, res: Response) => {
   const filters = pick(req.query, professionalFilterableFields);
   const paginationOptions = pick(req.query, paginationFields);
+  const user = req.user;
   const result = await ProfessionalService.getAllProfessional(
     filters,
     paginationOptions,
+    user,
   );
   sendResponse(res, {
     success: true,
@@ -143,4 +161,5 @@ export const ProfessionalController = {
   getAllProfessional,
   getSingleProfessional,
   managePortfolio,
+  getProfessionalPortfolio,
 };
