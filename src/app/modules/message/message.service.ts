@@ -10,6 +10,7 @@ import { Types } from 'mongoose';
 import { Message } from './message.model';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
+import { uploadToCloudinary } from '../../../utils/cloudinary';
 
 const sendMessage = async (
   user: JwtPayload,
@@ -39,11 +40,28 @@ const sendMessage = async (
   payload.receiverId = receiver._id;
 
   payload.type =
-    payload.image && payload.message
+    payload.images && payload.message
       ? 'both'
-      : payload.image
+      : payload.images
       ? 'image'
       : 'text';
+
+  if (payload.type === 'both' || payload.type === 'image') {
+    if (payload.images.length > 0) {
+      const uploadedImages = await uploadToCloudinary(
+        payload.images,
+        'message',
+        'image',
+      );
+      if (!uploadedImages || uploadedImages.length === 0) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'Failed to upload image to Cloudinary',
+        );
+      }
+      payload.images = uploadedImages;
+    }
+  }
 
   const result = await Message.create({ ...payload, chatId });
   if (!result) {

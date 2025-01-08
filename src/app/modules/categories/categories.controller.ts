@@ -41,7 +41,7 @@ const getAllSubSubCategories = catchAsync(
 const createCategory = catchAsync(async (req: Request, res: Response) => {
   let categoryImage;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    categoryImage = `/images/${req.files.image[0].filename}`;
+    categoryImage = req.files.image[0].path;
   }
 
   const data = {
@@ -62,7 +62,7 @@ const updateCategory = catchAsync(async (req: Request, res: Response) => {
   const { ...categoryData } = req.body;
   let categoryImage;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    categoryImage = `/images/${req.files.image[0].filename}`;
+    categoryImage = req.files.image[0].path;
     categoryData.image = categoryImage;
   }
   const result = await CategoriesServices.updateCategoryToDB(id, categoryData);
@@ -87,6 +87,11 @@ const deleteCategory = catchAsync(async (req: Request, res: Response) => {
 
 const createSubCategory = catchAsync(async (req: Request, res: Response) => {
   const { ...subCategoryData } = req.body;
+
+  if (req.files && 'image' in req.files && req.files.image[0]) {
+    subCategoryData.image = req.files.image[0].path;
+  }
+
   const result = await CategoriesServices.createSubCategoryToDB(
     subCategoryData,
   );
@@ -102,7 +107,9 @@ const createSubCategory = catchAsync(async (req: Request, res: Response) => {
 const updateSubCategory = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { ...subCategoryData } = req.body;
-  console.log(subCategoryData);
+  if (req.files && 'image' in req.files && req.files.image[0]) {
+    subCategoryData.image = req.files.image[0].path;
+  }
   const result = await CategoriesServices.updateSubCategoryToDB(
     id,
     subCategoryData,

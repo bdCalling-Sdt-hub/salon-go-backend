@@ -5,51 +5,54 @@ import ApiError from '../../../errors/ApiError';
 import { JwtPayload } from 'jsonwebtoken';
 import { Customer } from '../customer/customer.model';
 
-const createBookmark = async (
+const createOrRemoveBookmark = async (
   user: JwtPayload,
   payload: IBookmark,
 ): Promise<IBookmark> => {
-  payload.customer = user.userId;
-
-  const createBookmark = await Bookmark.create(payload);
-  if (!createBookmark) {
+  const isExist = await Bookmark.findOne({
+    professional: payload.professional,
+    customer: user.userId,
+  });
+  if (isExist) {
+    await Bookmark.deleteOne({ _id: isExist._id });
+    return isExist;
+  }
+  const result = await Bookmark.create({
+    customer: user.userId,
+    professional: payload.professional,
+  });
+  if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create bookmark');
   }
-  return createBookmark;
+  return result;
 };
 
 const getAllBookmarks = async (id: string): Promise<IBookmark[] | null> => {
-  const isCustomerExist = await Customer.findOne({ auth: id }, { _id: 1 });
+  const isCustomerExist = await Customer.findById({ _id: id }, { _id: 1 });
   if (!isCustomerExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Customer doesn't exist!");
   }
-  console.log(isCustomerExist);
+
   const result = await Bookmark.find({
     customer: isCustomerExist._id,
-  }).populate('professional');
+  }).populate({
+    path: 'professional',
+    populate: {
+      path: 'auth',
+      select: {
+        name: 1,
+        email: 1,
+        profile: 1,
+      },
+    },
+  });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get bookmarks');
   }
   return result;
 };
 
-const removeBookmark = async (
-  id: string,
-  user: JwtPayload,
-): Promise<IBookmark | null> => {
-  const removeBookmark = await Bookmark.findOneAndDelete({
-    _id: id,
-    customer: user.userId,
-  });
-  console.log(user.userId);
-  if (!removeBookmark) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to remove bookmark');
-  }
-  return removeBookmark;
-};
-
 export const BookmarkService = {
-  createBookmark,
-  removeBookmark,
+  createOrRemoveBookmark,
   getAllBookmarks,
 };

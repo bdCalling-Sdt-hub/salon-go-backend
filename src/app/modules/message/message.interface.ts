@@ -8,7 +8,7 @@ export type IMessage = {
   message: string;
   isRead: boolean;
   chatId: Types.ObjectId | IChat;
-  image: string;
+  images: string[];
   type: 'text' | 'image' | 'both';
   createdAt: Date;
   updatedAt: Date;

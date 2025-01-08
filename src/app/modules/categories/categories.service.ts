@@ -7,6 +7,10 @@ import {
 } from './categories.interface';
 import { Category, SubCategory, SubSubCategory } from './categories.model';
 import mongoose, { Types } from 'mongoose';
+import {
+  deleteResourcesFromCloudinary,
+  uploadToCloudinary,
+} from '../../../utils/cloudinary';
 
 const getAllCategories = async (): Promise<ICategory[]> => {
   const result = await Category.find()
@@ -36,8 +40,28 @@ const getAllSubSubCategories = async (): Promise<ISubSubCategory[]> => {
 };
 
 const createCategoryToDB = async (payload: ICategory): Promise<ICategory> => {
+  if (payload.image) {
+    const uploadedImage = await uploadToCloudinary(
+      payload.image,
+      'categories',
+      'image',
+    );
+
+    if (!uploadedImage) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to upload image to Cloudinary',
+      );
+    }
+
+    payload.image = uploadedImage[0];
+  }
+
   const result = await Category.create(payload);
   if (!result) {
+    if (payload.image) {
+      await deleteResourcesFromCloudinary(payload.image, 'image', true);
+    }
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create category');
   }
   return result;
@@ -47,10 +71,34 @@ const updateCategoryToDB = async (
   id: string,
   payload: Partial<ICategory>,
 ): Promise<ICategory> => {
-  const result = await Category.findOneAndUpdate({ _id: id }, payload, {
-    new: true,
-  });
+  if (payload.image) {
+    const uploadedImage = await uploadToCloudinary(
+      payload.image,
+      'categories',
+      'image',
+    );
+
+    if (!uploadedImage) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to upload image to Cloudinary',
+      );
+    }
+
+    payload.image = uploadedImage[0];
+  }
+
+  const result = await Category.findOneAndUpdate(
+    { _id: id },
+    { $set: { ...payload } },
+    {
+      new: true,
+    },
+  );
   if (!result) {
+    if (payload.image) {
+      await deleteResourcesFromCloudinary(payload.image, 'image', true);
+    }
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update category');
   }
   return result;
@@ -61,14 +109,38 @@ const deleteCategoryToDB = async (id: string): Promise<string> => {
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete category');
   }
+
+  await deleteResourcesFromCloudinary(result.image, 'image', true);
+
   return 'Category deleted successfully';
 };
 
 const createSubCategoryToDB = async (
   payload: ISubCategory,
 ): Promise<ISubCategory> => {
+  if (payload.image) {
+    const uploadedImage = await uploadToCloudinary(
+      payload.image,
+      'subCategories',
+      'image',
+    );
+
+    if (!uploadedImage) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to upload image to Cloudinary',
+      );
+    }
+
+    payload.image = uploadedImage[0];
+  }
+
   const newSubCategory = await SubCategory.create([payload]);
   if (!newSubCategory?.length) {
+    if (payload.image) {
+      await deleteResourcesFromCloudinary(payload.image, 'image', true);
+    }
+
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Failed to create sub category',
@@ -81,10 +153,31 @@ const updateSubCategoryToDB = async (
   id: string,
   payload: Partial<ISubCategory>,
 ): Promise<ISubCategory> => {
+  if (payload.image) {
+    const uploadedImage = await uploadToCloudinary(
+      payload.image,
+      'subCategories',
+      'image',
+    );
+
+    if (!uploadedImage) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to upload image to Cloudinary',
+      );
+    }
+
+    payload.image = uploadedImage[0];
+  }
+
   const result = await SubCategory.findOneAndUpdate({ _id: id }, payload, {
     new: true,
   });
   if (!result) {
+    if (payload.image) {
+      await deleteResourcesFromCloudinary(payload.image, 'image', true);
+    }
+
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Failed to update sub category',
@@ -119,7 +212,7 @@ export const deleteSubCategoryToDB = async (id: string): Promise<string> => {
         'Failed to delete subCategory',
       );
     }
-
+    await deleteResourcesFromCloudinary(subCategory.image, 'image', true);
     await session.commitTransaction();
     return 'Sub Category deleted successfully';
   } catch (error) {
