@@ -64,18 +64,23 @@ export const sendNotificationToMultipleRecipients = async (
 
 export const handleNotificationForInvitation = async (
   namespace: string,
-  data: IBulkNotification,
+  notifications: {
+    userId: string;
+    title: string;
+    message: string;
+    type: string;
+  }[],
 ) => {
-  const notifications = data?.users.map((userId) => ({
+  const bulkNotifications = notifications.map((notification) => ({
     updateOne: {
-      filter: { user_id: userId },
+      filter: { userId: notification.userId },
       update: {
         $push: {
           notifications: {
-            userId: userId,
-            title: data.title,
-            message: data.message,
-            type: 'USER',
+            userId: notification.userId,
+            title: notification.title,
+            message: notification.message,
+            type: notification.type,
           },
         },
       },
@@ -83,7 +88,7 @@ export const handleNotificationForInvitation = async (
     },
   }));
 
-  const result = await Notification.bulkWrite(notifications);
+  const result = await Notification.bulkWrite(bulkNotifications);
 
   if (!result) {
     throw new ApiError(
@@ -92,12 +97,15 @@ export const handleNotificationForInvitation = async (
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   //@ts-ignore
-  const socket = global.io;
+  const socket = global.io; // Assuming `socket` is correctly initialized globally
 
-  data?.users.forEach((userId) => {
-    socket.emit(`${namespace}::${userId}`, data);
+  notifications.forEach((notification) => {
+    socket.emit(`getNotification::${notification.userId}`, {
+      title: notification.title,
+      message: notification.message,
+      type: notification.type,
+    });
   });
 };
 

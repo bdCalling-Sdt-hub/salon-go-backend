@@ -18,7 +18,7 @@ import { Admin } from '../admin/admin.model';
 import { Customer } from '../customer/customer.model';
 import { Professional } from '../professional/professional.model';
 import { JwtPayload } from 'jsonwebtoken';
-import { sendOtp } from '../../../helpers/twillio.helper';
+import { sendOtp } from '../../../helpers/twilio.helper';
 
 type IPayload = Pick<IUser, 'email' | 'password' | 'name' | 'role' | 'contact'>;
 

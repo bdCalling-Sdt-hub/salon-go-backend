@@ -20,7 +20,7 @@ const updateAdminProfile = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
   const payload = req.body;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    payload.profile = `/images/${req.files.image[0].filename}`;
+    payload.profile = req.files.image[0];
   }
   const result = await AdminService.updateAdminProfile(user, payload);
   sendResponse(res, {

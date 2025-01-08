@@ -10,13 +10,11 @@ const authToken = config.twilio.auth_token;
 const twilioPhoneNumber = config.twilio.phone_number;
 const client = twilio(accountSid, authToken);
 import crypto from 'crypto';
-import { Otp } from '../app/otp/otp.model';
+import { Otp } from '../app/modules/otp/otp.model';
 import { User } from '../app/modules/user/user.model';
 import mongoose, { Types } from 'mongoose';
 import { Professional } from '../app/modules/professional/professional.model';
 import { hashOtp } from '../utils/cryptoToken';
-
-// Helper function to hash OTP
 
 export const sendOtp = async (
   phoneNumber: string,
@@ -24,15 +22,12 @@ export const sendOtp = async (
 ): Promise<void> => {
   const existingOtp = await Otp.findOne({ phoneNumber });
   try {
-    // Validate phone number format (E.164)
     if (!/^\+?[1-9]\d{1,14}$/.test(phoneNumber)) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
         'Invalid phone number format.',
       );
     }
-
-    // Rate limiting: Check OTP request count
 
     if (existingOtp) {
       const timeElapsed =
@@ -43,7 +38,6 @@ export const sendOtp = async (
         throw new Error('Too many OTP requests. Please try again later.');
       }
 
-      // Increment request count or reset if outside the 10-minute window
       if (timeElapsed >= tenMinutes) {
         existingOtp.requestCount = 1;
         existingOtp.lastRequestAt = new Date();
@@ -75,9 +69,7 @@ export const sendOtp = async (
 
     await newOtp.save();
 
-    // Send the OTP using Twilio
-
-    const res = await client.messages.create({
+    await client.messages.create({
       body: `Your Salon go one time verification code is ${otp}. It will expire in 5 minutes.`,
       from: twilioPhoneNumber,
       to: phoneNumber,

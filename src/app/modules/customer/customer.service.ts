@@ -3,14 +3,8 @@ import { Customer } from './customer.model';
 import ApiError from '../../../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
 import { User } from '../user/user.model';
-import { IPaginationOptions } from '../../../types/pagination';
-import { paginationHelper } from '../../../helpers/paginationHelper';
-import { IGenericResponse } from '../../../types/response';
 import { ICustomer } from './customer.interface';
-import { handleObjectUpdate } from '../../../utils/handleObjectUpdate';
 import { JwtPayload } from 'jsonwebtoken';
-import multer from 'multer';
-import FileManager from '../../../helpers/awsS3Helper';
 import { IUser } from '../user/user.interface';
 import {
   deleteResourcesFromCloudinary,
@@ -39,8 +33,6 @@ const getCustomerProfile = async (user: JwtPayload) => {
   return isUserExist;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const updateCustomerProfile = async (
   user: JwtPayload,
   payload: Partial<ICustomer & IUser>,
