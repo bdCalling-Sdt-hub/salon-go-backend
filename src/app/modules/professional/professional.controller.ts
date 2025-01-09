@@ -18,7 +18,15 @@ const updateProfessionalProfile = catchAsync(
     const updatedData = req.body;
 
     if (req.files && 'image' in req.files && req.files.image[0]) {
-      updatedData.profile = req.files.image[0];
+      updatedData.profile = req.files.image[0].path;
+    }
+
+    if (req.files && 'ID' in req.files && req.files.ID[0]) {
+      updatedData.ID = req.files.ID[0].path;
+    }
+
+    if (req.files && 'KIBIS' in req.files && req.files.KBIS[0]) {
+      updatedData.KBIS = req.files.KBIS[0].path;
     }
 
     const result = await ProfessionalService.updateProfessionalProfile(
@@ -39,7 +47,7 @@ const updateProfessionalProfile = catchAsync(
 
 const managePortfolio = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
-  const { removedImages, link } = req.body;
+  const { removedImages, updatedImage, link } = req.body;
 
   // Handle Single Image Upload
   let portfolioImage: { path: string; link?: string } | null = null;
@@ -56,11 +64,17 @@ const managePortfolio = catchAsync(async (req: Request, res: Response) => {
     ? [removedImages]
     : [];
 
+  let payload: { url: string; link: string } = { url: '', link: '' };
+  if (updatedImage) {
+    (payload.url = updatedImage), (payload.link = link);
+  }
+  console.log(removedImages);
   // Call the service
   const result = await ProfessionalService.managePortfolio(
     user,
     portfolioImage,
     removedImagesArray,
+    payload,
   );
 
   sendResponse(res, {

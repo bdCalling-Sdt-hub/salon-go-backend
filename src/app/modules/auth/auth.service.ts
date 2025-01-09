@@ -39,7 +39,10 @@ const loginUserFromDB = async (
   payload: ILoginData,
 ): Promise<ILoginResponse> => {
   const { email, password } = payload;
-  const isExistUser = await User.findOne({ email }).select('+password');
+  const isExistUser = await User.findOne({
+    email,
+    status: { $in: ['active', 'restricted'] },
+  }).select('+password');
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }

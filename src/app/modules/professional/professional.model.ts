@@ -19,6 +19,15 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: String,
       enum: ['home', 'in-place'],
     },
+    ID: {
+      type: String,
+    },
+    KBIS: {
+      type: String,
+    },
+    experience: {
+      type: String,
+    },
     travelFee: {
       _id: false,
       type: {

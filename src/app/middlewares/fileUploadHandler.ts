@@ -97,6 +97,8 @@ const fileUploadHandler = () => {
     fileFilter: filterFilter,
   }).fields([
     { name: 'image', maxCount: 5 },
+    { name: 'ID', maxCount: 1 },
+    { name: 'KBIS', maxCount: 1 },
     { name: 'media', maxCount: 3 },
     { name: 'doc', maxCount: 3 },
   ]);

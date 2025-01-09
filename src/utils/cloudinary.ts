@@ -35,6 +35,11 @@ const uploadToCloudinary = async (
       const result = await cloudinary.uploader.upload(path, {
         resource_type: file_type,
         folder: destination,
+        quality: 'auto:good', // Optimize image quality
+        format: 'auto', // Use the best image format
+        transformation: [
+          { width: 1200, height: 1200, crop: 'limit' }, // Limit dimensions to 1200px max
+        ],
       });
       if (result) {
         fs.unlinkSync(path); // Remove the local file after successful upload
@@ -90,22 +95,14 @@ const deleteResourcesFromCloudinary = async (
     );
   }
 };
-/**
- * Update file(s) in Cloudinary using their URLs.
- * @param {string | string[]} fileUrls - URL(s) of the file(s) to update.
- * @param {string | string[]} newFilePaths - Path(s) to the new file(s) to upload.
- * @param {'image' | 'raw'} file_type - Type of the file(s).
- * @param {boolean} invalidate - Whether to invalidate cached versions.
- * @param {string} destination - Folder in Cloudinary for the new file(s).
- * @returns {Promise<{ publicId: string, url: string }[]>} - Cloudinary updated file details.
- */
+
 const updateCloudinaryFiles = async (
   fileUrls: string | string[],
   newFilePaths: string | string[],
   file_type: 'image' | 'raw',
   invalidate: boolean,
   destination: string,
-): Promise<{ publicId: string; url: string }[]> => {
+) => {
   try {
     const urls = Array.isArray(fileUrls) ? fileUrls : [fileUrls];
     const paths = Array.isArray(newFilePaths) ? newFilePaths : [newFilePaths];
@@ -149,7 +146,18 @@ const updateCloudinaryFiles = async (
       }
     }
 
-    return results;
+    for (const path of paths) {
+      const result = await cloudinary.uploader.upload(path, {
+        resource_type: file_type,
+        folder: destination,
+      });
+      if (result) {
+        fs.unlinkSync(path); // Remove the local file after successful upload
+        urls.push(result.secure_url); // Only store the URL
+      }
+    }
+
+    return urls;
   } catch (error) {
     console.error('Error updating files in Cloudinary:', error);
 
