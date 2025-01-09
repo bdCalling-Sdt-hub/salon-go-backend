@@ -34,6 +34,8 @@ export type IProfessional = {
   description?: string;
   license?: string;
   ID?: string;
+  KBIS?: string;
+  experience?: string;
   socialLinks?: ISocialLink;
   rating?: number;
   totalReviews?: number;

@@ -28,11 +28,23 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
   let newUserData = null;
   let createdUser;
 
+  //check if the user email exist with any active account
+  const isExistUser = await User.findOne({
+    email: user.email,
+    status: { $in: ['active', 'restricted'] },
+  });
+  if (isExistUser) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'An account with this email already exist. Please login',
+    );
+  }
+
   const session = await mongoose.startSession();
 
   try {
     session.startTransaction();
-    console.log(user);
+
     const newUser = await User.create([user], { session });
     if (!newUser?.length) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create User');
@@ -89,11 +101,6 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
 const getUserProfileFromDB = async (user: JwtPayload) => {
   let userData = null;
 
-  const isUserExists = await User.findOne({ _id: user.id, status: 'active' });
-  if (!isUserExists) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
-  }
-
   if (user.role === USER_ROLES.ADMIN) {
     userData = await Admin.findOne({ _id: user.userId }).lean();
     if (!userData) {
@@ -124,6 +131,9 @@ const getUserProfileFromDB = async (user: JwtPayload) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid user role!');
   }
 
+  if (!userData) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
+  }
   return userData;
 };
 

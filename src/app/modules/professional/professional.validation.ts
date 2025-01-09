@@ -7,9 +7,19 @@ const travelFeeSchema = z.object({
     .min(0, { message: 'Distance must be a positive number' }),
 });
 
+const updateTravelFeeSchema = z.object({
+  fee: z.number().min(0).optional(),
+  distance: z.number().min(0).optional(),
+});
+
 const teamSizeSchema = z.object({
   min: z.number().min(1, { message: 'Minimum team size must be at least 1' }),
   max: z.number().min(1, { message: 'Maximum team size must be at least 1' }),
+});
+
+const updateTeamSizeSchema = z.object({
+  min: z.number().min(1).optional(),
+  max: z.number().min(1).optional(),
 });
 
 const locationSchema = z.object({
@@ -48,16 +58,17 @@ const baseProfessionalBusinessSchema = z.object({
 });
 
 const updatePortfolioZodSchema = z.object({
-  removedImages: z.array(z.string()).optional(),
+  removedImages: z.string().optional(),
+  updatedImage: z.string().optional(),
   link: z.string().optional(),
 });
 
 const updateProfessionalProfileZodSchema = z.object({
-  name: z.string().optional(),
+  businessName: z.string().optional(),
+  description: z.string().optional(),
   address: z.string().optional(),
-  dob: z.string().optional(),
-  location: locationSchema.optional(),
-  gender: z.string().optional(),
+  experience: z.string().optional(),
+  socialLinks: socialLinksSchema.optional(),
 });
 
 export const partialProfessionalBusinessSchema =

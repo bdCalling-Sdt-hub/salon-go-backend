@@ -6,6 +6,9 @@ import { IProfessional } from './professional.interface';
 import { Mongoose, Types } from 'mongoose';
 import { User } from '../user/user.model';
 import { IUser } from '../user/user.interface';
+import { uploadToCloudinary } from '../../../utils/cloudinary';
+import { StatusCodes } from 'http-status-codes';
+import ApiError from '../../../errors/ApiError';
 export const buildRangeFilter = (field: string, min?: number, max?: number) => {
   const rangeFilter: any = {};
   if (min !== undefined) rangeFilter.$gte = min;
@@ -52,6 +55,18 @@ export const handleObjectUpdate = (
   return updatedData;
 };
 
+export const uploadImageAndHandleRollback = async (
+  image: any,
+  folder: string,
+  type: 'raw' | 'image',
+) => {
+  const uploadedImage = await uploadToCloudinary(image, folder, type);
+  if (!uploadedImage || uploadedImage.length === 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, `Failed to upload ${type}.`);
+  }
+  return uploadedImage[0];
+};
+
 export function getNextOnboardingStep(professional: IProfessional): string {
   console.log(professional);
   if (!professional.serviceType) {
@@ -94,7 +109,7 @@ export function getNextOnboardingStep(professional: IProfessional): string {
   if (!professional.address) {
     return 'address';
   }
-
+  console.log(professional);
   if (!professional.scheduleId) {
     return 'schedule';
   }

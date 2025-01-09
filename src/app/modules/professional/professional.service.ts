@@ -9,6 +9,7 @@ import { Professional } from './professional.model';
 import { Service } from '../service/service.model';
 import getNextOnboardingStep, {
   handleObjectUpdate,
+  uploadImageAndHandleRollback,
 } from './professional.utils';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { QueryHelper } from '../../../utils/queryHelper';
@@ -27,9 +28,9 @@ const updateProfessionalProfile = async (
   user: JwtPayload,
   payload: Partial<IProfessional & IUser>,
 ) => {
-  const { name, profile, socialLinks, ...restData } = payload;
+  const { profile, KBIS, ID, socialLinks, ...restData } = payload;
 
-  const userExist = await Professional.findById({ _id: user.userId }).populate<{
+  const userExist = await Professional.findById(user.userId).populate<{
     auth: IUser;
   }>({ path: 'auth', select: { profile: 1 } });
   if (!userExist) {
@@ -40,73 +41,75 @@ const updateProfessionalProfile = async (
   session.startTransaction();
 
   try {
-    // 🖼️ Handle image upload if profile exists
+    // 🖼️ Handle profile image upload
     let uploadedImageUrl: string | null = null;
     if (profile) {
-      const { path } = profile as any;
-      const uploadedImage = await uploadToCloudinary(
-        path,
+      uploadedImageUrl = await uploadImageAndHandleRollback(
+        profile,
         'professional',
         'image',
       );
-
-      if (!uploadedImage || uploadedImage.length === 0) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to upload image.');
-      }
-      uploadedImageUrl = uploadedImage[0];
     }
-    // 📝 Update User Profile
 
-    if (name || uploadedImageUrl) {
+    // 📝 Update User Profile
+    if (uploadedImageUrl) {
       const userUpdateResult = await User.findByIdAndUpdate(
         { _id: user.id },
-        {
-          $set: {
-            ...(name && { name: name }),
-            ...(uploadedImageUrl && { profile: uploadedImageUrl }),
-          },
-        },
+        { $set: { profile: uploadedImageUrl } },
         { new: true, session },
       );
-      console.log(userUpdateResult, 'userUpdate');
-      // Rollback uploaded image if User update fails
-      if (userUpdateResult?.profile !== uploadedImageUrl || !userUpdateResult) {
-        if (uploadedImageUrl) {
-          console.log(
-            uploadedImageUrl,
-            userUpdateResult?.profile,
-            !userUpdateResult,
-          );
-          await deleteResourcesFromCloudinary(uploadedImageUrl, 'image', true);
-        }
+      if (!userUpdateResult?.profile) {
+        await deleteResourcesFromCloudinary(uploadedImageUrl, 'image', true);
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
           'Failed to update user profile.',
         );
       }
-      //remove old image from cloudinary
+
+      // Remove old image from cloudinary
       const { profile: oldProfile } = userExist.auth;
-      console.log(oldProfile, 'oldProfile', uploadedImageUrl);
       if (oldProfile && uploadedImageUrl) {
-        console.log(oldProfile, uploadedImageUrl);
         await deleteResourcesFromCloudinary(oldProfile, 'image', true);
       }
     }
 
     // 📝 Update Professional Profile
-    let updatedData = { ...restData };
-    if (socialLinks && Object.keys(socialLinks).length > 0) {
-      updatedData = handleObjectUpdate(socialLinks, updatedData, 'socialLinks');
+    let updatedData: Partial<IProfessional & { KBIS?: string }> = {
+      ...restData,
+    };
+    if (socialLinks) {
+      updatedData.socialLinks = socialLinks;
     }
 
-    // Update the `Professional` profile
+    // Handle KBIS and ID uploads
+    if (KBIS) {
+      updatedData.KBIS = await uploadImageAndHandleRollback(
+        KBIS,
+        'professional/kbis',
+        'image',
+      );
+    }
+    if (ID) {
+      updatedData.ID = await uploadImageAndHandleRollback(
+        ID,
+        'professional/id',
+        'image',
+      );
+    }
+
+    // Update the Professional profile
     const result = await Professional.findByIdAndUpdate(
-      { _id: user.userId },
-      { $set: { ...updatedData } },
+      user.userId,
+      { $set: updatedData },
       { new: true, session },
     );
-
     if (!result) {
+      if (updatedData.KBIS) {
+        await deleteResourcesFromCloudinary(updatedData.KBIS, 'image', true);
+      }
+      if (updatedData.ID) {
+        await deleteResourcesFromCloudinary(updatedData.ID, 'image', true);
+      }
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update profile!');
     }
 
@@ -118,9 +121,8 @@ const updateProfessionalProfile = async (
   } catch (error) {
     // ❌ Rollback the transaction on failure
     await session.abortTransaction();
-    throw error;
-  } finally {
     session.endSession();
+    throw error;
   }
 };
 
@@ -166,13 +168,18 @@ const getProfessionalProfile = async (
 ): Promise<IProfessional | null> => {
   const result = await Professional.findById({
     _id: user.userId,
-  }).populate<{ auth: Partial<IUser> }>('auth', {
-    name: 1,
-    email: 1,
-    role: 1,
-    profile: 1,
-    status: 1,
-  });
+  })
+    .populate<{ auth: Partial<IUser> }>('auth', {
+      name: 1,
+      email: 1,
+      role: 1,
+      profile: 1,
+      status: 1,
+    })
+    .populate('categories', { name: 1 })
+    .populate('subCategories', { name: 1 })
+    .lean();
+
   if (!result) {
     throw new ApiError(
       StatusCodes.NOT_FOUND,
@@ -233,7 +240,7 @@ const getAllProfessional = async (
     maxPrice,
     city,
   } = filterOptions;
-  console.log(filterOptions);
+
   const anyCondition: any[] = [];
   if (searchTerm) {
     const regex = new RegExp(searchTerm, 'i');
@@ -282,7 +289,7 @@ const getAllProfessional = async (
     if (subSubCategory) {
       filterConditions.push({ subSubCategory: subSubCategory });
     }
-    console.log(filterConditions);
+
     const servicesWithConditions = await Service.find(
       { $or: filterConditions },
       {
@@ -393,80 +400,84 @@ const managePortfolio = async (
   user: JwtPayload,
   portfolioImage: { path: string; link?: string } | null,
   removedImages: string[] | [],
+  updatedImage?: { url: string; link: string },
 ) => {
+  console.log(portfolioImage, removedImages, updatedImage);
   const session = await Professional.startSession();
   session.startTransaction();
-
   try {
-    // 🖼️ Upload New Portfolio Image
-    let uploadedImage: { path: string; link?: string } | null = null;
-    if (portfolioImage?.path) {
-      const uploadedImages = await uploadToCloudinary(
-        portfolioImage.path,
-        'portfolio',
-        'image',
+    if (updatedImage && removedImages.length === 0 && !portfolioImage) {
+      //find the updatedImage and update that particular image link
+      await Professional.updateOne(
+        { _id: user.userId, 'portfolio.path': updatedImage.url },
+        { 'portfolio.$.link': updatedImage.link || undefined },
       );
+      console.log(removedImages);
+    } else {
+      // 🖼️ Upload New Portfolio Image
+      let uploadedImage: { path: string; link?: string } | null = null;
+      if (portfolioImage?.path) {
+        const uploadedImages = await uploadToCloudinary(
+          portfolioImage.path,
+          'portfolio',
+          'image',
+        );
 
-      if (uploadedImages && uploadedImages.length > 0) {
-        uploadedImage = {
-          path: uploadedImages[0],
-          link: portfolioImage.link || undefined,
-        };
-      } else {
+        if (uploadedImages && uploadedImages.length > 0) {
+          uploadedImage = {
+            path: uploadedImages[0],
+            link: portfolioImage.link || undefined,
+          };
+        } else {
+          throw new ApiError(
+            StatusCodes.BAD_REQUEST,
+            'Failed to upload image to Cloudinary',
+          );
+        }
+      }
+
+      // 🗑️ Delete Removed Images
+      console.log(removedImages);
+      if (removedImages.length > 0) {
+        await deleteResourcesFromCloudinary(removedImages, 'image', true);
+      }
+
+      let result;
+      if (removedImages.length > 0) {
+        result = await Professional.updateOne(
+          { _id: user.userId },
+          { $pull: { portfolio: { path: { $in: removedImages } } } },
+          { session },
+        );
+      }
+
+      if (uploadedImage) {
+        result = await Professional.updateOne(
+          { _id: user.userId },
+          { $push: { portfolio: uploadedImage } },
+          { session },
+        );
+      }
+
+      if (!result) {
+        // Rollback uploaded image if the database update fails
+        if (uploadedImage) {
+          await deleteResourcesFromCloudinary(
+            [uploadedImage.path],
+            'image',
+            true,
+          );
+        }
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
-          'Failed to upload image to Cloudinary',
+          'Could not update portfolio, please try again',
         );
       }
-    }
-
-    // 🗑️ Delete Removed Images
-    if (removedImages.length > 0) {
-      console.log(removedImages);
-      await deleteResourcesFromCloudinary(removedImages, 'image', true);
-    }
-
-    // 📝 Update Portfolio in Database
-    const updateQuery: any = {};
-
-    if (uploadedImage) {
-      updateQuery.$push = {
-        portfolio: uploadedImage,
-      };
-    }
-
-    if (removedImages.length > 0) {
-      updateQuery.$pull = {
-        portfolio: {
-          path: { $in: removedImages },
-        },
-      };
-    }
-
-    const result = await Professional.findOneAndUpdate(
-      { _id: user.userId },
-      updateQuery,
-      { new: true, session },
-    );
-
-    if (!result) {
-      // Rollback uploaded image if the database update fails
-      if (uploadedImage) {
-        await deleteResourcesFromCloudinary(
-          [uploadedImage.path],
-          'image',
-          true,
-        );
-      }
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Could not update portfolio, please try again',
-      );
     }
 
     // ✅ Commit Transaction
     await session.commitTransaction();
-    return result;
+    return 'Portfolio updated successfully';
   } catch (error) {
     // ❌ Rollback Transaction
     await session.abortTransaction();
