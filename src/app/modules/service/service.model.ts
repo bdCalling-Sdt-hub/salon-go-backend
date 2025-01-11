@@ -32,4 +32,16 @@ const serviceSchema = new Schema<IService, ServiceModel>(
   },
 );
 
+serviceSchema.index({ title: 'text', description: 'text' });
+
+serviceSchema.index({ category: 1 });
+serviceSchema.index({ subCategory: 1 });
+serviceSchema.index({ subSubCategory: 1 });
+serviceSchema.index({
+  createdBy: 1,
+  category: 1,
+  subCategory: 1,
+  subSubCategory: 1,
+});
+
 export const Service = model<IService, ServiceModel>('Service', serviceSchema);

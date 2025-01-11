@@ -10,7 +10,7 @@ const router = express.Router();
 
 router.post(
   '/category',
-  // auth(USER_ROLES.ADMIN),
+  auth(USER_ROLES.ADMIN),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
     if (req.body.data) {
@@ -25,7 +25,7 @@ router.post(
 
 router.patch(
   '/category/:id',
-  // auth(USER_ROLES.ADMIN),
+  auth(USER_ROLES.ADMIN),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
     if (req.body.data) {
@@ -48,16 +48,30 @@ router.delete(
 
 router.post(
   '/sub-category',
-  // auth(USER_ROLES.ADMIN),
-  validateRequest(CategoriesValidations.createSubCategorySchema),
-  CategoriesController.createSubCategory,
+  fileUploadHandler(),
+  (req: Request, res: Response, next: NextFunction) => {
+    if (req.body.data) {
+      req.body = CategoriesValidations.createSubCategorySchema.parse(
+        JSON.parse(req.body.data),
+      );
+    }
+
+    return CategoriesController.createSubCategory(req, res, next);
+  },
 );
 
 router.patch(
   '/sub-category/:id',
-  // auth(USER_ROLES.ADMIN),
-  validateRequest(CategoriesValidations.updateSubCategorySchema),
-  CategoriesController.updateSubCategory,
+  fileUploadHandler(),
+  (req: Request, res: Response, next: NextFunction) => {
+    if (req.body.data) {
+      req.body = CategoriesValidations.updateSubCategorySchema.parse(
+        JSON.parse(req.body.data),
+      );
+    }
+
+    return CategoriesController.createSubCategory(req, res, next);
+  },
 );
 
 router.delete(
@@ -86,6 +100,11 @@ router.delete(
   '/sub-sub-category/:id',
   // auth(USER_ROLES.ADMIN),
   CategoriesController.deleteSubSubCategory,
+);
+
+router.get(
+  '/category-list',
+  CategoriesController.getCategoryForProfessionalUpdate,
 );
 
 //manage add and remove sub category and sub sub category
@@ -121,6 +140,15 @@ router.patch(
   CategoriesController.removeSubSubCategoryFromSubCategory,
 );
 
+router.get(
+  '/all',
+  // auth(USER_ROLES.ADMIN),
+  CategoriesController.getAllCategories,
+);
+
+router.get('/sub-categories', CategoriesController.getAllSubCategories);
+
+router.get('/sub-sub-categories', CategoriesController.getAllSubSubCategories);
 //filter categories
 router.get('/', CategoriesController.filterCategories);
 

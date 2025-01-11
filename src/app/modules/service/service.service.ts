@@ -25,13 +25,10 @@ const updateServiceToDB = async (
   id: string,
   payload: Partial<IService>,
 ) => {
-  const [isUserExist, isServiceExist] = await Promise.all([
-    User.findById({ _id: user.id, status: 'active' }),
-    Service.findById({ _id: id, createdBy: user.id }),
-  ]);
-  if (!isUserExist) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'Your account is not active');
-  }
+  const isServiceExist = await Service.findById({
+    _id: id,
+    createdBy: user.userId,
+  });
 
   if (!isServiceExist) {
     throw new ApiError(
@@ -40,9 +37,13 @@ const updateServiceToDB = async (
     );
   }
 
-  const result = await Service.findOneAndUpdate({ _id: id }, payload, {
-    new: true,
-  });
+  const result = await Service.findOneAndUpdate(
+    { _id: id },
+    { $set: { ...payload } },
+    {
+      new: true,
+    },
+  );
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update service');
   }
@@ -50,13 +51,10 @@ const updateServiceToDB = async (
 };
 
 const deleteServiceFromDB = async (user: JwtPayload, id: string) => {
-  const [isUserExist, isServiceExist] = await Promise.all([
-    User.findById({ _id: user.id, status: 'active' }),
-    Service.findById({ _id: id, createdBy: user.id }),
-  ]);
-  if (!isUserExist) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found!');
-  }
+  const isServiceExist = await Service.findById({
+    _id: id,
+    createdBy: user.userId,
+  });
 
   if (!isServiceExist) {
     throw new ApiError(
@@ -85,14 +83,14 @@ const getServicesByProfessionalIdFromDB = async (id: string) => {
     .populate({
       path: 'category',
       select: { name: 1 },
-      populate: {
-        path: 'subCategories',
-        select: { name: 1 },
-        populate: {
-          path: 'subSubCategories',
-          select: { name: 1 },
-        },
-      },
+    })
+    .populate({
+      path: 'subCategory',
+      select: { name: 1 },
+    })
+    .populate({
+      path: 'subSubCategory',
+      select: { name: 1 },
     });
 
   if (!result) {

@@ -7,23 +7,61 @@ import {
 } from './categories.interface';
 import { Category, SubCategory, SubSubCategory } from './categories.model';
 import mongoose, { Types } from 'mongoose';
+import {
+  deleteResourcesFromCloudinary,
+  uploadToCloudinary,
+} from '../../../utils/cloudinary';
 
 const getAllCategories = async (): Promise<ICategory[]> => {
   const result = await Category.find()
-    .populate('subCategories')
     .populate({
       path: 'subCategories',
-      populate: { path: 'subSubCategories' },
-    });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get categories');
-  }
+      select: '_id name',
+      populate: {
+        path: 'subSubCategories',
+        select: '_id name',
+      },
+    })
+    .exec();
+
+  return result;
+};
+
+const getAllSubCategories = async (): Promise<ISubCategory[]> => {
+  const result = await SubCategory.find()
+    .populate({ path: 'subSubCategories', select: '_id name' })
+    .exec();
+  return result;
+};
+
+const getAllSubSubCategories = async (): Promise<ISubSubCategory[]> => {
+  const result = await SubSubCategory.find().exec();
   return result;
 };
 
 const createCategoryToDB = async (payload: ICategory): Promise<ICategory> => {
+  if (payload.image) {
+    const uploadedImage = await uploadToCloudinary(
+      payload.image,
+      'categories',
+      'image',
+    );
+
+    if (!uploadedImage) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to upload image to Cloudinary',
+      );
+    }
+
+    payload.image = uploadedImage[0];
+  }
+
   const result = await Category.create(payload);
   if (!result) {
+    if (payload.image) {
+      await deleteResourcesFromCloudinary(payload.image, 'image', true);
+    }
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create category');
   }
   return result;
@@ -33,28 +71,76 @@ const updateCategoryToDB = async (
   id: string,
   payload: Partial<ICategory>,
 ): Promise<ICategory> => {
-  const result = await Category.findOneAndUpdate({ _id: id }, payload, {
-    new: true,
-  });
+  if (payload.image) {
+    const uploadedImage = await uploadToCloudinary(
+      payload.image,
+      'categories',
+      'image',
+    );
+
+    if (!uploadedImage) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to upload image to Cloudinary',
+      );
+    }
+
+    payload.image = uploadedImage[0];
+  }
+
+  const result = await Category.findOneAndUpdate(
+    { _id: id },
+    { $set: { ...payload } },
+    {
+      new: true,
+    },
+  );
   if (!result) {
+    if (payload.image) {
+      await deleteResourcesFromCloudinary(payload.image, 'image', true);
+    }
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update category');
   }
   return result;
 };
 
-const deleteCategoryToDB = async (id: string): Promise<ICategory> => {
+const deleteCategoryToDB = async (id: string): Promise<string> => {
   const result = await Category.findOneAndDelete({ _id: id });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete category');
   }
-  return result;
+
+  await deleteResourcesFromCloudinary(result.image, 'image', true);
+
+  return 'Category deleted successfully';
 };
 
 const createSubCategoryToDB = async (
   payload: ISubCategory,
 ): Promise<ISubCategory> => {
+  if (payload.image) {
+    const uploadedImage = await uploadToCloudinary(
+      payload.image,
+      'subCategories',
+      'image',
+    );
+
+    if (!uploadedImage) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to upload image to Cloudinary',
+      );
+    }
+
+    payload.image = uploadedImage[0];
+  }
+
   const newSubCategory = await SubCategory.create([payload]);
   if (!newSubCategory?.length) {
+    if (payload.image) {
+      await deleteResourcesFromCloudinary(payload.image, 'image', true);
+    }
+
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Failed to create sub category',
@@ -67,10 +153,31 @@ const updateSubCategoryToDB = async (
   id: string,
   payload: Partial<ISubCategory>,
 ): Promise<ISubCategory> => {
+  if (payload.image) {
+    const uploadedImage = await uploadToCloudinary(
+      payload.image,
+      'subCategories',
+      'image',
+    );
+
+    if (!uploadedImage) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to upload image to Cloudinary',
+      );
+    }
+
+    payload.image = uploadedImage[0];
+  }
+
   const result = await SubCategory.findOneAndUpdate({ _id: id }, payload, {
     new: true,
   });
   if (!result) {
+    if (payload.image) {
+      await deleteResourcesFromCloudinary(payload.image, 'image', true);
+    }
+
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Failed to update sub category',
@@ -79,9 +186,7 @@ const updateSubCategoryToDB = async (
   return result;
 };
 
-export const deleteSubCategoryToDB = async (
-  id: string,
-): Promise<ISubCategory | null> => {
+export const deleteSubCategoryToDB = async (id: string): Promise<string> => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
@@ -107,9 +212,9 @@ export const deleteSubCategoryToDB = async (
         'Failed to delete subCategory',
       );
     }
-
+    await deleteResourcesFromCloudinary(subCategory.image, 'image', true);
     await session.commitTransaction();
-    return subCategory;
+    return 'Sub Category deleted successfully';
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -134,8 +239,8 @@ const createSubSubCategoryToDB = async (
 const updateSubSubCategoryToDB = async (
   id: string,
   payload: Partial<ISubSubCategory>,
-): Promise<ISubCategory> => {
-  const result = await SubCategory.findOneAndUpdate({ _id: id }, payload, {
+): Promise<ISubSubCategory> => {
+  const result = await SubSubCategory.findOneAndUpdate({ _id: id }, payload, {
     new: true,
   });
   if (!result) {
@@ -147,9 +252,7 @@ const updateSubSubCategoryToDB = async (
   return result;
 };
 
-export const deleteSubSubCategoryToDB = async (
-  id: string,
-): Promise<ISubSubCategory | null> => {
+export const deleteSubSubCategoryToDB = async (id: string): Promise<string> => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
@@ -164,13 +267,6 @@ export const deleteSubSubCategoryToDB = async (
       { new: true, session },
     );
 
-    if (!subCategory) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'SubCategory not associated with any Category',
-      );
-    }
-
     const subSubCategory = await SubSubCategory.findOneAndDelete(
       { _id: id },
       { session },
@@ -184,7 +280,7 @@ export const deleteSubSubCategoryToDB = async (
     }
 
     await session.commitTransaction();
-    return subCategory;
+    return 'Sub Sub Category deleted successfully';
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -360,8 +456,34 @@ export const filterCategories = async (
   }
 };
 
+const getCategoryForProfessionalUpdateFromDB = async (categoryId?: string) => {
+  if (categoryId) {
+    const result = await Category.findOne(
+      { _id: categoryId },
+      { name: 1, image: 1, _id: 1 },
+    )
+      .populate('subCategories', {
+        name: 1,
+        _id: 1,
+      })
+      .lean();
+    if (!result) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get categories');
+    }
+    return result;
+  }
+  const result = await Category.find({}, { name: 1, image: 1, _id: 1 }).lean();
+
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get categories');
+  }
+  return result;
+};
+
 export const CategoriesServices = {
   getAllCategories,
+  getAllSubCategories,
+  getAllSubSubCategories,
   createCategoryToDB,
   updateCategoryToDB,
   deleteCategoryToDB,
@@ -371,6 +493,7 @@ export const CategoriesServices = {
   createSubSubCategoryToDB,
   updateSubSubCategoryToDB,
   deleteSubSubCategoryToDB,
+  getCategoryForProfessionalUpdateFromDB,
   //manage add and remove sub category and sub sub category
   addSubCategoryToCategory,
   removeSubCategoryFromCategory,
@@ -379,4 +502,6 @@ export const CategoriesServices = {
 
   //filter categories
   filterCategories,
+
+  //get category for professional update
 };

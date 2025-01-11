@@ -1,3 +1,13 @@
-import { zod } from 'zod';
+import { z } from 'zod';
 
-export const BookmarkValidations = {  };
+const addOrRemoveBookMarkZodSchema = z.object({
+  body: z.object({
+    professional: z.string({
+      required_error: 'Professional ID is required',
+    }),
+  }),
+});
+
+export const BookmarkValidation = {
+  addOrRemoveBookMarkZodSchema,
+};

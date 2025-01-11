@@ -2,6 +2,7 @@ import { SubCategory } from './../categories/categories.model';
 import { Model, Types } from 'mongoose';
 
 export type IService = {
+  _id: Types.ObjectId;
   title: string;
   description: string;
   createdBy: Types.ObjectId;
@@ -13,6 +14,8 @@ export type IService = {
   duration: number;
   price: number;
   discount: number;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type ServiceModel = Model<IService>;

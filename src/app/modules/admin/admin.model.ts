@@ -5,11 +5,7 @@ const adminSchema = new Schema<IAdmin, AdminModel>(
   {
     auth: {
       type: Schema.Types.ObjectId,
-      ref: 'Auth',
-    },
-    profile: {
-      type: String,
-      default: 'https://cdn-icons-png.flaticon.com/512/1253/1253756.png',
+      ref: 'User',
     },
     address: {
       type: String,

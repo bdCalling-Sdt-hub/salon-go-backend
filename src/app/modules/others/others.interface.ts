@@ -1,18 +1,19 @@
 import { Model, Types } from 'mongoose';
+import { USER_ROLES } from '../../../enums/user';
 
 export type IPrivacyPolicy = {
   content: string;
-  userType: 'USER' | 'PROFESSIONAL';
+  userType: USER_ROLES.USER | USER_ROLES.PROFESSIONAL;
 };
 
 export type ITermsAndConditions = {
   content: string;
-  userType: 'USER' | 'PROFESSIONAL';
+  userType: USER_ROLES.USER | USER_ROLES.PROFESSIONAL;
 };
 
 export type IFaQs = {
   content: string;
-  userType: 'USER' | 'PROFESSIONAL';
+  userType: USER_ROLES.USER | USER_ROLES.PROFESSIONAL;
 };
 
 export type IBanner = {

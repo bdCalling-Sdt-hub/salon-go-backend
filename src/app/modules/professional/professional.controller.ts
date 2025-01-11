@@ -10,24 +10,28 @@ import sendResponse from '../../../shared/sendResponse';
 import { professionalFilterableFields } from './professional.constants';
 import { IProfessional } from './professional.interface';
 import { ProfessionalService } from './professional.service';
+import { Types } from 'mongoose';
 
 const updateProfessionalProfile = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
+    const updatedData = req.body;
 
-    let profileImg;
     if (req.files && 'image' in req.files && req.files.image[0]) {
-      profileImg = `/images/${req.files.image[0].filename}`;
+      updatedData.profile = req.files.image[0].path;
     }
 
-    const data = {
-      profileImg,
-      ...req.body,
-    };
+    if (req.files && 'ID' in req.files && req.files.ID[0]) {
+      updatedData.ID = req.files.ID[0].path;
+    }
+
+    if (req.files && 'KIBIS' in req.files && req.files.KBIS[0]) {
+      updatedData.KBIS = req.files.KBIS[0].path;
+    }
 
     const result = await ProfessionalService.updateProfessionalProfile(
       user,
-      data,
+      updatedData,
     );
 
     sendResponse(res, {
@@ -39,15 +43,73 @@ const updateProfessionalProfile = catchAsync(
   },
 );
 
+//portfolio
+
+const managePortfolio = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user;
+  const { removedImages, updatedImage, link } = req.body;
+
+  // Handle Single Image Upload
+  let portfolioImage: { path: string; link?: string } | null = null;
+  if (req.files && 'image' in req.files && req.files.image[0]) {
+    portfolioImage = {
+      path: `${req.files.image[0].path}`,
+      link: link || undefined,
+    };
+  }
+  // Handle Multiple Removed Images
+  const removedImagesArray: string[] = Array.isArray(removedImages)
+    ? removedImages
+    : removedImages
+    ? [removedImages]
+    : [];
+
+  let payload: { url: string; link: string } = { url: '', link: '' };
+  if (updatedImage) {
+    (payload.url = updatedImage), (payload.link = link);
+  }
+  console.log(removedImages);
+  // Call the service
+  const result = await ProfessionalService.managePortfolio(
+    user,
+    portfolioImage,
+    removedImagesArray,
+    payload,
+  );
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Portfolio updated successfully',
+    data: result,
+  });
+});
+
+const getProfessionalPortfolio = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await ProfessionalService.getProfessionalPortfolio(
+      new Types.ObjectId(id),
+    );
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Portfolio retrieved successfully',
+      data: result,
+    });
+  },
+);
+
 const getBusinessInformationForProfessional = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
-    const { ...vendorData } = req.body;
-    console.log(vendorData);
+
+    const { ...professionalData } = req.body;
+
     const result =
       await ProfessionalService.getBusinessInformationForProfessional(
         user,
-        vendorData,
+        professionalData,
       );
 
     sendResponse(res, {
@@ -74,31 +136,33 @@ const getProfessionalProfile = catchAsync(
   },
 );
 
-const deleteProfessionalProfile = catchAsync(
+const getSingleProfessional = catchAsync(
   async (req: Request, res: Response) => {
-    const user = req.user;
-    const result = await ProfessionalService.deleteProfessionalProfile(user);
+    const { id } = req.params;
+    const result = await ProfessionalService.getSingleProfessional(id);
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
-      message: 'Profile deleted successfully',
+      message: 'Professional retrieved successfully',
       data: result,
     });
   },
 );
 
-//get all vendor
+//get all professional
 const getAllProfessional = catchAsync(async (req: Request, res: Response) => {
   const filters = pick(req.query, professionalFilterableFields);
   const paginationOptions = pick(req.query, paginationFields);
+  const user = req.user;
   const result = await ProfessionalService.getAllProfessional(
     filters,
     paginationOptions,
+    user,
   );
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
-    message: 'All vendor retrieved successfully',
+    message: 'All professional retrieved successfully',
     meta: result.meta,
     data: result.data,
   });
@@ -108,6 +172,8 @@ export const ProfessionalController = {
   updateProfessionalProfile,
   getBusinessInformationForProfessional,
   getProfessionalProfile,
-  deleteProfessionalProfile,
   getAllProfessional,
+  getSingleProfessional,
+  managePortfolio,
+  getProfessionalPortfolio,
 };

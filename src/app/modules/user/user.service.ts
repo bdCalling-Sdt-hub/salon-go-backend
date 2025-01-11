@@ -7,7 +7,7 @@ import { emailTemplate } from '../../../shared/emailTemplate';
 
 import { IUser, IUserFilters } from './user.interface';
 import { User } from './user.model';
-import mongoose, { SortOrder } from 'mongoose';
+import mongoose, { SortOrder, Types } from 'mongoose';
 
 import { userSearchableFields } from './user.constants';
 import { IPaginationOptions } from '../../../types/pagination';
@@ -18,6 +18,7 @@ import { Admin } from '../admin/admin.model';
 import { Customer } from '../customer/customer.model';
 import { Professional } from '../professional/professional.model';
 import { JwtPayload } from 'jsonwebtoken';
+import { sendOtp } from '../../../helpers/twilio.helper';
 
 type IPayload = Pick<IUser, 'email' | 'password' | 'name' | 'role' | 'contact'>;
 
@@ -26,6 +27,18 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
 
   let newUserData = null;
   let createdUser;
+
+  //check if the user email exist with any active account
+  const isExistUser = await User.findOne({
+    email: user.email,
+    status: { $in: ['active', 'restricted'] },
+  });
+  if (isExistUser) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'An account with this email already exist. Please login',
+    );
+  }
 
   const session = await mongoose.startSession();
 
@@ -54,35 +67,28 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
     }
 
     newUserData = newUser[0];
-    console.log(newUserData);
 
     await session.commitTransaction();
     session.endSession();
   } catch (error) {
     await session.abortTransaction();
-    session.endSession();
+
     throw error;
+  } finally {
+    session.endSession();
   }
 
   if (newUserData) {
     newUserData = await User.findOne({ _id: newUserData._id });
   }
 
-  //send email
-  const otp = generateOTP();
-  const values = {
-    name: newUserData!.name,
-    otp: otp,
-    email: newUserData!.email!,
-  };
+  // Send OTP via Twilio
+  await sendOtp(newUserData!.contact, newUserData!._id);
 
-  const createAccountTemplate = emailTemplate.createAccount(values);
-  emailHelper.sendEmail(createAccountTemplate);
-
-  //save to DB
+  // Save OTP metadata to authentication
   const authentication = {
-    oneTimeCode: otp,
-    expireAt: new Date(Date.now() + 3 * 60000),
+    oneTimeCode: null, // OTP is saved in Otp model, not directly in User model
+    expireAt: new Date(Date.now() + 5 * 60000),
   };
   await User.findOneAndUpdate(
     { _id: newUserData!._id },
@@ -92,39 +98,17 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
   return newUserData!;
 };
 
-const updateUser = async (
-  id: string,
-  payload: Partial<IUser>,
-): Promise<IUser | null> => {
-  const isExistUser = await User.findOne({ id: id });
-  if (!isExistUser) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
-  }
-
-  const updateDoc = await User.findOneAndUpdate({ id: id }, payload, {
-    new: true,
-  });
-
-  return updateDoc;
-};
-
 const getUserProfileFromDB = async (user: JwtPayload) => {
   let userData = null;
 
-  const isUserExists = await User.findOne({ _id: user.id, status: 'active' });
-  if (!isUserExists) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
-  }
-  console.log(user.role);
-  console.log(isUserExists, 'isUserExists');
   if (user.role === USER_ROLES.ADMIN) {
-    userData = await Admin.findOne({ auth: user.id }).lean();
+    userData = await Admin.findOne({ _id: user.userId }).lean();
     if (!userData) {
       throw new ApiError(StatusCodes.NOT_FOUND, "Admin doesn't exist!");
     }
   } else if (user.role === USER_ROLES.USER) {
     userData = await Customer.findOne(
-      { auth: user.id },
+      { _id: user.userId },
       { address: 1, gender: 1, dob: 1, receivePromotionalNotification: 1 },
     )
       .populate({
@@ -136,11 +120,10 @@ const getUserProfileFromDB = async (user: JwtPayload) => {
       throw new ApiError(StatusCodes.NOT_FOUND, "Customer doesn't exist!");
     }
   } else if (user.role === USER_ROLES.PROFESSIONAL) {
-    userData = await Professional.findOne({ auth: user.id }).populate({
+    userData = await Professional.findOne({ _id: user.userId }).populate({
       path: 'auth',
       select: { name: 1, email: 1, role: 1, status: 1, needInformation: 1 },
     });
-    console.log(userData);
     if (!userData) {
       throw new ApiError(StatusCodes.NOT_FOUND, "Professional doesn't exist!");
     }
@@ -148,6 +131,9 @@ const getUserProfileFromDB = async (user: JwtPayload) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid user role!');
   }
 
+  if (!userData) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
+  }
   return userData;
 };
 
@@ -210,7 +196,7 @@ const getAllUser = async (
 };
 
 const deleteUser = async (id: string): Promise<IUser | null> => {
-  const isUserExists = await User.findOne({ id: id });
+  const isUserExists = await User.findOne({ _id: id });
   if (!isUserExists) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
@@ -218,16 +204,19 @@ const deleteUser = async (id: string): Promise<IUser | null> => {
     status: 'delete',
   };
 
-  const result = await User.findOneAndUpdate({ id: id }, updatedData, {
-    new: true,
-  });
+  const result = await User.findByIdAndUpdate(
+    { _id: id },
+    { $set: { ...updatedData } },
+    {
+      new: true,
+    },
+  );
   return result;
 };
 
 export const UserService = {
   createUserToDB,
   getUserProfileFromDB,
-  updateUser,
   getAllUser,
   deleteUser,
 };
