@@ -3,10 +3,11 @@ import { StatusCodes } from 'http-status-codes';
 import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { AuthService } from './auth.service';
+import config from '../../../config';
 
-const verifyEmail = catchAsync(async (req: Request, res: Response) => {
+const verifyEmailOrPhone = catchAsync(async (req: Request, res: Response) => {
   const { ...verifyData } = req.body;
-  const result = await AuthService.verifyEmailToDB(verifyData);
+  const result = await AuthService.verifyEmailOrPhoneToDB(verifyData);
 
   sendResponse(res, {
     success: true,
@@ -20,10 +21,9 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
   const { ...loginData } = req.body;
   const result = await AuthService.loginUserFromDB(loginData);
 
-  const { refreshToken, ...others } = result;
-
+  const { refreshToken } = result;
   const cookieOptions = {
-    secure: process.env.NODE_ENV === 'production',
+    secure: config.node_env === 'production',
     httpOnly: true,
   };
 
@@ -33,13 +33,16 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'User login successfully',
-    data: others,
+    data: result,
   });
 });
 
 const refreshToken = catchAsync(async (req: Request, res: Response) => {
-  const { refreshToken } = req.cookies;
-  const result = await AuthService.refreshToken(refreshToken);
+  const { refreshToken: cookieRefreshToken } = req.cookies;
+  const { refreshToken } = req.body;
+  const result = await AuthService.refreshToken(
+    cookieRefreshToken ? cookieRefreshToken : refreshToken,
+  );
 
   sendResponse(res, {
     success: true,
@@ -75,6 +78,7 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
 
 const resetPassword = catchAsync(async (req: Request, res: Response) => {
   const token = req.headers.authorization;
+  console.log(token);
   const { ...resetData } = req.body;
   const result = await AuthService.resetPasswordToDB(token!, resetData);
 
@@ -86,11 +90,38 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const deleteAccount = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user;
+  const { password } = req.body;
+  const result = await AuthService.deleteAccount(user, password);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Account deleted successfully',
+    data: result,
+  });
+});
+
+const verifyPhone = catchAsync(async (req: Request, res: Response) => {
+  const { ...verifyData } = req.body;
+  const result = await AuthService.verifyPhoneToDB(verifyData);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: result.message,
+    data: result.data,
+  });
+});
+
 export const AuthController = {
-  verifyEmail,
+  verifyEmailOrPhone,
   loginUser,
   refreshToken,
   forgetPassword,
   resetPassword,
   changePassword,
+  deleteAccount,
+  verifyPhone,
 };

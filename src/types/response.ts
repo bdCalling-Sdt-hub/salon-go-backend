@@ -17,5 +17,6 @@ export type IRefreshTokenResponse = {
 export type ILoginResponse = {
   accessToken: string;
   refreshToken: string;
+  nextStep?: string;
   role: string;
 };

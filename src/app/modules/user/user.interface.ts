@@ -3,15 +3,17 @@ import { Model, Types } from 'mongoose';
 import { USER_ROLES } from '../../../enums/user';
 
 export type IUser = {
+  _id: Types.ObjectId;
   name: string;
   email: string;
   contact: string;
+  profile: string;
   password: string;
   role: USER_ROLES;
   status: 'active' | 'restricted' | 'delete';
-  needInformation: boolean;
   verified: boolean;
-  termsAndCondition: boolean;
+  wrongLoginAttempts: number;
+  restrictionLeftAt: Date | null;
   appId: string;
   authentication?: {
     passwordChangedAt: Date;
@@ -19,6 +21,8 @@ export type IUser = {
     oneTimeCode: number;
     expireAt: Date;
   };
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type IUserFilters = {
@@ -29,8 +33,7 @@ export type IUserFilters = {
   role?: USER_ROLES;
   status?: 'active' | 'restricted' | 'delete';
   verified?: boolean;
-  termsAndCondition?: boolean;
-  needInformation?: boolean;
+
   appId?: string;
 };
 

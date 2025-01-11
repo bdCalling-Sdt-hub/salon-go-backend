@@ -7,31 +7,7 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
       type: Schema.Types.ObjectId,
       ref: 'User',
     },
-    // address: {
-    //   _id: false,
-    //   type: {
-    //     street: {
-    //       type: String,
-    //       required: true,
-    //     },
-    //     city: {
-    //       type: String,
-    //       required: true,
-    //     },
-    //     state: {
-    //       type: String,
-    //       required: true,
-    //     },
-    //     zip: {
-    //       type: String,
-    //       required: true,
-    //     },
-    //     country: {
-    //       type: String,
-    //       required: true,
-    //     },
-    //   },
-    // },
+
     address: {
       type: String,
     },
@@ -46,10 +22,6 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
     dob: {
       type: String,
     },
-    profile: {
-      type: String,
-      default: 'https://cdn-icons-png.flaticon.com/512/1253/1253756.png',
-    },
     receivePromotionalNotification: {
       type: Boolean,
       default: false,
@@ -59,6 +31,10 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
     timestamps: true,
   },
 );
+
+customerSchema.index({ location: '2dsphere' });
+
+customerSchema.index({ auth: 1 });
 
 export const Customer = model<ICustomer, CustomerModel>(
   'Customer',

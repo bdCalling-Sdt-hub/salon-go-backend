@@ -3,18 +3,17 @@ import { Customer } from './customer.model';
 import ApiError from '../../../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
 import { User } from '../user/user.model';
-import { IPaginationOptions } from '../../../types/pagination';
-import { paginationHelper } from '../../../helpers/paginationHelper';
-import { IGenericResponse } from '../../../types/response';
 import { ICustomer } from './customer.interface';
-import { handleObjectUpdate } from '../../../utils/handleObjectUpdate';
 import { JwtPayload } from 'jsonwebtoken';
+import { IUser } from '../user/user.interface';
+import {
+  deleteResourcesFromCloudinary,
+  uploadToCloudinary,
+} from '../../../utils/cloudinary';
 
 const getCustomerProfile = async (user: JwtPayload) => {
-  // const customerId = new Types.ObjectId(user.id);
-
-  const isUserExist = await Customer.findOne(
-    { auth: user.id },
+  const isUserExist = await Customer.findById(
+    { _id: user.userId },
     { address: 1, gender: 1, dob: 1 },
   ).populate({
     path: 'auth',
@@ -23,120 +22,145 @@ const getCustomerProfile = async (user: JwtPayload) => {
       email: 1,
       role: 1,
       status: 1,
+      profile: 1,
     },
   });
 
   if (!isUserExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Customer doesn't exist!");
   }
-  //@ts-ignore
-  if (isUserExist?.auth?.status === 'delete') {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Customer profile has been deleted',
-    );
-  }
 
   return isUserExist;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const updateCustomerProfile = async (id: Types.ObjectId, payload: any) => {
-  // const { address, ...restData } = payload;
-  // let updatedData = { ...restData };
-  // if (address && Object.keys(address).length > 0) {
-  //   updatedData = handleObjectUpdate(address, restData, 'address');
-  // }
+const updateCustomerProfile = async (
+  user: JwtPayload,
+  payload: Partial<ICustomer & IUser>,
+) => {
+  const session = await User.startSession();
+  session.startTransaction();
 
-  const isUserExist = await User.findById(id);
-  if (!isUserExist) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
-  }
-  const result = await Customer.findOneAndUpdate({ auth: id }, payload, {
-    new: true,
-  });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update customer');
-  }
-  return result;
-};
+  const { name, profile, ...restData } = payload;
 
-const deleteCustomerProfile = async (id: Types.ObjectId) => {
-  const isUserExist = await User.findById(id);
-  if (!isUserExist) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
-  }
-  const result = await User.findByIdAndUpdate(
-    { _id: id },
-    { status: 'delete' },
-  );
+  const { path } = profile as any;
 
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete customer');
-  }
-  return 'Profile deleted successfully';
-};
-
-//Not needed for now
-const getAllCustomer = async (
-  paginationOption: IPaginationOptions,
-): Promise<IGenericResponse<ICustomer[]>> => {
-  const { limit, page, skip, sortBy, sortOrder } =
-    paginationHelper.calculatePagination(paginationOption);
-
-  const result = await Customer.find({})
-    .populate('auth')
-    .skip(skip)
-    .limit(limit)
-    .sort({ [sortBy]: sortOrder });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get all customer');
-  }
-  const total = await Customer.countDocuments();
-  return {
-    meta: {
-      total: total,
-      page,
-      totalPage: Math.ceil(total / limit),
-      limit,
+  const userExist = await Customer.findById(user.userId).populate<{
+    auth: IUser;
+  }>({
+    path: 'auth',
+    select: {
+      profile: 1,
     },
-    data: result,
-  };
+  });
+
+  if (!userExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Customer doesn't exist!");
+  }
+
+  try {
+    // 🖼️ Handle image upload if profile exists
+    let uploadedImageUrl: string | null = null;
+    if (path) {
+      const uploadedImage = await uploadToCloudinary(path, 'customer', 'image');
+
+      if (!uploadedImage || uploadedImage.length === 0) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to upload image.');
+      }
+
+      uploadedImageUrl = uploadedImage[0];
+    }
+
+    // 📝 Update User Profile
+    if (name || uploadedImageUrl) {
+      const userUpdateResult = await User.findByIdAndUpdate(
+        { _id: user.id },
+        {
+          $set: {
+            ...(name && { name }),
+            ...(uploadedImageUrl && { profile: uploadedImageUrl }),
+          },
+        },
+        { new: true, session },
+      );
+
+      // Rollback uploaded image if User update fails
+      if (!userUpdateResult || userUpdateResult.profile !== uploadedImageUrl) {
+        if (uploadedImageUrl) {
+          await deleteResourcesFromCloudinary(uploadedImageUrl, 'image', true);
+        }
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'Failed to update user profile.',
+        );
+      }
+
+      //delete the previous image from cloudinary
+      const { profile: oldProfile } = userExist.auth;
+      if (oldProfile) {
+        await deleteResourcesFromCloudinary(
+          userExist.auth.profile,
+          'image',
+          true,
+        );
+      }
+    }
+
+    // 📝 Update Customer Profile
+    const customerUpdateResult = await Customer.findByIdAndUpdate(
+      { _id: user.userId },
+      restData,
+      { new: true, session },
+    );
+
+    if (!customerUpdateResult) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to update customer profile.',
+      );
+    }
+
+    // ✅ Commit the transaction if everything is successful
+    await session.commitTransaction();
+    session.endSession();
+
+    return customerUpdateResult;
+  } catch (error) {
+    // ❌ Rollback the transaction on failure
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 };
 
 const getSingleCustomer = async (id: string) => {
-  const isDeleted = await User.findOne({ _id: id, status: 'delete' });
-  if (isDeleted) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'User has been deleted');
-  }
-
-  const result = await Customer.findOne(
-    { _id: id },
-    {
-      address: 1,
-      gender: 1,
-      dob: 1,
-      receivePromotionalNotification: 1,
-    },
-  ).populate({
+  const customer = await Customer.findById(id).populate<{ auth: IUser }>({
     path: 'auth',
     select: {
       name: 1,
       email: 1,
-      role: 1,
+      profile: 1,
       status: 1,
     },
   });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get customer');
+
+  if (!customer) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Customer not found!');
   }
-  return result;
+
+  if (customer.auth.status === 'delete') {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      'Customer account has been deleted!',
+    );
+  }
+
+  return customer;
 };
 
 export const CustomerService = {
   getCustomerProfile,
   updateCustomerProfile,
-  deleteCustomerProfile,
-  getAllCustomer,
+
   getSingleCustomer,
 };

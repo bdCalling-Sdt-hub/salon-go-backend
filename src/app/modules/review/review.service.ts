@@ -48,8 +48,8 @@ const createReviewToDB = async (user: JwtPayload, payload: IReview) => {
     if (professional) {
       const newAverageRating = parseFloat(
         (
-          (professional.rating * professional.total_reviews + payload.rating) /
-          (professional.total_reviews + 1)
+          (professional.rating * professional.totalReviews + payload.rating) /
+          (professional.totalReviews + 1)
         ).toFixed(2),
       );
       console.log(newAverageRating, 'Professional');
@@ -140,8 +140,8 @@ const deleteReviewFromDB = async (id: string) => {
     if (professional) {
       const newAverageRating = parseFloat(
         (
-          (professional.rating * professional.total_reviews - result.rating) /
-          (professional.total_reviews - 1)
+          (professional.rating * professional.totalReviews - result.rating) /
+          (professional.totalReviews - 1)
         ).toFixed(2),
       );
       await Professional.findByIdAndUpdate(

@@ -4,8 +4,8 @@ import { User } from '../user/user.model';
 import ApiError from '../../../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
 import { Schedule } from './schedule.model';
-import mongoose from 'mongoose';
 import { Professional } from '../professional/professional.model';
+import { DateHelper } from '../../../utils/date.helper';
 
 const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
   const isUserExist = await User.findById({ _id: user.id, status: 'active' });
@@ -13,43 +13,32 @@ const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found!');
   }
 
-  const session = await mongoose.startSession();
   try {
-    session.startTransaction();
+    const result = await Schedule.create({
+      professional: user.userId,
+      days: data.days.map((day) => ({
+        ...day,
+        timeSlots: day.timeSlots.map((time) => {
+          //@ts-ignore
+          const timeCode = DateHelper.parseTimeTo24Hour(time); // Adjusted for plain string `time`
+          return {
+            time: time, // Original time in 12-hour format
+            timeCode: timeCode, // ISO 24-hour format
+          };
+        }),
+      })),
+    });
 
-    const result = await Schedule.create(
-      [
-        {
-          professional: user.userId,
-          days: data.days.map((day) => ({
-            ...day,
-            timeSlots: day.timeSlots.map((time) => ({
-              time: time,
-            })),
-          })),
-        },
-      ],
-      { session },
-    );
-
-    console.log(result);
-
+    // Update the professional's scheduleId
     await Professional.findOneAndUpdate(
-      { auth: user.id },
-      { schedule_id: result[0]._id },
-
+      { _id: user.userId },
+      { scheduleId: result._id },
       { new: true },
-    ).session(session);
-
-    await session.commitTransaction();
+    );
 
     return result;
   } catch (error) {
-    await session.abortTransaction();
-
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create schedule');
-  } finally {
-    session.endSession();
   }
 };
 
@@ -67,8 +56,8 @@ const updateScheduleForDaysInDB = async (
     }
 
     // Find the professional and their existing schedule
-    const professional = await Professional.findOne({ auth: user.id });
-    if (!professional || !professional.schedule_id) {
+    const professional = await Professional.findOne({ _id: user.userId });
+    if (!professional || !professional.scheduleId) {
       throw new ApiError(
         StatusCodes.NOT_FOUND,
         'Professional or schedule not found!',
@@ -76,7 +65,7 @@ const updateScheduleForDaysInDB = async (
     }
 
     // Find the schedule
-    const schedule = await Schedule.findById(professional.schedule_id);
+    const schedule = await Schedule.findById(professional.scheduleId);
     if (!schedule) {
       throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
     }
@@ -101,17 +90,19 @@ const updateScheduleForDaysInDB = async (
         dayToUpdate.endTime = updateDay.endTime;
       }
 
-      // Update or replace time slots if provided
       if (updateDay.timeSlots) {
-        dayToUpdate.timeSlots = updateDay.timeSlots.map((time) => ({
-          time,
-          isAvailable: true, // Default value
-          discount: null, // Default value
-          discountPercentage: 0, // Default value
-        }));
+        dayToUpdate.timeSlots = updateDay.timeSlots.map((time) => {
+          //@ts-ignore
+          const timeCode = DateHelper.parseTimeTo24Hour(time); // Adjusted for plain string `time`
+          return {
+            ...time, // Spread the original TimeSlots properties
+            timeCode: timeCode, // Add timeCode property
+            isAvailable: time.isAvailable ?? false, // Default value for isAvailable
+            discount: time.discount ?? [], // Default value for discounts
+          };
+        });
       }
 
-      // Replace the day with the updated data
       schedule.days[dayIndex] = dayToUpdate;
     });
 
@@ -129,14 +120,15 @@ const updateScheduleForDaysInDB = async (
 };
 
 const getTimeScheduleFromDBForProfessional = async (id: string) => {
-  const professional = await Professional.findById({ _id: id });
-  if (!professional || !professional.schedule_id) {
-    throw new ApiError(
-      StatusCodes.NOT_FOUND,
-      'Professional or schedule not found!',
-    );
+  const schedule = await Schedule.findOne({ professional: id }).lean();
+  if (!schedule) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
   }
-  const schedule = await Schedule.findById(professional.schedule_id);
+  return schedule;
+};
+
+const deleteScheduleFromDB = async (id: string) => {
+  const schedule = await Schedule.findByIdAndDelete(id);
   if (!schedule) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
   }
@@ -147,4 +139,5 @@ export const ScheduleServices = {
   createScheduleToDB,
   updateScheduleForDaysInDB,
   getTimeScheduleFromDBForProfessional,
+  deleteScheduleFromDB,
 };

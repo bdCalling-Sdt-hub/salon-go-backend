@@ -8,6 +8,9 @@ import ApiError from '../../../errors/ApiError';
 import { Chat } from '../chat/chat.model';
 import { Types } from 'mongoose';
 import { Message } from './message.model';
+import { IPaginationOptions } from '../../../types/pagination';
+import { paginationHelper } from '../../../helpers/paginationHelper';
+import { uploadToCloudinary } from '../../../utils/cloudinary';
 
 const sendMessage = async (
   user: JwtPayload,
@@ -37,13 +40,29 @@ const sendMessage = async (
   payload.receiverId = receiver._id;
 
   payload.type =
-    payload.image && payload.message
+    payload.images && payload.message
       ? 'both'
-      : payload.image
+      : payload.images
       ? 'image'
       : 'text';
 
-  // Create the message
+  if (payload.type === 'both' || payload.type === 'image') {
+    if (payload.images.length > 0) {
+      const uploadedImages = await uploadToCloudinary(
+        payload.images,
+        'message',
+        'image',
+      );
+      if (!uploadedImages || uploadedImages.length === 0) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'Failed to upload image to Cloudinary',
+        );
+      }
+      payload.images = uploadedImages;
+    }
+  }
+
   const result = await Message.create({ ...payload, chatId });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to send message.');
@@ -57,7 +76,6 @@ const sendMessage = async (
   // @ts-ignore
   global.io?.emit(`messageReceived::${chatId}`, populatedResult);
 
-  // Update the chat with latest message details
   await Chat.findByIdAndUpdate(
     payload.chatId,
     { latestMessage: result._id, latestMessageTime: new Date() },
@@ -67,7 +85,13 @@ const sendMessage = async (
   return populatedResult;
 };
 
-const getMessagesByChatId = async (chatId: string) => {
+const getMessagesByChatId = async (
+  chatId: string,
+  paginationOptions: IPaginationOptions,
+) => {
+  const { limit, page, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(paginationOptions);
+
   const result = await Message.find({ chatId })
     .populate({
       path: 'senderId',
@@ -84,12 +108,25 @@ const getMessagesByChatId = async (chatId: string) => {
 
         role: 1,
       },
-    });
+    })
+    .sort({ [sortBy]: sortOrder })
+    .skip(skip)
+    .limit(limit);
+
+  const total = await Message.countDocuments({ chatId });
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get messages.');
   }
-  return result;
+  return {
+    meta: {
+      page,
+      limit,
+      total: total,
+      totalPage: Math.ceil(total / limit),
+    },
+    data: result,
+  };
 };
 
 export const MessageService = {

@@ -7,11 +7,9 @@ const createCategorySchema = z.object({
 });
 
 const createSubCategorySchema = z.object({
-  body: z.object({
-    name: z.string().min(1, 'Name is required'),
-    description: z.string().optional(),
-    // category: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid ObjectId'),
-  }),
+  name: z.string().min(1, 'Name is required'),
+  description: z.string().optional(),
+  // category: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid ObjectId'),
 });
 
 const createSubSubCategorySchema = z.object({
@@ -27,10 +25,8 @@ const updateCategorySchema = z.object({
 });
 
 const updateSubCategorySchema = z.object({
-  body: z.object({
-    name: z.string().min(1, 'Name is required').optional(),
-    description: z.string().optional(),
-  }),
+  name: z.string().min(1, 'Name is required').optional(),
+  description: z.string().optional(),
 });
 
 const updateSubSubCategorySchema = z.object({

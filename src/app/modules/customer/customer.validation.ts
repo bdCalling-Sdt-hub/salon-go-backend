@@ -1,19 +1,9 @@
 import { z } from 'zod';
 
-const updateAddressSchema = z
-  .object({
-    street: z.string().optional(),
-    apartmentOrSuite: z.string().optional(),
-    city: z.string().optional(),
-    state: z.string().optional(),
-    zip: z.string().optional(),
-    country: z.string().default('United States').optional(),
-  })
-  .optional();
-
 const updateCustomerProfileZodSchema = z.object({
+  name: z.string().optional(),
   profile: z.string().optional(),
-  address: updateAddressSchema,
+  address: z.string().optional(),
   gender: z.string().optional(),
   dob: z.string().optional(),
   location: z
