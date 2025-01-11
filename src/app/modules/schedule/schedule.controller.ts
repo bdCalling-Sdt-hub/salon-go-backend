@@ -44,8 +44,20 @@ const getScheduleForProfessional = catchAsync(
   },
 );
 
+const deleteSchedule = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await ScheduleServices.deleteScheduleFromDB(id);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Schedule deleted successfully',
+    data: result,
+  });
+});
+
 export const ScheduleController = {
   createSchedule,
   updateSchedule,
   getScheduleForProfessional,
+  deleteSchedule,
 };

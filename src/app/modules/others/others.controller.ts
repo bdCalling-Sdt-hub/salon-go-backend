@@ -28,8 +28,20 @@ const addBanner = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getBanners = catchAsync(async (req: Request, res: Response) => {
-  const result = await OthersService.getBanners();
-  sendResponse<IBanner[] | null>(res, {
+  const user = req.user;
+  const result = await OthersService.getBanners(user);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Banner retrieved successfully',
+    data: result,
+  });
+});
+
+const getSingleBanner = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await OthersService.getSingleBanner(id);
+  sendResponse<IBanner | null>(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'Banner retrieved successfully',
@@ -158,6 +170,17 @@ const deleteFaQs = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const deleteBanner = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await OthersService.deleteBanner(id);
+  sendResponse<IBanner | null>(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Banner deleted successfully',
+    data: result,
+  });
+});
+
 export const OthersController = {
   createPrivacyPolicy,
   createTermsAndConditions,
@@ -171,4 +194,6 @@ export const OthersController = {
   addBanner,
   getBanners,
   updateBanner,
+  getSingleBanner,
+  deleteBanner,
 };

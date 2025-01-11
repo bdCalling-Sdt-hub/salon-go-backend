@@ -31,19 +31,6 @@ const getUserProfile = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const updateUser = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const data = req.body;
-  const result = await UserService.updateUser(id, data);
-
-  sendResponse(res, {
-    success: true,
-    statusCode: StatusCodes.OK,
-    message: 'User updated successfully',
-    data: result,
-  });
-});
-
 const getAllUser = catchAsync(async (req: Request, res: Response) => {
   const filters = pick(req.query, userFilterableFields);
   const paginationOptions = pick(req.query, paginationFields);
@@ -71,7 +58,6 @@ const deleteUser = catchAsync(async (req: Request, res: Response) => {
 export const UserController = {
   createUser,
   getUserProfile,
-  updateUser,
   getAllUser,
   deleteUser,
 };

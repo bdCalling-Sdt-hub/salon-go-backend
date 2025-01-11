@@ -8,18 +8,27 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       ref: 'User',
       required: true,
     },
-    business_name: {
+    businessName: {
       type: String,
     },
-    target_audience: {
+    targetAudience: {
       type: String,
       enum: ['men', 'women'],
     },
-    services_type: {
+    serviceType: {
       type: String,
       enum: ['home', 'in-place'],
     },
-    travel_fee: {
+    ID: {
+      type: String,
+    },
+    KBIS: {
+      type: String,
+    },
+    experience: {
+      type: String,
+    },
+    travelFee: {
       _id: false,
       type: {
         fee: {
@@ -30,10 +39,7 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
         },
       },
     },
-    profile: {
-      type: String,
-      default: 'https://cdn-icons-png.flaticon.com/512/1253/1253756.png',
-    },
+
     description: {
       type: String,
     },
@@ -49,7 +55,7 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: Boolean,
       default: false,
     },
-    team_size: {
+    teamSize: {
       _id: false,
       type: {
         min: {
@@ -60,7 +66,7 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
         },
       },
     },
-    schedule_id: {
+    scheduleId: {
       type: Schema.Types.ObjectId,
       ref: 'Schedule',
     },
@@ -68,29 +74,11 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: Number,
       default: 0,
     },
-    total_reviews: {
+    totalReviews: {
       type: Number,
       default: 0,
     },
 
-    // address: {
-    //   _id: false,
-    //   street: {
-    //     type: String,
-    //   },
-    //   city: {
-    //     type: String,
-    //   },
-    //   state: {
-    //     type: String,
-    //   },
-    //   zip_code: {
-    //     type: String,
-    //   },
-    //   country: {
-    //     type: String,
-    //   },
-    // },
     address: {
       type: String,
     },
@@ -98,14 +86,28 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: { type: String, default: 'Point', enum: ['Point'] },
       coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude] // Default to [0, 0] if coordinates are not provided
     },
-    informationCount: {
-      type: Number,
-      default: 0,
-    },
+
     license: {
       type: String,
     },
-    social_links: {
+    helpingTags: {
+      type: [String],
+    },
+    previouslyUsedTools: {
+      type: Boolean,
+    },
+    portfolio: {
+      _id: false,
+      type: [
+        {
+          _id: false,
+          path: { type: String, required: true },
+          link: { type: String },
+        },
+      ],
+      default: [],
+    },
+    socialLinks: {
       _id: false,
       type: {
         facebook: {
@@ -133,6 +135,16 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
 );
 professionalSchema.index({ location: '2dsphere' });
 
+professionalSchema.index({
+  businessName: 'text',
+  address: 'text',
+  serviceType: 'text',
+  targetAudience: 'text',
+});
+
+professionalSchema.index({
+  auth: 1,
+});
 export const Professional = model<IProfessional, ProfessionalModel>(
   'Professional',
   professionalSchema,

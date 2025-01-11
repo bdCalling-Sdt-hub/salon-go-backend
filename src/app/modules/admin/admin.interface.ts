@@ -1,10 +1,12 @@
 import { Model, Types } from 'mongoose';
-import { IAuth } from '../auth/auth.interface';
+import { IUser } from '../user/user.interface';
 
 export type IAdmin = {
-  auth: Types.ObjectId | IAuth;
-  profile: string;
+  _id: Types.ObjectId;
+  auth: Types.ObjectId | IUser;
   address: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type AdminModel = Model<IAdmin>;

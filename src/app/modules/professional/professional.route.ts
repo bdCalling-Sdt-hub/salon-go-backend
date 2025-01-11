@@ -16,13 +16,35 @@ router.patch(
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
     if (req.body.data) {
-      req.body = ProfessionalValidation.partialProfessionalBusinessSchema.parse(
-        JSON.parse(req.body.data),
-      );
+      req.body =
+        ProfessionalValidation.updateProfessionalProfileZodSchema.parse(
+          JSON.parse(req.body.data),
+        );
     }
 
     return ProfessionalController.updateProfessionalProfile(req, res, next);
   },
+);
+
+router.patch(
+  '/portfolio',
+  auth(USER_ROLES.PROFESSIONAL),
+  fileUploadHandler(),
+  (req: Request, res: Response, next: NextFunction) => {
+    if (req.body.data) {
+      req.body = ProfessionalValidation.updatePortfolioZodSchema.parse(
+        JSON.parse(req.body.data),
+      );
+    }
+
+    return ProfessionalController.managePortfolio(req, res, next);
+  },
+);
+
+router.get(
+  '/portfolio/:id',
+  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+  ProfessionalController.getProfessionalPortfolio,
 );
 
 router.patch(
@@ -32,21 +54,22 @@ router.patch(
   ProfessionalController.getBusinessInformationForProfessional,
 );
 
-//get single vendor by custom Id
 router.get(
   '/profile',
   auth(USER_ROLES.PROFESSIONAL),
   ProfessionalController.getProfessionalProfile,
 );
 
-//delete professional
-router.delete(
-  '/delete',
-  auth(USER_ROLES.PROFESSIONAL),
-  ProfessionalController.deleteProfessionalProfile,
+router.get(
+  '/:id',
+  auth(USER_ROLES.USER, USER_ROLES.ADMIN),
+  ProfessionalController.getSingleProfessional,
 );
 
-//get all vendor for home page search and filter
-router.get('/', ProfessionalController.getAllProfessional);
+router.get(
+  '/',
+  auth(USER_ROLES.USER, USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL),
+  ProfessionalController.getAllProfessional,
+);
 
 export const ProfessionalRoutes = router;

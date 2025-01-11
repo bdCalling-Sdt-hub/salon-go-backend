@@ -7,6 +7,7 @@ import { Types } from 'mongoose';
 
 const getAllCategories = catchAsync(async (req: Request, res: Response) => {
   const result = await CategoriesServices.getAllCategories();
+
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -15,10 +16,32 @@ const getAllCategories = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAllSubCategories = catchAsync(async (req: Request, res: Response) => {
+  const result = await CategoriesServices.getAllSubCategories();
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'All sub categories retrieved successfully',
+    data: result,
+  });
+});
+
+const getAllSubSubCategories = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await CategoriesServices.getAllSubSubCategories();
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'All sub sub categories retrieved successfully',
+      data: result,
+    });
+  },
+);
+
 const createCategory = catchAsync(async (req: Request, res: Response) => {
   let categoryImage;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    categoryImage = `/images/${req.files.image[0].filename}`;
+    categoryImage = req.files.image[0].path;
   }
 
   const data = {
@@ -39,7 +62,7 @@ const updateCategory = catchAsync(async (req: Request, res: Response) => {
   const { ...categoryData } = req.body;
   let categoryImage;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    categoryImage = `/images/${req.files.image[0].filename}`;
+    categoryImage = req.files.image[0].path;
     categoryData.image = categoryImage;
   }
   const result = await CategoriesServices.updateCategoryToDB(id, categoryData);
@@ -64,6 +87,11 @@ const deleteCategory = catchAsync(async (req: Request, res: Response) => {
 
 const createSubCategory = catchAsync(async (req: Request, res: Response) => {
   const { ...subCategoryData } = req.body;
+
+  if (req.files && 'image' in req.files && req.files.image[0]) {
+    subCategoryData.image = req.files.image[0].path;
+  }
+
   const result = await CategoriesServices.createSubCategoryToDB(
     subCategoryData,
   );
@@ -79,6 +107,9 @@ const createSubCategory = catchAsync(async (req: Request, res: Response) => {
 const updateSubCategory = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { ...subCategoryData } = req.body;
+  if (req.files && 'image' in req.files && req.files.image[0]) {
+    subCategoryData.image = req.files.image[0].path;
+  }
   const result = await CategoriesServices.updateSubCategoryToDB(
     id,
     subCategoryData,
@@ -118,6 +149,7 @@ const createSubSubCategory = catchAsync(async (req: Request, res: Response) => {
 const updateSubSubCategory = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { ...subCategoryData } = req.body;
+  console.log(subCategoryData);
   const result = await CategoriesServices.updateSubSubCategoryToDB(
     id,
     subCategoryData,
@@ -140,6 +172,22 @@ const deleteSubSubCategory = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
+
+const getCategoryForProfessionalUpdate = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.query;
+    const result =
+      await CategoriesServices.getCategoryForProfessionalUpdateFromDB(
+        id as string,
+      );
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'All categories retrieved successfully',
+      data: result,
+    });
+  },
+);
 
 //------------------------------------------------------
 
@@ -230,6 +278,8 @@ const filterCategories = catchAsync(async (req: Request, res: Response) => {
 
 export const CategoriesController = {
   getAllCategories,
+  getAllSubCategories,
+  getAllSubSubCategories,
   createCategory,
   createSubCategory,
   createSubSubCategory,
@@ -239,7 +289,7 @@ export const CategoriesController = {
   deleteCategory,
   deleteSubCategory,
   deleteSubSubCategory,
-
+  getCategoryForProfessionalUpdate,
   //manage add and remove sub category and sub sub category
   addSubCategoryToCategory,
   removeSubCategoryFromCategory,

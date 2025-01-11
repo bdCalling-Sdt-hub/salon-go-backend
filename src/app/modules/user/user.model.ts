@@ -15,12 +15,15 @@ const userSchema = new Schema<IUser, UserModel>(
     email: {
       type: String,
       required: true,
-      unique: true,
       lowercase: true,
     },
     contact: {
       type: String,
+
       required: true,
+    },
+    profile: {
+      type: String,
     },
     password: {
       type: String,
@@ -43,17 +46,18 @@ const userSchema = new Schema<IUser, UserModel>(
       type: String,
       select: 0,
     },
-    needInformation: {
-      type: Boolean,
-      default: true,
-    },
+
     verified: {
       type: Boolean,
       default: false,
     },
-    termsAndCondition: {
-      type: Boolean,
-      required: true,
+    wrongLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    restrictionLeftAt: {
+      type: Date,
+      default: null,
     },
     authentication: {
       type: {
@@ -83,12 +87,18 @@ const userSchema = new Schema<IUser, UserModel>(
 
 //exist user check
 userSchema.statics.isExistUserById = async (id: string) => {
-  const isExist = await User.findById({ _id: id, status: 'active' });
+  const isExist = await User.findById({
+    _id: id,
+    status: { $in: ['active', 'restricted'] },
+  });
   return isExist;
 };
 
 userSchema.statics.isExistUserByEmail = async (email: string) => {
-  const isExist = await User.findOne({ email, status: 'active' });
+  const isExist = await User.findOne({
+    email,
+    status: { $in: ['active', 'restricted'] },
+  });
   return isExist;
 };
 
@@ -103,7 +113,10 @@ userSchema.statics.isMatchPassword = async (
 //check user
 userSchema.pre('save', async function (next) {
   //check user
-  const isExist = await User.findOne({ email: this.email });
+  const isExist = await User.findOne({
+    email: this.email,
+    status: { $in: ['active', 'restricted'] },
+  });
   if (isExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Email already exist!');
   }

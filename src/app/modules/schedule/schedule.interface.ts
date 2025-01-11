@@ -7,11 +7,14 @@ type Reservation = {
 
 type TimeSlots = {
   time: string; // 'HH:mm' format
+  timeCode: number;
   isAvailable: boolean;
-  discount: Types.ObjectId;
+  discount: Number;
 };
 
 type Day = {
+  startTime: any;
+  endTime: any;
   day:
     | 'Monday'
     | 'Tuesday'
@@ -24,10 +27,13 @@ type Day = {
 };
 
 export type ISchedule = {
+  _id: Types.ObjectId;
   professional: Types.ObjectId;
   startTime: string; // 'HH:mm' format
   endTime: string; // 'HH:mm' format
   days: Day[];
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type ScheduleModel = Model<ISchedule>;

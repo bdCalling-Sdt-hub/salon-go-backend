@@ -22,6 +22,12 @@ router.patch(
   ScheduleController.updateSchedule,
 );
 
+router.delete(
+  '/:id',
+  auth(USER_ROLES.PROFESSIONAL),
+  ScheduleController.deleteSchedule,
+);
+
 router.get('/:id', ScheduleController.getScheduleForProfessional);
 
 export const ScheduleRoutes = router;

@@ -5,6 +5,7 @@ import { USER_ROLES } from '../../../enums/user';
 const createUserZodSchema = z.object({
   body: z.object({
     name: z.string().min(1, 'Name is required'),
+    businessName: z.string().min(1).optional(),
     email: z.string().email('Invalid email format').toLowerCase(),
     contact: z.string().min(8, 'Contact is required'),
     password: z.string().min(8, 'Password must be at least 8 characters long'),

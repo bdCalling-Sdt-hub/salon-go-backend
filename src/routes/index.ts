@@ -10,6 +10,11 @@ import { BookMarkRoutes } from '../app/modules/bookmark/bookmark.route';
 import { ScheduleRoutes } from '../app/modules/schedule/schedule.route';
 import { ServiceRoutes } from '../app/modules/service/service.route';
 import { ReviewRoutes } from '../app/modules/review/review.route';
+import { ReservationRoutes } from '../app/modules/reservation/reservation.route';
+import { ReportRoutes } from '../app/modules/report/report.route';
+import { DashboardRoutes } from '../app/modules/dashboard/dashboard.route';
+import { AdminRoutes } from '../app/modules/admin/admin.route';
+import { OthersRoutes } from '../app/modules/others/others.route';
 
 const router = express.Router();
 
@@ -54,6 +59,26 @@ export const apiRoutes: { path: string; route: any }[] = [
   {
     path: '/review',
     route: ReviewRoutes,
+  },
+  {
+    path: '/reservation',
+    route: ReservationRoutes,
+  },
+  {
+    path: '/report',
+    route: ReportRoutes,
+  },
+  {
+    path: '/dashboard',
+    route: DashboardRoutes,
+  },
+  {
+    path: '/others',
+    route: OthersRoutes,
+  },
+  {
+    path: '/admin',
+    route: AdminRoutes,
   },
 ];
 
