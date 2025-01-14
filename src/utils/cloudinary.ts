@@ -35,11 +35,11 @@ const uploadToCloudinary = async (
       const result = await cloudinary.uploader.upload(path, {
         resource_type: file_type,
         folder: destination,
-        quality: 'auto:good', // Optimize image quality
-        format: 'auto', // Use the best image format
-        transformation: [
-          { width: 1200, height: 1200, crop: 'limit' }, // Limit dimensions to 1200px max
-        ],
+        // quality: 'auto:good', // Optimize image quality
+        // format: 'auto', // Use the best image format
+        // transformation: [
+        //   { width: 1200, height: 1200, crop: 'limit' }, // Limit dimensions to 1200px max
+        // ],
       });
       if (result) {
         fs.unlinkSync(path); // Remove the local file after successful upload

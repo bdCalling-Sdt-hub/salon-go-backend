@@ -11,6 +11,9 @@ import {
   deleteResourcesFromCloudinary,
   uploadToCloudinary,
 } from '../../../utils/cloudinary';
+import { JwtPayload } from 'jsonwebtoken';
+import { IUser } from '../user/user.interface';
+import { Professional } from '../professional/professional.model';
 
 const getAllCategories = async (): Promise<ICategory[]> => {
   const result = await Category.find()
@@ -40,13 +43,14 @@ const getAllSubSubCategories = async (): Promise<ISubSubCategory[]> => {
 };
 
 const createCategoryToDB = async (payload: ICategory): Promise<ICategory> => {
+  console.log(payload);
   if (payload.image) {
     const uploadedImage = await uploadToCloudinary(
       payload.image,
       'categories',
       'image',
     );
-
+    console.log(uploadedImage);
     if (!uploadedImage) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
@@ -472,12 +476,66 @@ const getCategoryForProfessionalUpdateFromDB = async (categoryId?: string) => {
     }
     return result;
   }
+
   const result = await Category.find({}, { name: 1, image: 1, _id: 1 }).lean();
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get categories');
   }
-  return result;
+
+  // Filter the categories for 'Men' and 'Woman'
+  const filteredResult = result.filter(
+    (item) => item.name === 'Men' || item.name === 'Woman',
+  );
+
+  // Sort the filtered result to ensure 'Men' comes first, then 'Woman'
+  const sortedResult = filteredResult.sort((a, b) => {
+    if (a.name === 'Men') return -1; // 'Men' should come first
+    if (b.name === 'Men') return 1;
+    return 0; // Keep 'Woman' in place if it's the only other option
+  });
+
+  return sortedResult;
+};
+
+const getSubCategoriesFromDB = async (
+  user: JwtPayload,
+  subCategoryId?: string,
+) => {
+  if (!subCategoryId) {
+    const isUserExist = await Professional.findById(user.userId).populate<{
+      auth: IUser;
+    }>('auth', { status: 1, role: 1 });
+
+    if (!isUserExist) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'User does not exist');
+    }
+
+    const categoryId = isUserExist.categories![0];
+    const category = await Category.findById(categoryId).populate(
+      'subCategories',
+      { name: 1 },
+    );
+
+    if (!category) {
+      return [];
+    }
+    return category.subCategories.filter((subCategory) =>
+      isUserExist.subCategories!.includes(subCategory._id),
+    );
+  } else {
+    const subCategory = await SubCategory.findById(subCategoryId).populate(
+      'subSubCategories',
+      {
+        name: 1,
+      },
+    );
+
+    if (!subCategory) {
+      return [];
+    }
+    return subCategory.subSubCategories;
+  }
 };
 
 export const CategoriesServices = {
@@ -504,4 +562,5 @@ export const CategoriesServices = {
   filterCategories,
 
   //get category for professional update
+  getSubCategoriesFromDB,
 };

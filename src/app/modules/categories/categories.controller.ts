@@ -264,8 +264,25 @@ const removeSubSubCategoryFromSubCategory = catchAsync(
 
 const filterCategories = catchAsync(async (req: Request, res: Response) => {
   const { categoryId, subCategoryId } = req.query;
+
   const result = await CategoriesServices.filterCategories(
     categoryId as string,
+    subCategoryId as string,
+  );
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'All categories retrieved successfully',
+    data: result,
+  });
+});
+
+const getSubCategories = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user;
+  const { subCategoryId } = req.query;
+  console.log(subCategoryId);
+  const result = await CategoriesServices.getSubCategoriesFromDB(
+    user,
     subCategoryId as string,
   );
   sendResponse(res, {
@@ -296,6 +313,7 @@ export const CategoriesController = {
   addSubSubCategoryToSubCategory,
   removeSubSubCategoryFromSubCategory,
 
+  getSubCategories,
   //filter categories
   filterCategories,
 };

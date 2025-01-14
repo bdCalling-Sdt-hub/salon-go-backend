@@ -27,6 +27,10 @@ router.delete(
 );
 
 //need to implement category based filter in this
-router.get('/:id', ServiceController.getServicesByProfessionalId);
+router.get(
+  '/',
+  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+  ServiceController.getServicesByProfessionalId,
+);
 
 export const ServiceRoutes = router;

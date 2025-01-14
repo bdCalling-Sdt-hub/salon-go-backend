@@ -9,7 +9,6 @@ const accountSid = config.twilio.account_sid;
 const authToken = config.twilio.auth_token;
 const twilioPhoneNumber = config.twilio.phone_number;
 const client = twilio(accountSid, authToken);
-import crypto from 'crypto';
 import { Otp } from '../app/modules/otp/otp.model';
 import { User } from '../app/modules/user/user.model';
 import mongoose, { Types } from 'mongoose';
@@ -49,7 +48,7 @@ export const sendOtp = async (
     }
 
     // Generate a random 5-digit OTP
-    const otp = Math.floor(10000 + Math.random() * 99999).toString();
+    const otp = Math.floor(10000 + Math.random() * 89999).toString();
     const hashedOtp = hashOtp(otp); // Hash the OTP before saving
 
     // Set OTP expiration (e.g., 5 minutes)

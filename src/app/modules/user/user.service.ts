@@ -31,6 +31,7 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
   //check if the user email exist with any active account
   const isExistUser = await User.findOne({
     email: user.email,
+    // contact: user.contact,
     status: { $in: ['active', 'restricted'] },
   });
   if (isExistUser) {
