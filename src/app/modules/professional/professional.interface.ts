@@ -22,7 +22,7 @@ export type IProfessional = {
   _id: Types.ObjectId;
   auth: Types.ObjectId;
   businessName?: string;
-  targetAudience?: 'men' | 'women';
+  targetAudience?: 'men' | 'woman';
   serviceType?: 'home' | 'in-place';
   travelFee?: ITravelFee;
   teamSize?: {

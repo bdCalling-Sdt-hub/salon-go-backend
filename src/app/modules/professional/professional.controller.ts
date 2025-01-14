@@ -25,7 +25,7 @@ const updateProfessionalProfile = catchAsync(
       updatedData.ID = req.files.ID[0].path;
     }
 
-    if (req.files && 'KIBIS' in req.files && req.files.KBIS[0]) {
+    if (req.files && 'KBIS' in req.files && req.files.KBIS[0]) {
       updatedData.KBIS = req.files.KBIS[0].path;
     }
 

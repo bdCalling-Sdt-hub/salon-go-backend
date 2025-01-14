@@ -74,7 +74,7 @@ const updateProfessionalProfile = async (
     }
 
     // 📝 Update Professional Profile
-    let updatedData: Partial<IProfessional & { KBIS?: string }> = {
+    let updatedData: Partial<IProfessional> = {
       ...restData,
     };
     if (socialLinks) {
@@ -88,6 +88,7 @@ const updateProfessionalProfile = async (
         'professional/kbis',
         'image',
       );
+      console.log(updatedData, 'KBIS');
     }
     if (ID) {
       updatedData.ID = await uploadImageAndHandleRollback(
@@ -113,6 +114,18 @@ const updateProfessionalProfile = async (
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update profile!');
     }
 
+    // Remove old images from cloudinary
+    const { KBIS: oldKBIS, ID: oldID } = userExist;
+    if (oldKBIS && updatedData.KBIS) {
+      await deleteResourcesFromCloudinary(oldKBIS, 'image', true);
+    }
+    if (oldID && updatedData.ID) {
+      await deleteResourcesFromCloudinary(oldID, 'image', true);
+    }
+    if (oldKBIS && updatedData.KBIS) {
+      await deleteResourcesFromCloudinary(oldKBIS, 'image', true);
+    }
+
     // ✅ Commit the transaction if everything is successful
     await session.commitTransaction();
     session.endSession();
@@ -130,8 +143,6 @@ const getBusinessInformationForProfessional = async (
   user: JwtPayload,
   payload: Partial<IProfessional>,
 ) => {
-  console.log(payload);
-
   const existingProfessional = await Professional.findById({
     _id: user.userId,
   }).populate<{ auth: IUser }>('auth', { status: 1 });

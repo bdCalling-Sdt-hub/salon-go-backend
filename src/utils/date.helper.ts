@@ -1,5 +1,6 @@
 import {
   addHours,
+  addMinutes,
   format,
   formatISO,
   parse,
@@ -23,7 +24,7 @@ function convertToISODate(time: string, isoDate: Date): string {
 // Function to calculate end time
 function calculateEndTime(startTime: string, duration: number): string {
   const parsedTime = parse(startTime, 'h:mm a', new Date());
-  const endTime = addHours(parsedTime, duration);
+  const endTime = addMinutes(parsedTime, duration);
 
   // Format back to a 12-hour format for readability
   return format(endTime, 'h:mm a');

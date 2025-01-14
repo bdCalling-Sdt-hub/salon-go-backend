@@ -3,6 +3,8 @@ import catchAsync from '../../../shared/catchAsync';
 import { ServiceServices } from './service.service';
 import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
+import pick from '../../../shared/pick';
+import { paginationFields } from '../../../types/pagination';
 
 const createService = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
@@ -44,8 +46,17 @@ const deleteService = catchAsync(async (req: Request, res: Response) => {
 
 const getServicesByProfessionalId = catchAsync(
   async (req: Request, res: Response) => {
-    const id = req.params.id;
-    const result = await ServiceServices.getServicesByProfessionalIdFromDB(id);
+    const id = req.query.professionalId;
+    const filters = pick(req.query, ['subSubCategory']);
+    const user = req.user;
+
+    // const paginationOptions = pick(req.query, paginationFields);
+    const result = await ServiceServices.getServicesByProfessionalIdFromDB(
+      user,
+      filters,
+      id as string,
+      // paginationOptions,
+    );
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,

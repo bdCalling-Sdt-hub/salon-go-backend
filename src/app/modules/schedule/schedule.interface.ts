@@ -24,6 +24,7 @@ type Day = {
     | 'Saturday'
     | 'Sunday';
   timeSlots: TimeSlots[];
+  check?: boolean;
 };
 
 export type ISchedule = {

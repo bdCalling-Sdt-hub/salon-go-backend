@@ -13,7 +13,7 @@ const verifyEmailOrPhone = catchAsync(async (req: Request, res: Response) => {
     success: true,
     statusCode: StatusCodes.OK,
     message: result.message,
-    data: result.data,
+    data: result,
   });
 });
 
@@ -111,7 +111,7 @@ const verifyPhone = catchAsync(async (req: Request, res: Response) => {
     success: true,
     statusCode: StatusCodes.OK,
     message: result.message,
-    data: result.data,
+    data: result,
   });
 });
 

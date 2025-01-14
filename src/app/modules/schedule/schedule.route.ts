@@ -7,20 +7,20 @@ import { ScheduleValidations } from './schedule.validation';
 
 const router = express.Router();
 
-router.post(
+router.patch(
   '/',
   auth(USER_ROLES.PROFESSIONAL),
   validateRequest(ScheduleValidations.createScheduleZodSchema),
   ScheduleController.createSchedule,
 );
 
-router.patch(
-  '/',
+// router.patch(
+//   '/',
 
-  auth(USER_ROLES.PROFESSIONAL),
-  validateRequest(ScheduleValidations.updateScheduleZodSchema),
-  ScheduleController.updateSchedule,
-);
+//   auth(USER_ROLES.PROFESSIONAL),
+//   validateRequest(ScheduleValidations.updateScheduleZodSchema),
+//   ScheduleController.updateSchedule,
+// );
 
 router.delete(
   '/:id',

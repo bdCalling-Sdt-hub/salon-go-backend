@@ -219,9 +219,9 @@ const verifyPhoneToDB = async (payload: IPhoneVerify) => {
   const { contact, oneTimeCode } = payload;
   const isExistUser = await User.findOne(
     { contact },
-    { vendor: 1, role: 1, _id: 1, contact: 1, verified: 1 },
+    { role: 1, _id: 1, contact: 1, verified: 1 },
   ).select('+authentication');
-
+  console.log(isExistUser, 'isUserExist');
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
@@ -238,18 +238,12 @@ const verifyPhoneToDB = async (payload: IPhoneVerify) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid or expired OTP.');
   }
 
-  console.log(isExistUser);
-  console.log(isExistUser.verified);
-
-  await User.findByIdAndUpdate(
-    { _id: isExistUser._id },
-    {
-      $set: {
-        verified: true,
-        authentication: { oneTimeCode: null, expireAt: null },
-      },
+  await User.findByIdAndUpdate(isExistUser._id, {
+    $set: {
+      verified: true,
+      authentication: { oneTimeCode: null, expireAt: null },
     },
-  );
+  });
 
   let roleUser;
   if (isExistUser.role === USER_ROLES.ADMIN) {
