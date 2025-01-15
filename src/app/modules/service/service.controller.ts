@@ -47,6 +47,7 @@ const deleteService = catchAsync(async (req: Request, res: Response) => {
 const getServicesByProfessionalId = catchAsync(
   async (req: Request, res: Response) => {
     const id = req.query.professionalId;
+
     const filters = pick(req.query, ['subSubCategory']);
     const user = req.user;
 

@@ -25,6 +25,7 @@ const scheduleSchema = new Schema<ISchedule, ScheduleModel>(
         },
         startTime: { type: String, required: true },
         endTime: { type: String, required: true },
+
         timeSlots: {
           type: [
             {
