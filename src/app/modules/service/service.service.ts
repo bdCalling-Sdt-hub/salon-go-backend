@@ -98,6 +98,7 @@ const getServicesByProfessionalIdFromDB = async (
       subSubCategory: filters.subSubCategory,
     });
   }
+
   andCondition.push({
     createdBy: id,
   });

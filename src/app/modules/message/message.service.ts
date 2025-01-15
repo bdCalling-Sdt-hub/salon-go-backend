@@ -71,10 +71,11 @@ const sendMessage = async (
   const populatedResult = await (
     await result.populate('senderId', { name: 1, email: 1 })
   ).populate('receiverId', { name: 1, email: 1 });
-
+  console.log(chatId, 'sending message');
+  console.log(populatedResult);
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  global.io?.emit(`messageReceived::${chatId}`, populatedResult);
+  global.io?.emit(`getMessage::${chatId}`, populatedResult);
 
   await Chat.findByIdAndUpdate(
     payload.chatId,

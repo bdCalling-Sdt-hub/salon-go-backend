@@ -18,8 +18,6 @@ const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Schedule already exist!');
   }
 
-  console.log(data);
-
   try {
     // Filter out the days where `check` is false
     const validDays = data.days
@@ -282,12 +280,54 @@ const updateScheduleForDaysInDB = async (
 };
 
 const getTimeScheduleFromDBForProfessional = async (id: string) => {
+  const defaultDays = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ];
+
   const schedule = await Schedule.findOne({ professional: id }).lean();
   if (!schedule) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
   }
-  return schedule;
+
+  // Create a map of days with a default structure
+  const daysMap = new Map(
+    defaultDays.map((day) => [
+      day,
+      { day, check: false, timeSlots: [], startTime: '', endTime: '' },
+    ]),
+  );
+
+  // Populate the map with days from the database
+  for (const day of schedule.days) {
+    daysMap.set(day.day, {
+      ...day,
+      check: true,
+      //@ts-ignore
+      timeSlots: day.timeSlots.map((time) => ({
+        time: time.time,
+        timeCode: time.timeCode,
+        isAvailable: time.isAvailable ?? false,
+        discount: time.discount ?? 0,
+      })),
+    });
+  }
+
+  // Convert map values to an array for the response
+  const populatedDays = Array.from(daysMap.values());
+
+  return {
+    ...schedule,
+    days: populatedDays,
+  };
 };
+
+export default getTimeScheduleFromDBForProfessional;
 
 const deleteScheduleFromDB = async (id: string) => {
   const schedule = await Schedule.findByIdAndDelete(id);

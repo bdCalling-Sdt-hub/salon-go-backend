@@ -279,11 +279,12 @@ const filterCategories = catchAsync(async (req: Request, res: Response) => {
 
 const getSubCategories = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
-  const { subCategoryId } = req.query;
-  console.log(subCategoryId);
+  const { subCategoryId, filter } = req.query;
+
   const result = await CategoriesServices.getSubCategoriesFromDB(
     user,
     subCategoryId as string,
+    Boolean(filter),
   );
   sendResponse(res, {
     success: true,
