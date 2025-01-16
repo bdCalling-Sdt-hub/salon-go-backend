@@ -8,6 +8,8 @@ import { get, Types } from 'mongoose';
 import { User } from '../user/user.model';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
+import { IMessage } from '../message/message.interface';
+import { IChat } from './chat.interface';
 
 const accessChat = async (
   user: JwtPayload,
@@ -31,10 +33,15 @@ const accessChat = async (
 
   let chat = await Chat.findOne({
     participants: { $all: [requestUserAuthId, participantAuthId] },
-  }).populate({
-    path: 'participants',
-    select: { name: 1, profile: 1 },
-  });
+  })
+    .populate({
+      path: 'participants',
+      select: { name: 1, profile: 1 },
+    })
+    .populate({
+      path: 'latestMessage',
+      select: { message: 1 },
+    });
 
   if (!chat) {
     await Chat.create({
@@ -43,10 +50,15 @@ const accessChat = async (
 
     chat = await Chat.findOne({
       participants: { $all: [requestUserAuthId, participantAuthId] },
-    }).populate({
-      path: 'participants',
-      select: { name: 1, profile: 1 },
-    });
+    })
+      .populate({
+        path: 'participants',
+        select: { name: 1, profile: 1 },
+      })
+      .populate({
+        path: 'latestMessage',
+        select: { message: 1 },
+      });
 
     if (!chat) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create chat.');
@@ -57,10 +69,14 @@ const accessChat = async (
     (participant: any) => participant._id.toString() !== user.id,
   );
 
+  const { message } = chat.latestMessage as Partial<IMessage>;
+  const { latestMessageTime } = chat;
+
   return {
     chatId: chat._id,
     ...participantData!.toObject(),
-    latestMessageTime: chat.latestMessageTime,
+    latestMessage: message,
+    latestMessageTime: latestMessageTime,
   };
 };
 
@@ -83,6 +99,12 @@ const getChatListByUserId = async (
       name: 1,
       profile: 1,
     })
+    .populate({
+      path: 'latestMessage',
+      select: {
+        message: 1,
+      },
+    })
     .sort({ [sortBy]: sortOrder })
     .skip(skip)
     .limit(limit)
@@ -95,8 +117,10 @@ const getChatListByUserId = async (
   // Filter chats based on the search term
   const filteredChats = chats.filter((chat) =>
     searchTerm
-      ? chat.participants.some((participant) =>
-          participant.name.toLowerCase().includes(searchTerm.toLowerCase()),
+      ? chat.participants.some(
+          (participant) =>
+            'name' in participant &&
+            participant.name.toLowerCase().includes(searchTerm.toLowerCase()),
         )
       : true,
   );
@@ -106,10 +130,15 @@ const getChatListByUserId = async (
     const otherParticipant = chat.participants.find(
       (participant) => participant._id.toString() !== user.id,
     );
+
+    const { message } = chat.latestMessage as Partial<IMessage>;
+    const { latestMessageTime } = chat;
+
     return {
       chatId: chat._id,
       ...otherParticipant,
-      latestMessageTime: chat.latestMessageTime,
+      latestMessage: message,
+      latestMessageTime: latestMessageTime,
     };
   });
 
@@ -121,10 +150,12 @@ const getChatListByUserId = async (
       (allChats) =>
         allChats.filter((chat) =>
           searchTerm
-            ? chat.participants.some((participant) =>
-                participant.name
-                  .toLowerCase()
-                  .includes(searchTerm.toLowerCase()),
+            ? chat.participants.some(
+                (participant) =>
+                  'name' in participant &&
+                  participant.name
+                    .toLowerCase()
+                    .includes(searchTerm.toLowerCase()),
               )
             : true,
         ).length,
