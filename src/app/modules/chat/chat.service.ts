@@ -41,7 +41,8 @@ const accessChat = async (
     .populate({
       path: 'latestMessage',
       select: { message: 1 },
-    });
+    })
+    .lean();
 
   if (!chat) {
     await Chat.create({
@@ -58,7 +59,8 @@ const accessChat = async (
       .populate({
         path: 'latestMessage',
         select: { message: 1 },
-      });
+      })
+      .lean();
 
     if (!chat) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create chat.');
@@ -74,7 +76,7 @@ const accessChat = async (
 
   return {
     chatId: chat._id,
-    ...participantData!.toObject(),
+    ...participantData,
     latestMessage: message,
     latestMessageTime: latestMessageTime,
   };
