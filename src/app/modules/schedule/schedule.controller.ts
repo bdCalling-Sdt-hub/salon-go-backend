@@ -6,6 +6,7 @@ import { StatusCodes } from 'http-status-codes';
 import { USER_ROLES } from '../../../enums/user';
 
 const createSchedule = catchAsync(async (req: Request, res: Response) => {
+  console.log(req.body);
   const user = req.user;
   const result = await ScheduleServices.createScheduleToDB(user, req.body);
   sendResponse(res, {
