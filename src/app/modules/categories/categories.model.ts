@@ -42,6 +42,10 @@ const subCategorySchema = new Schema<ISubCategory, SubCategoriesModel>(
     description: {
       type: String,
     },
+    image: {
+      type: String,
+      required: true,
+    },
     subSubCategories: {
       type: [Schema.Types.ObjectId],
       ref: 'SubSubCategory',

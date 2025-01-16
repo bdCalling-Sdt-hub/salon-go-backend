@@ -45,6 +45,13 @@ router.patch(
   ReservationController.rejectReservation,
 );
 
+router.patch(
+  '/update-status/:id',
+  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+  validateRequest(ReservationValidations.updateReservationZodSchema),
+  ReservationController.updateReservationStatus,
+);
+
 router.get(
   '/',
   auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER, USER_ROLES.ADMIN),
