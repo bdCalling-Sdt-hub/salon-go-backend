@@ -14,8 +14,8 @@ const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
   }
 
   const isScheduleExist = await Schedule.findOne({ professional: user.userId });
-  if (isScheduleExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Schedule already exist!');
+  if (!isScheduleExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Schedule does not exist!');
   }
 
   try {
@@ -37,12 +37,16 @@ const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
         };
       });
 
-    const result = await Schedule.create({
-      professional: user.userId,
-      days: validDays, // Only include valid days
-    });
-
-    console.log(result);
+    const result = await Schedule.findOneAndUpdate(
+      { professional: user.userId },
+      {
+        $set: { professional: user.userId, days: validDays }, // Only include valid days
+      },
+    );
+    if (!result) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Schedule does not exist!');
+    }
+    console.log(result, 'result');
 
     // Update the professional's scheduleId
     await Professional.findOneAndUpdate(
