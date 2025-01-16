@@ -12,13 +12,7 @@ import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { uploadToCloudinary } from '../../../utils/cloudinary';
 
-const sendMessage = async (
-  user: JwtPayload,
-  payload: IMessage,
-  chatId: string,
-) => {
-  const senderId = new Types.ObjectId(user.id);
-
+const sendMessage = async (payload: IMessage, chatId: string) => {
   // Find chat and receiver in parallel
   const [chat, receiver] = await Promise.all([
     Chat.findById(chatId),
@@ -35,18 +29,21 @@ const sendMessage = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found!');
   }
 
-  // Determine message type
-  payload.senderId = senderId;
-  payload.receiverId = receiver._id;
+  // // Determine message type
 
-  payload.type =
-    payload.images && payload.message
+  payload.receiverId = receiver._id;
+  // ...existing code...
+
+  payload.messageType =
+    payload.images && payload.images.length > 0 && payload.message
       ? 'both'
-      : payload.images
+      : payload.images && payload.images.length > 0
       ? 'image'
       : 'text';
 
-  if (payload.type === 'both' || payload.type === 'image') {
+  // ...existing code...
+
+  if (payload.messageType === 'both' || payload.messageType === 'image') {
     if (payload.images.length > 0) {
       const uploadedImages = await uploadToCloudinary(
         payload.images,
@@ -67,12 +64,17 @@ const sendMessage = async (
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to send message.');
   }
+  //update the latest message
+
+  await Chat.findByIdAndUpdate(
+    chatId,
+    { latestMessage: result._id, latestMessageTime: new Date() },
+    { new: true },
+  );
 
   const populatedResult = await (
-    await result.populate('senderId', { name: 1, email: 1 })
-  ).populate('receiverId', { name: 1, email: 1 });
-  console.log(chatId, 'sending message');
-  console.log(populatedResult);
+    await result
+  ).populate('receiverId', { name: 1, profile: 1 });
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   global.io?.emit(`getMessage::${chatId}`, populatedResult);
@@ -95,18 +97,10 @@ const getMessagesByChatId = async (
 
   const result = await Message.find({ chatId })
     .populate({
-      path: 'senderId',
-      select: {
-        name: 1,
-
-        role: 1,
-      },
-    })
-    .populate({
       path: 'receiverId',
       select: {
         name: 1,
-
+        profile: 1,
         role: 1,
       },
     })
