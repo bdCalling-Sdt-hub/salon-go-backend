@@ -112,7 +112,7 @@ export const handleNotificationForInvitation = async (
 export const sendDataWithSocket = async (
   namespace: string,
   recipient: Types.ObjectId,
-  data: IReservation,
+  data: any,
 ) => {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   //@ts-ignore

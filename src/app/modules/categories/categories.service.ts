@@ -173,13 +173,21 @@ const updateSubCategoryToDB = async (
 
     payload.image = uploadedImage[0];
   }
-
-  const result = await SubCategory.findOneAndUpdate({ _id: id }, payload, {
-    new: true,
-  });
+  console.log(payload);
+  const result = await SubCategory.findByIdAndUpdate(
+    id,
+    { ...payload },
+    {
+      new: true,
+    },
+  );
   if (!result) {
     if (payload.image) {
-      await deleteResourcesFromCloudinary(payload.image, 'image', true);
+      const del = await deleteResourcesFromCloudinary(
+        payload.image,
+        'image',
+        true,
+      );
     }
 
     throw new ApiError(
@@ -187,6 +195,7 @@ const updateSubCategoryToDB = async (
       'Failed to update sub category',
     );
   }
+
   return result;
 };
 
@@ -530,8 +539,7 @@ const filterCategories = async (
     }
 
     return {
-      categories,
-      subCategories,
+      categories: [...categories, ...subCategories],
       subSubCategories,
     };
   } catch (error) {

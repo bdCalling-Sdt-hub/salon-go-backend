@@ -1,3 +1,4 @@
+import { USER_ROLES } from './../../../enums/user';
 import { LocationHelper } from './../../../utils/locationHelper';
 import { StatusCodes } from 'http-status-codes';
 import { Professional } from '../professional/professional.model';
@@ -24,7 +25,6 @@ import { IUser } from '../user/user.interface';
 import { IService } from '../service/service.interface';
 import { Service } from '../service/service.model';
 import { IProfessional } from '../professional/professional.interface';
-import { object } from 'zod';
 
 const createReservationToDB = async (
   payload: IReservation,
@@ -35,14 +35,18 @@ const createReservationToDB = async (
   const [isProfessionalExists, isCustomerExist, isServiceExist] =
     await Promise.all([
       Professional.findById(professional).populate<{ auth: IUser }>('auth'),
-      Customer.findById({ _id: user.userId }).populate<{
+      Customer.findById(user.userId).populate<{
         auth: IUser;
       }>('auth', {
         name: 1,
         status: 1,
         profile: 1,
       }),
-      Service.findById({ _id: payload.service }, { title: 1 }),
+      Service.findById(payload.service, {
+        title: 1,
+        subSubCategory: 1,
+        price: 1,
+      }),
     ]);
 
   if (isCustomerExist?.auth.status !== 'active') {
@@ -57,7 +61,7 @@ const createReservationToDB = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "Service doesn't exist!");
   }
 
-  const { auth, isFreelancer, location, travelFee, teamSize } =
+  const { auth, isFreelancer, location, travelFee, teamSize, serviceType } =
     isProfessionalExists;
 
   if (auth.status !== 'active') {
@@ -80,7 +84,7 @@ const createReservationToDB = async (
   if (!schedule) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'The requested professional cannot be booked right now!',
+      'The requested professional is not available for the requested day',
     );
   }
 
@@ -91,7 +95,7 @@ const createReservationToDB = async (
     DateHelper.calculateEndTime(time, payload.duration),
     date,
   );
-  console.log(serviceStartDateTime, serviceEndDateTime);
+
   const operationStartTime = DateHelper.convertToISODate(
     days[0].startTime,
     date,
@@ -113,6 +117,25 @@ const createReservationToDB = async (
     );
   }
 
+  //set service id and professional id with sub sub category id to payload
+  payload.service = isServiceExist._id;
+  payload.professional = isProfessionalExists._id;
+  payload.subSubCategory = isServiceExist.subSubCategory;
+  payload.serviceType = serviceType as string;
+  payload.customer = user.userId;
+  payload.serviceStartDateTime = serviceStart;
+  payload.serviceEndDateTime = serviceEnd;
+  payload.amount = amount || isServiceExist.price;
+
+  if (!location || !location.coordinates) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Professional location data is incomplete!',
+    );
+  }
+  payload.serviceLocation =
+    serviceLocation !== undefined ? serviceLocation : location;
+
   if (isFreelancer) {
     const isNotAvailable = await Reservation.exists({
       professional,
@@ -129,18 +152,13 @@ const createReservationToDB = async (
       );
     }
 
-    if (!location || !location.coordinates) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Professional location data is incomplete!',
-      );
-    }
     const distance = LocationHelper.calculateDistance(
       [location.coordinates[0], location.coordinates[1]],
       [serviceLocation.coordinates[0], serviceLocation.coordinates[1]],
     );
 
     payload.travelFee = travelFee!.fee * distance;
+    payload.amount = payload.amount + payload.travelFee;
   } else {
     const reservationCount = await Reservation.countDocuments({
       professional,
@@ -158,16 +176,41 @@ const createReservationToDB = async (
     }
   }
 
-  payload.customer = user.userId;
-  payload.serviceStartDateTime = serviceStart;
-  payload.serviceEndDateTime = serviceEnd;
-  payload.amount = amount;
-
   const result = await Reservation.create([payload]);
 
   if (!result.length) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create reservation');
   }
+
+  // Format response data
+  const formattedReservation = await Reservation.findById(result[0]._id)
+    .select({
+      _id: 1,
+      amount: 1,
+      date: 1,
+      status: 1,
+      travelFee: 1,
+      serviceStartDateTime: 1,
+      serviceEndDateTime: 1,
+      duration: 1,
+    })
+    .populate('service', {
+      _id: 1,
+      title: 1,
+    })
+    .populate('professional', {
+      _id: 1,
+      businessName: 1,
+    })
+    .populate({
+      path: 'customer',
+      select: { auth: 1 },
+      populate: {
+        path: 'auth',
+        select: { name: 1, address: 1 },
+      },
+    })
+    .lean();
 
   await sendNotification('getNotification', professional, {
     userId: professional,
@@ -175,21 +218,52 @@ const createReservationToDB = async (
     message: `${isCustomerExist.auth.name} has requested a reservation for ${
       isServiceExist.title
     } on ${serviceStart.toDateString()}. Please check your dashboard for more details.`,
-    type: 'reservation',
+    type: USER_ROLES.PROFESSIONAL,
   });
 
-  await sendDataWithSocket('reservationCreated', user.userId, {
-    ...result[0],
-  });
+  if (formattedReservation) {
+    await sendDataWithSocket(
+      'reservationCreated',
+      isProfessionalExists._id,
+      formattedReservation,
+    );
+  }
 
-  return result[0];
+  return formattedReservation;
 };
 
 const getSingleReservationFromDB = async (
   id: string,
   userId: Types.ObjectId,
 ) => {
-  const isReservationExists = await Reservation.findById(id);
+  const isReservationExists = await Reservation.findById(id)
+    .select({
+      _id: 1,
+      amount: 1,
+      date: 1,
+      status: 1,
+      travelFee: 1,
+      serviceStartDateTime: 1,
+      serviceEndDateTime: 1,
+      duration: 1,
+    })
+    .populate('service', {
+      _id: 1,
+      title: 1,
+    })
+    .populate('professional', {
+      _id: 1,
+      businessName: 1,
+    })
+    .populate({
+      path: 'customer',
+      select: { auth: 1 },
+      populate: {
+        path: 'auth',
+        select: { name: 1, address: 1 },
+      },
+    });
+
   if (!isReservationExists) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Reservation not found');
   }
@@ -212,18 +286,35 @@ const confirmReservation = async (
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
-
     const reservation = await Reservation.findOne({
       _id: id,
       status: 'pending',
     })
-      .populate<{ service: IService }>({
-        path: 'service',
-        select: { title: 1, price: 1, duration: 1 },
+      .select({
+        _id: 1,
+        amount: 1,
+        date: 1,
+        status: 1,
+        travelFee: 1,
+        serviceStartDateTime: 1,
+        serviceEndDateTime: 1,
+        duration: 1,
       })
-      .populate<{ professional: IProfessional }>({
-        path: 'professional',
-        select: { businessName: 1 },
+      .populate('service', {
+        _id: 1,
+        title: 1,
+      })
+      .populate('professional', {
+        _id: 1,
+        businessName: 1,
+      })
+      .populate({
+        path: 'customer',
+        select: { auth: 1 },
+        populate: {
+          path: 'auth',
+          select: { name: 1, address: 1 },
+        },
       })
       .session(session);
 
@@ -231,9 +322,9 @@ const confirmReservation = async (
       throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
     }
 
-    if (user.userId !== reservation.professional) {
+    if (!reservation.professional._id.equals(user.userId)) {
       throw new ApiError(
-        StatusCodes.UNAUTHORIZED,
+        StatusCodes.BAD_REQUEST,
         'You are not authorized to confirm this reservation',
       );
     }
@@ -296,10 +387,6 @@ const confirmReservation = async (
       );
     }
 
-    await sendDataWithSocket('reservationConfirmed', user.userId, {
-      ...result,
-    });
-
     const isCustomerExist = await Customer.findById(result.customer)
       .populate<{ auth: IUser }>({
         path: 'auth',
@@ -310,13 +397,20 @@ const confirmReservation = async (
       throw new ApiError(StatusCodes.NOT_FOUND, 'Customer not found');
     }
 
-    await sendNotification('getNotification', reservation.customer, {
+    reservation.status = result.status;
+    reservation.amount = result.amount || reservation.amount;
+
+    await sendDataWithSocket('reservationConfirmed', reservation._id, {
+      reservation,
+    });
+    const { title } = reservation.service as Partial<IService>;
+    const { businessName } = reservation.professional as Partial<IProfessional>;
+
+    await sendNotification('getNotification', reservation.customer._id, {
       userId: reservation.customer,
-      title: `Your reservation for ${reservation.service.title} has been confirmed by ${professional.businessName}.`,
-      message: `You have a confirmed reservation for ${
-        reservation.service.title
-      } on ${date.toDateString()}. Please be on time.`,
-      type: 'reservation',
+      title: `Your reservation for ${title} has been confirmed by ${businessName}.`,
+      message: `You have a confirmed reservation for ${title} on ${date.toDateString()}. Please be on time.`,
+      type: USER_ROLES.USER,
     });
 
     await session.commitTransaction();
@@ -339,13 +433,31 @@ const cancelReservation = async (id: string, user: JwtPayload) => {
       _id: id,
       status: 'confirmed',
     })
-      .populate<{ service: IService }>({
-        path: 'service',
-        select: { title: 1, price: 1, duration: 1 },
+      .select({
+        _id: 1,
+        amount: 1,
+        date: 1,
+        status: 1,
+        travelFee: 1,
+        serviceStartDateTime: 1,
+        serviceEndDateTime: 1,
+        duration: 1,
       })
-      .populate<{ professional: IProfessional }>({
-        path: 'professional',
-        select: { businessName: 1, auth: 1 },
+      .populate('service', {
+        _id: 1,
+        title: 1,
+      })
+      .populate('professional', {
+        _id: 1,
+        businessName: 1,
+      })
+      .populate({
+        path: 'customer',
+        select: { auth: 1 },
+        populate: {
+          path: 'auth',
+          select: { name: 1, address: 1 },
+        },
       })
       .session(session);
 
@@ -354,11 +466,13 @@ const cancelReservation = async (id: string, user: JwtPayload) => {
     }
 
     if (
-      user.userId !== reservation.professional ||
-      user.userId !== reservation.customer
+      (user.role === USER_ROLES.PROFESSIONAL &&
+        !reservation.professional._id.equals(user.userId)) ||
+      (user.role === USER_ROLES.USER &&
+        !reservation.customer._id.equals(user.userId))
     ) {
       throw new ApiError(
-        StatusCodes.UNAUTHORIZED,
+        StatusCodes.BAD_REQUEST,
         'You are not authorized to cancel this reservation',
       );
     }
@@ -394,20 +508,22 @@ const cancelReservation = async (id: string, user: JwtPayload) => {
     if (!result) {
       throw new ApiError(StatusCodes.NOT_FOUND, 'Failed to cancel reservation');
     }
-
-    await sendDataWithSocket('reservationCanceled', user.userId, {
-      ...result,
+    reservation.status = result.status;
+    await sendDataWithSocket('reservationCanceled', reservation._id, {
+      reservation,
     });
 
-    await sendNotification('getNotification', reservation.customer, {
-      userId: reservation.customer,
-      title: `Your reservation for ${reservation.service.title} has been canceled by ${professional.businessName}.`,
-      message: `Your reservation for ${
-        reservation.service.title
-      } on ${date.toDateString()} has been canceled. Please chat with ${
-        professional.businessName
-      } for more details.`,
-      type: 'reservation',
+    const { title } = reservation.service as Partial<IService>;
+    const { businessName } = reservation.professional as Partial<IProfessional>;
+
+    await sendNotification('getNotification', reservation.customer._id, {
+      userId: user.role === USER_ROLES.USER ? user.userId : result.customer._id,
+      title: `Your reservation for ${title} has been canceled by ${businessName}.`,
+      message: `Your reservation for ${title} on ${date.toDateString()} has been canceled. Please chat with ${businessName} for more details.`,
+      type:
+        user.role === USER_ROLES.PROFESSIONAL
+          ? USER_ROLES.PROFESSIONAL
+          : USER_ROLES.USER,
     });
 
     await session.commitTransaction();
@@ -423,24 +539,39 @@ const cancelReservation = async (id: string, user: JwtPayload) => {
 // Reject or Start Reservation
 const markReservationAsCompleted = async (id: string, user: JwtPayload) => {
   const reservation = await Reservation.findOne({ _id: id })
-    .populate<{
-      service: IService;
-    }>({
-      path: 'service',
-      select: { title: 1, duration: 1 },
+    .select({
+      _id: 1,
+      amount: 1,
+      date: 1,
+      status: 1,
+      travelFee: 1,
+      serviceStartDateTime: 1,
+      serviceEndDateTime: 1,
+      duration: 1,
     })
-    .populate<{ professional: IProfessional }>({
-      path: 'professional',
-      select: { businessName: 1 },
+    .populate('service', {
+      _id: 1,
+      title: 1,
+    })
+    .populate('professional', {
+      _id: 1,
+      businessName: 1,
+    })
+    .populate({
+      path: 'customer',
+      select: { auth: 1 },
+      populate: {
+        path: 'auth',
+        select: { name: 1, address: 1 },
+      },
     });
-
   if (!reservation) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
   }
 
-  if (user.userId !== reservation.professional) {
+  if (!reservation.professional._id.equals(user.userId)) {
     throw new ApiError(
-      StatusCodes.UNAUTHORIZED,
+      StatusCodes.BAD_REQUEST,
       'You are not authorized to mark this reservation as completed',
     );
   }
@@ -456,17 +587,18 @@ const markReservationAsCompleted = async (id: string, user: JwtPayload) => {
       'Failed to mark reservation as completed',
     );
   }
-  await sendDataWithSocket('reservationCompleted', user.userId, {
-    ...result,
+  reservation.status = result.status;
+  await sendDataWithSocket('reservationCompleted', reservation._id, {
+    reservation,
   });
 
-  await sendNotification('getNotification', reservation.customer, {
-    userId: reservation.customer,
-    title: `Your reservation for ${reservation.service.title} has been marked as completed by ${reservation.professional.businessName}.`,
-    message: `Your reservation for ${
-      reservation.service.title
-    } on ${reservation.date.toDateString()} has been marked as completed. Please provide feedback to improve our services.`,
-    type: 'reservation',
+  const { title } = reservation.service as Partial<IService>;
+  const { businessName } = reservation.professional as Partial<IProfessional>;
+  await sendNotification('getNotification', reservation.customer._id, {
+    userId: reservation.customer._id,
+    title: `Your reservation for ${title} has been marked as completed by ${businessName}.`,
+    message: `Your reservation for ${title} on ${reservation.date.toDateString()} has been marked as completed. Please provide feedback to improve our services.`,
+    type: USER_ROLES.USER,
   });
 
   return reservation;
@@ -475,22 +607,38 @@ const markReservationAsCompleted = async (id: string, user: JwtPayload) => {
 const rejectReservation = async (id: string, user: JwtPayload) => {
   //change the reservation status to rejected
   const reservation = await Reservation.findOne({ _id: id })
-    .populate<{
-      service: IService;
-    }>({
-      path: 'service',
-      select: { title: 1, price: 1, duration: 1 },
+    .select({
+      _id: 1,
+      amount: 1,
+      date: 1,
+      status: 1,
+      travelFee: 1,
+      serviceStartDateTime: 1,
+      serviceEndDateTime: 1,
+      duration: 1,
     })
-    .populate<{ professional: IProfessional }>({
-      path: 'professional',
-      select: { businessName: 1 },
+    .populate('service', {
+      _id: 1,
+      title: 1,
+    })
+    .populate('professional', {
+      _id: 1,
+      businessName: 1,
+    })
+    .populate({
+      path: 'customer',
+      select: { auth: 1 },
+      populate: {
+        path: 'auth',
+        select: { name: 1, address: 1 },
+      },
     });
 
   if (!reservation) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
-  } else if (user.userId !== reservation.professional) {
+  } else if (!reservation.professional.equals(user.userId)) {
     throw new ApiError(
-      StatusCodes.UNAUTHORIZED,
+      StatusCodes.BAD_REQUEST,
       'You are not authorized to reject this reservation',
     );
   }
@@ -505,17 +653,17 @@ const rejectReservation = async (id: string, user: JwtPayload) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to reject reservation');
   }
 
-  await sendDataWithSocket('reservationRejected', user.userId, {
-    ...result,
+  reservation.status = result.status;
+  await sendDataWithSocket('reservationRejected', reservation._id, {
+    reservation,
   });
-
-  await sendNotification('getNotification', reservation.customer, {
-    userId: reservation.customer,
-    title: `Your reservation for ${reservation.service.title} has been rejected by ${reservation.professional.businessName}.`,
-    message: `Your reservation for ${
-      reservation.service.title
-    } on ${reservation.date.toDateString()} has been rejected. Please try again to book another service.`,
-    type: 'reservation',
+  const { title } = reservation.service as Partial<IService>;
+  const { businessName } = reservation.professional as Partial<IProfessional>;
+  await sendNotification('getNotification', reservation.customer._id, {
+    userId: reservation.customer._id,
+    title: `Your reservation for ${title} has been rejected by ${businessName}.`,
+    message: `Your reservation for ${title} on ${reservation.date.toDateString()} has been rejected. Please try again to book another service.`,
+    type: USER_ROLES.USER,
   });
 
   return reservation;
@@ -550,32 +698,44 @@ const getReservationsForUsersFromDB = async (
       date: new Date(date),
     });
   } else {
-    andCondition.push({
-      date: new Date(),
-    });
+    // andCondition.push({
+    //   date: new Date(),
+    // });
   }
+  console.log(andCondition);
+  const query =
+    user.role === USER_ROLES.PROFESSIONAL
+      ? { professional: user.userId }
+      : { customer: user.userId };
 
   const result = await Reservation.find({
-    $and: [
-      {
-        $or: [{ customer: user.userId }, { professional: user.userId }],
-      },
-      ...andCondition,
-    ],
+    $and: [query, ...andCondition],
   })
-    .populate<{
-      service: IService;
-    }>({
-      path: 'service',
-      select: { title: 1, price: 1, duration: 1 },
+    .select({
+      _id: 1,
+      amount: 1,
+      date: 1,
+      status: 1,
+      travelFee: 1,
+      serviceStartDateTime: 1,
+      serviceEndDateTime: 1,
+      duration: 1,
     })
-    .populate<{ professional: IProfessional }>({
-      path: 'professional',
-      select: { businessName: 1 },
+    .populate('service', {
+      _id: 1,
+      title: 1,
     })
-    .populate<{ customer: IUser }>({
+    .populate('professional', {
+      _id: 1,
+      businessName: 1,
+    })
+    .populate({
       path: 'customer',
-      select: { name: 1 },
+      select: { auth: 1 },
+      populate: {
+        path: 'auth',
+        select: { name: 1, address: 1 },
+      },
     })
     .sort({
       [sortBy]: sortOrder,
@@ -604,8 +764,257 @@ const getReservationsForUsersFromDB = async (
       totalPage: Math.ceil(total / limit),
       limit,
     },
-    data: { ...result, totalEarning },
+    data: result,
   };
+};
+
+const updateReservationStatusToDB = async (
+  id: Types.ObjectId,
+  payload: { status: string; amount?: number },
+  user: JwtPayload,
+) => {
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+    const reservation = await Reservation.findById(id)
+      .select({
+        _id: 1,
+        amount: 1,
+        date: 1,
+        status: 1,
+        travelFee: 1,
+        serviceStartDateTime: 1,
+        serviceEndDateTime: 1,
+        duration: 1,
+      })
+      .populate('service', {
+        _id: 1,
+        title: 1,
+      })
+      .populate('professional', {
+        _id: 1,
+        businessName: 1,
+      })
+      .populate({
+        path: 'customer',
+        select: { auth: 1 },
+        populate: {
+          path: 'auth',
+          select: { name: 1, address: 1 },
+        },
+      })
+      .session(session);
+
+    if (!reservation) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
+    }
+
+    const { professional, serviceStartDateTime, serviceEndDateTime, date } =
+      reservation;
+
+    const { status } = payload;
+
+    if (status === 'confirmed') {
+      const { amount } = payload;
+      if (!amount) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, 'Amount is required');
+      }
+
+      if (!reservation.professional._id.equals(user.userId)) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'You are not authorized to confirm this reservation',
+        );
+      }
+
+      // Convert and parse time for slot updates
+      const startTime = DateHelper.parseTimeTo24Hour(
+        DateHelper.convertISOTo12HourFormat(serviceStartDateTime.toString()),
+      );
+      const endTime = DateHelper.parseTimeTo24Hour(
+        DateHelper.convertISOTo12HourFormat(serviceEndDateTime.toString()),
+      );
+
+      const professionalData = await Professional.findById(user.userId).session(
+        session,
+      );
+      if (!professionalData) {
+        throw new ApiError(StatusCodes.NOT_FOUND, 'Professional not found');
+      }
+
+      const isFreelancer = professionalData?.isFreelancer ? true : false;
+      const maxTeamSize = professionalData?.teamSize?.max || 0;
+
+      // Handle freelancer or team-based reservation logic
+      const hasReachedMaxTeamSize =
+        await ReservationHelper.validateReservationConflicts(
+          isFreelancer,
+          professional._id,
+          serviceStartDateTime,
+          serviceEndDateTime,
+          maxTeamSize,
+          session,
+        );
+
+      if (hasReachedMaxTeamSize) {
+        await ReservationHelper.updateTimeSlotAvailability(
+          professional._id,
+          date,
+          startTime,
+          endTime,
+          session,
+          false,
+        );
+      }
+    } else if (status === 'canceled') {
+      if (reservation.status !== 'confirmed') {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          "Sorry you can't cancel this reservation. You can only cancel confirmed reservation.",
+        );
+      }
+
+      if (
+        (user.role === USER_ROLES.PROFESSIONAL &&
+          !reservation.professional._id.equals(user.userId)) ||
+        (user.role === USER_ROLES.USER &&
+          !reservation.customer._id.equals(user.userId))
+      ) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'You are not authorized to cancel this reservation',
+        );
+      }
+
+      // Convert and parse time for slot updates
+      const startTime = DateHelper.parseTimeTo24Hour(
+        DateHelper.convertISOTo12HourFormat(serviceStartDateTime.toString()),
+      );
+      const endTime = DateHelper.parseTimeTo24Hour(
+        DateHelper.convertISOTo12HourFormat(serviceEndDateTime.toString()),
+      );
+
+      await ReservationHelper.updateTimeSlotAvailability(
+        professional._id,
+        date,
+        startTime,
+        endTime,
+        session,
+        true,
+      );
+    } else if (status === 'completed') {
+      if (reservation.status !== 'confirmed') {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          "Sorry you can't mark this reservation as completed. You can only mark confirmed reservation as completed.",
+        );
+      }
+      if (!reservation.professional._id.equals(user.userId)) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'You are not authorized to mark this reservation as completed',
+        );
+      }
+
+      // Convert and parse time for slot updates
+      const startTime = DateHelper.parseTimeTo24Hour(
+        DateHelper.convertISOTo12HourFormat(serviceStartDateTime.toString()),
+      );
+      const endTime = DateHelper.parseTimeTo24Hour(
+        DateHelper.convertISOTo12HourFormat(serviceEndDateTime.toString()),
+      );
+
+      await ReservationHelper.updateTimeSlotAvailability(
+        professional._id,
+        date,
+        startTime,
+        endTime,
+        session,
+        true,
+      );
+    } else if (status === 'rejected') {
+      if (!reservation.professional.equals(user.userId)) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'You are not authorized to reject this reservation',
+        );
+      }
+    }
+
+    const result = await Reservation.findByIdAndUpdate(
+      {
+        _id: id,
+      },
+      {
+        $set: {
+          status: payload.status,
+          amount: payload?.amount || reservation.amount,
+        },
+      },
+      { new: true, session },
+    );
+
+    if (!result) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
+        'Failed to confirm reservation',
+      );
+    }
+
+    const isCustomerExist = await Customer.findById(result.customer)
+      .populate<{ auth: IUser }>({
+        path: 'auth',
+        select: { name: 1, email: 1, status: 1 },
+      })
+      .session(session);
+    if (!isCustomerExist?.auth.status) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Customer not found');
+    }
+
+    reservation.status = result.status;
+    reservation.amount = result.amount || reservation.amount;
+
+    await sendDataWithSocket(
+      `reservation${
+        payload.status.charAt(0).toUpperCase() + status.substring(1)
+      }`,
+      reservation._id,
+      {
+        reservation,
+      },
+    );
+    const { title } = reservation.service as Partial<IService>;
+    const { businessName } = reservation.professional as Partial<IProfessional>;
+
+    const notificationUserId =
+      status === 'confirmed' || status === 'completed' || status === 'rejected'
+        ? reservation.customer._id
+        : status === 'canceled' && user.role === USER_ROLES.USER
+        ? reservation.professional._id
+        : reservation.customer._id;
+
+    const notificationUserRole =
+      status === 'confirmed' || status === 'completed' || status === 'rejected'
+        ? USER_ROLES.USER
+        : status === 'canceled' && user.role === USER_ROLES.USER
+        ? USER_ROLES.PROFESSIONAL
+        : USER_ROLES.USER;
+
+    await sendNotification('getNotification', reservation.customer._id, {
+      userId: notificationUserId,
+      title: `Your reservation for ${title} has been confirmed by ${businessName}.`,
+      message: `You have a confirmed reservation for ${title} on ${date.toDateString()}. Please be on time.`,
+      type: notificationUserRole,
+    });
+
+    await session.commitTransaction();
+    return reservation;
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 };
 
 export const ReservationServices = {
@@ -617,4 +1026,5 @@ export const ReservationServices = {
   confirmReservation,
   markReservationAsCompleted,
   rejectReservation,
+  updateReservationStatusToDB,
 };

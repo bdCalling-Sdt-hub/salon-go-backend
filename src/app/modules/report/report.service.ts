@@ -57,7 +57,7 @@ const updateReportToDB = async (
   }
   if (isReportExist.reporterId.toString() !== user.id) {
     throw new ApiError(
-      StatusCodes.UNAUTHORIZED,
+      StatusCodes.BAD_REQUEST,
       'You are not authorized to update this report',
     );
   }
@@ -99,7 +99,7 @@ const markReportResolvedToDB = async (
     user.role !== USER_ROLES.ADMIN
   ) {
     throw new ApiError(
-      StatusCodes.UNAUTHORIZED,
+      StatusCodes.BAD_REQUEST,
       'You are not authorized to resolved this report',
     );
   }

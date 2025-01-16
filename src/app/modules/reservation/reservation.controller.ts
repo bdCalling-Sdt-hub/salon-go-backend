@@ -7,6 +7,26 @@ import pick from '../../../shared/pick';
 import { paginationFields } from '../../../types/pagination';
 import { StatusCodes } from 'http-status-codes';
 import { reservationFilterableFields } from './reservation.constants';
+import { Types } from 'mongoose';
+
+const updateReservationStatus = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const payload = req.body;
+    const user = req.user;
+    const result = await ReservationServices.updateReservationStatusToDB(
+      new Types.ObjectId(id),
+      payload,
+      user,
+    );
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Reservation status updated successfully',
+      data: result,
+    });
+  },
+);
 
 const createReservation = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
@@ -122,4 +142,5 @@ export const ReservationController = {
   cancelReservation,
   markReservationAsCompleted,
   rejectReservation,
+  updateReservationStatus,
 };

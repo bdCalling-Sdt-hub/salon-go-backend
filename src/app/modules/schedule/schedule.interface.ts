@@ -2,7 +2,7 @@ import { Document, Model, Types } from 'mongoose';
 
 type Reservation = {
   user: Types.ObjectId;
-  status: 'pending' | 'confirmed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'canceled';
 };
 
 type TimeSlots = {
