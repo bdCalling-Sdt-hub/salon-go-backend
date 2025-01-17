@@ -8,6 +8,7 @@ import { StatusCodes } from 'http-status-codes';
 import { Professional } from './professional.model';
 import { Service } from '../service/service.model';
 import getNextOnboardingStep, {
+  getDateRangeAndIntervals,
   handleObjectUpdate,
   uploadImageAndHandleRollback,
 } from './professional.utils';
@@ -23,6 +24,8 @@ import {
 
 import { Types } from 'mongoose';
 import { Bookmark } from '../bookmark/bookmark.model';
+import { ICategory, ISubCategory } from '../categories/categories.interface';
+import { Reservation } from '../reservation/reservation.model';
 
 const updateProfessionalProfile = async (
   user: JwtPayload,
@@ -249,6 +252,7 @@ const getAllProfessional = async (
     date,
     minPrice,
     maxPrice,
+    offers,
     city,
   } = filterOptions;
 
@@ -311,6 +315,16 @@ const getAllProfessional = async (
     anyCondition.push({ _id: { $in: servicesWithConditions } });
   }
 
+  //check if offer is true get the professionals with offers
+  if (Boolean(offers)) {
+    const professionalsWithOffers = await Schedule.find({
+      'days.timeSlots.discount': { $gt: 0 },
+    }).distinct('professional');
+
+    anyCondition.push({ _id: { $in: professionalsWithOffers } });
+    console.log(offers, professionalsWithOffers);
+  }
+
   if (minPrice && maxPrice) {
     const priceFilterCondition = QueryHelper.rangeQueryHelper(
       'price',
@@ -347,7 +361,22 @@ const getAllProfessional = async (
 
   anyCondition.push({ auth: { $in: activeProfessionals } });
 
-  const professionals = await Professional.find({ $and: anyCondition })
+  const professionals = await Professional.find(
+    { $and: anyCondition },
+    {
+      KBIS: 0,
+      ID: 0,
+      updatedAt: 0,
+      previouslyUsedTools: 0,
+      scheduleId: 0,
+      subCategories: 0,
+    },
+  )
+    .populate<{ auth: IUser }>('auth', { profile: 1, status: 1, name: 1 })
+    .populate<{ categories: ICategory }>({
+      path: 'categories',
+      select: 'name',
+    })
     .skip(skip)
     .limit(limit)
     .sort({ [sortBy || 'createdAt']: sortOrder === 'desc' ? -1 : 1 })
@@ -356,7 +385,7 @@ const getAllProfessional = async (
   const total = await Professional.countDocuments({
     $and: anyCondition,
   });
-
+  console.log(professionals);
   const bookmarkedProfessionals = await Bookmark.find({
     customer: user.userId,
     professional: { $in: activeProfessionals },
@@ -504,6 +533,143 @@ const managePortfolio = async (
   }
 };
 
+
+
+const getProfessionalRevenue = async (user: JwtPayload, range: string) => {
+  const { startDate, endDate, intervalMilliseconds } = getDateRangeAndIntervals(range);
+  const totalRangeMilliseconds = endDate.getTime() - startDate.getTime();
+  const segmentCount = 10;
+  const segmentMilliseconds = totalRangeMilliseconds / segmentCount;
+
+  const reservations = await Reservation.aggregate([
+    {
+      $match: {
+        professional: new Types.ObjectId(user.userId),
+        createdAt: { $gte: startDate, $lte: endDate },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          $floor: {
+            $divide: [{ $subtract: ['$createdAt', startDate] }, segmentMilliseconds],
+          },
+        },
+        totalRevenue: { $sum: '$amount' },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ]);
+
+  const revenueData = Array.from({ length: segmentCount }, (_, index) => {
+    const segmentStartDate = new Date(startDate.getTime() + index * segmentMilliseconds);
+    const segmentEndDate = new Date(segmentStartDate.getTime() + segmentMilliseconds);
+    const matchingReservation = reservations.find((r) => r._id === index);
+
+    return {
+      startDate: segmentStartDate.toISOString(),
+      endDate: segmentEndDate.toISOString(),
+      totalRevenue: matchingReservation ? matchingReservation.totalRevenue : 0,
+    };
+  });
+
+  return revenueData;
+};
+
+const getProfessionalEngagementRate = async (user: JwtPayload, range: string) => {
+  const { startDate, endDate, intervalMilliseconds } = getDateRangeAndIntervals(range);
+  const totalRangeMilliseconds = endDate.getTime() - startDate.getTime();
+  const segmentCount = 10;
+  const segmentMilliseconds = totalRangeMilliseconds / segmentCount;
+
+  const reservations = await Reservation.aggregate([
+    {
+      $match: {
+        professional: new Types.ObjectId(user.userId),
+        createdAt: { $gte: startDate, $lte: endDate },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          $floor: {
+            $divide: [{ $subtract: ['$createdAt', startDate] }, segmentMilliseconds],
+          },
+        },
+        totalReservations: { $sum: 1 },
+        completedReservations: {
+          $sum: { $cond: [{ $eq: ['$status', 'completed pending confirmed'] }, 1, 0] },
+        },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ]);
+
+  const engagementData = Array.from({ length: segmentCount }, (_, index) => {
+    const segmentStartDate = new Date(startDate.getTime() + index * segmentMilliseconds);
+    const segmentEndDate = new Date(segmentStartDate.getTime() + segmentMilliseconds);
+    const matchingReservation = reservations.find((r) => r._id === index);
+
+    const totalReservations = matchingReservation ? matchingReservation.totalReservations : 0;
+    const completedReservations = matchingReservation ? matchingReservation.completedReservations : 0;
+    const engagementRate = totalReservations > 0 ? (completedReservations / totalReservations) * 100 : 0;
+
+    return {
+      startDate: segmentStartDate.toISOString(),
+      endDate: segmentEndDate.toISOString(),
+      engagementRate: Number(engagementRate.toFixed(2)),
+      totalReservations,
+      completedReservations,
+    };
+  });
+
+  return engagementData;
+};
+
+
+
+const getProfessionalReservationCount = async (user: JwtPayload, range: string) => {
+  const { startDate, endDate, intervalMilliseconds } = getDateRangeAndIntervals(range);
+  const totalRangeMilliseconds = endDate.getTime() - startDate.getTime();
+  const segmentCount = 10;
+  const segmentMilliseconds = totalRangeMilliseconds / segmentCount;
+
+  const reservations = await Reservation.aggregate([
+    {
+      $match: {
+        professional: new Types.ObjectId(user.userId),
+        createdAt: { $gte: startDate, $lte: endDate },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          $floor: {
+            $divide: [{ $subtract: ['$createdAt', startDate] }, segmentMilliseconds],
+          },
+        },
+        reservationCount: { $sum: 1 },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ]);
+
+  const reservationData = Array.from({ length: segmentCount }, (_, index) => {
+    const segmentStartDate = new Date(startDate.getTime() + index * segmentMilliseconds);
+    const segmentEndDate = new Date(segmentStartDate.getTime() + segmentMilliseconds);
+    const matchingReservation = reservations.find((r) => r._id === index);
+
+    return {
+      startDate: segmentStartDate.toISOString(),
+      endDate: segmentEndDate.toISOString(),
+      reservationCount: matchingReservation ? matchingReservation.reservationCount : 0,
+    };
+  });
+
+  return reservationData;
+};
+
+
 export const ProfessionalService = {
   updateProfessionalProfile,
   getBusinessInformationForProfessional,
@@ -512,4 +678,7 @@ export const ProfessionalService = {
   getSingleProfessional,
   managePortfolio,
   getProfessionalPortfolio,
+  getProfessionalRevenue,
+  getProfessionalEngagementRate,
+  getProfessionalReservationCount
 };

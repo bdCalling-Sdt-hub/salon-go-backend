@@ -463,85 +463,200 @@ const removeSubSubCategoryFromSubCategory = async (
 //   }
 // };
 
+// const filterCategories = async (
+//   categoryId?: string,
+//   subCategoryId?: string,
+// ) => {
+//   try {
+//     let categories: any[] = [];
+//     let subCategories: any[] = [];
+//     let subSubCategories: any[] = [];
+
+//     // Fetch all categories without populating subCategories
+//     categories = await Category.find({}, { name: 1, image: 1 }).lean();
+
+//     if (categoryId) {
+//       // Find and filter subCategories when categoryId is provided
+//       const category = await Category.findById(categoryId, {
+//         subCategories: 1,
+//       }).lean();
+//       const subCategoryIds = category?.subCategories || [];
+
+//       if (subCategoryIds.length > 0) {
+//         subCategories = await SubCategory.find(
+//           { _id: { $in: subCategoryIds } },
+//           { _id: 1, name: 1, image: 1 },
+//         ).lean();
+
+//         if (subCategoryId) {
+//           const subCategory = await SubCategory.findById(subCategoryId, {
+//             subSubCategories: 1,
+//           }).lean();
+//           const subSubCategoryIds = subCategory?.subSubCategories || [];
+
+//           if (subSubCategoryIds.length > 0) {
+//             subSubCategories = await SubSubCategory.find(
+//               { _id: { $in: subSubCategoryIds } },
+//               { _id: 1, name: 1 },
+//             ).lean();
+//           }
+//         } else {
+//           const firstSubCategory = subCategories[0];
+//           if (firstSubCategory) {
+//             const subSubCategoryIds = await SubCategory.findById(
+//               firstSubCategory._id,
+//               { subSubCategories: 1 },
+//             ).lean();
+//             if ((subSubCategoryIds?.subSubCategories ?? []).length > 0) {
+//               subSubCategories = await SubSubCategory.find(
+//                 { _id: { $in: subSubCategoryIds?.subSubCategories ?? [] } },
+//                 { _id: 1, name: 1 },
+//               ).lean();
+//             }
+//           }
+//         }
+//       }
+//     } else {
+//       // No categoryId provided, fetch all subCategories and subSubCategories separately
+//       subCategories = await SubCategory.find(
+//         {},
+//         { _id: 1, name: 1, image: 1 },
+//       ).lean();
+//       const allSubSubCategoryIds = await SubCategory.find(
+//         {},
+//         { subSubCategories: 1 },
+//       )
+//         .lean()
+//         .then((result) =>
+//           result.flatMap((subCategory) => subCategory.subSubCategories),
+//         );
+//       if (allSubSubCategoryIds.length > 0) {
+//         subSubCategories = await SubSubCategory.find(
+//           { _id: { $in: allSubSubCategoryIds } },
+//           { _id: 1, name: 1 },
+//         ).lean();
+//       }
+//     }
+
+//     return {
+//       categories: [...categories, ...subCategories],
+//       subSubCategories,
+//     };
+//   } catch (error) {
+//     console.error(error);
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Error fetching categories');
+//   }
+// };
+
 const filterCategories = async (
   categoryId?: string,
   subCategoryId?: string,
 ) => {
   try {
-    let categories: any[] = [];
+    // Fetch all categories with minimal fields
+    const categories = await Category.find(
+      {},
+      { _id: 1, name: 1, image: 1 },
+    ).lean();
+
     let subCategories: any[] = [];
     let subSubCategories: any[] = [];
 
-    // Fetch all categories without populating subCategories
-    categories = await Category.find({}, { name: 1, image: 1 }).lean();
-
     if (categoryId) {
-      // Find and filter subCategories when categoryId is provided
+      // Find the selected category for reference, but do not filter out the main categories list
       const category = await Category.findById(categoryId, {
+        name: 1,
+        image: 1,
         subCategories: 1,
       }).lean();
-      const subCategoryIds = category?.subCategories || [];
 
-      if (subCategoryIds.length > 0) {
+      if (category) {
+        const subCategoryIds = category.subCategories || [];
         subCategories = await SubCategory.find(
           { _id: { $in: subCategoryIds } },
           { _id: 1, name: 1, image: 1 },
         ).lean();
 
         if (subCategoryId) {
+          // Find the selected subCategory and its subSubCategories
           const subCategory = await SubCategory.findById(subCategoryId, {
+            name: 1,
+            image: 1,
             subSubCategories: 1,
           }).lean();
-          const subSubCategoryIds = subCategory?.subSubCategories || [];
 
-          if (subSubCategoryIds.length > 0) {
+          if (subCategory) {
+            const subSubCategoryIds = subCategory.subSubCategories || [];
             subSubCategories = await SubSubCategory.find(
               { _id: { $in: subSubCategoryIds } },
-              { _id: 1, name: 1 },
+              { _id: 1, name: 1, image: 1 },
             ).lean();
           }
-        } else {
+
+          subCategories = [
+            categories.find(
+              (category) => category._id.toString() === categoryId,
+            ),
+            ...subCategories,
+          ];
+        } else if (subCategories.length > 0) {
+          // Fetch subSubCategories for the first subCategory if none is selected
           const firstSubCategory = subCategories[0];
-          if (firstSubCategory) {
-            const subSubCategoryIds = await SubCategory.findById(
-              firstSubCategory._id,
-              { subSubCategories: 1 },
+          const subSubCategoryIds = await SubCategory.findById(
+            firstSubCategory._id,
+            { subSubCategories: 1 },
+          ).lean();
+
+          if ((subSubCategoryIds?.subSubCategories ?? []).length > 0) {
+            subSubCategories = await SubSubCategory.find(
+              { _id: { $in: subSubCategoryIds?.subSubCategories || [] } },
+              { _id: 1, name: 1, image: 1 },
             ).lean();
-            if ((subSubCategoryIds?.subSubCategories ?? []).length > 0) {
-              subSubCategories = await SubSubCategory.find(
-                { _id: { $in: subSubCategoryIds?.subSubCategories ?? [] } },
-                { _id: 1, name: 1 },
-              ).lean();
-            }
           }
+
+          subCategories = [
+            categories.find(
+              (category) => category._id.toString() === categoryId,
+            ),
+            ...subCategories,
+          ];
         }
+
+        return {
+          categories: categories, // Keep all categories
+          subCategories: subCategories,
+          subSubCategories: subSubCategories,
+        };
       }
     } else {
-      // No categoryId provided, fetch all subCategories and subSubCategories separately
+      // No categoryId provided, fetch all subCategories and subSubCategories
       subCategories = await SubCategory.find(
         {},
         { _id: 1, name: 1, image: 1 },
       ).lean();
+
       const allSubSubCategoryIds = await SubCategory.find(
         {},
         { subSubCategories: 1 },
       )
         .lean()
         .then((result) =>
-          result.flatMap((subCategory) => subCategory.subSubCategories),
+          result.flatMap((subCategory) => subCategory.subSubCategories || []),
         );
+
       if (allSubSubCategoryIds.length > 0) {
         subSubCategories = await SubSubCategory.find(
           { _id: { $in: allSubSubCategoryIds } },
-          { _id: 1, name: 1 },
+          { _id: 1, name: 1, image: 1 },
         ).lean();
       }
-    }
 
-    return {
-      categories: [...categories, ...subCategories],
-      subSubCategories,
-    };
+      return {
+        categories: categories,
+        subCategories: subCategories,
+        subSubCategories: subSubCategories,
+      };
+    }
   } catch (error) {
     console.error(error);
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Error fetching categories');

@@ -9,7 +9,7 @@ const router = express.Router();
 
 //done
 router.get(
-  '/profile',
+  '/',
   auth(USER_ROLES.USER),
   CustomerController.getCustomerProfile,
 );
