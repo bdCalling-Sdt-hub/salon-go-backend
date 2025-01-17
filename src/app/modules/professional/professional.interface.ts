@@ -55,7 +55,7 @@ export type ProfessionalModel = Model<IProfessional>;
 
 export type IProfessionalFilters = {
   searchTerm?: string;
-
+  offers?: boolean;
   city?: string;
   category?: string;
   subCategory?: string;

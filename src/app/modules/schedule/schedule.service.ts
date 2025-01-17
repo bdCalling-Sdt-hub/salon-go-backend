@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { JwtPayload } from 'jsonwebtoken';
 import { ISchedule } from './schedule.interface';
 import { User } from '../user/user.model';
@@ -6,6 +7,8 @@ import { StatusCodes } from 'http-status-codes';
 import { Schedule } from './schedule.model';
 import { Professional } from '../professional/professional.model';
 import { DateHelper } from '../../../utils/date.helper';
+import { Reservation } from '../reservation/reservation.model';
+import { USER_ROLES } from '../../../enums/user';
 
 const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
   const isUserExist = await User.findById({ _id: user.id, status: 'active' });
@@ -283,7 +286,58 @@ const updateScheduleForDaysInDB = async (
   }
 };
 
-const getTimeScheduleFromDBForProfessional = async (id: string) => {
+// const getTimeScheduleFromDBForProfessional = async (id: string) => {
+//   const defaultDays = [
+//     'Sunday',
+//     'Monday',
+//     'Tuesday',
+//     'Wednesday',
+//     'Thursday',
+//     'Friday',
+//     'Saturday',
+//   ];
+
+//   const schedule = await Schedule.findOne({ professional: id }).lean();
+//   if (!schedule) {
+//     throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
+//   }
+
+//   // Create a map of days with a default structure
+//   const daysMap = new Map(
+//     defaultDays.map((day) => [
+//       day,
+//       { day, check: false, timeSlots: [], startTime: '', endTime: '' },
+//     ]),
+//   );
+
+//   // Populate the map with days from the database
+//   for (const day of schedule.days) {
+//     daysMap.set(day.day, {
+//       ...day,
+//       check: true,
+//       //@ts-ignore
+//       timeSlots: day.timeSlots.map((time) => ({
+//         time: time.time,
+//         timeCode: time.timeCode,
+//         isAvailable: time.isAvailable ?? false,
+//         discount: time.discount ?? 0,
+//       })),
+//     });
+//   }
+
+//   // Convert map values to an array for the response
+//   const populatedDays = Array.from(daysMap.values());
+
+//   return {
+//     ...schedule,
+//     days: populatedDays,
+//   };
+// };
+
+const getTimeScheduleFromDBForProfessional = async (
+  id: string,
+  user: JwtPayload,
+) => {
   const defaultDays = [
     'Sunday',
     'Monday',
@@ -294,12 +348,24 @@ const getTimeScheduleFromDBForProfessional = async (id: string) => {
     'Saturday',
   ];
 
-  const schedule = await Schedule.findOne({ professional: id }).lean();
+  const customerId = user.role === USER_ROLES.USER ? user.userId : null;
+  const [schedule, customerReservations] = await Promise.all([
+    Schedule.findOne({ professional: id }).lean(),
+    customerId
+      ? Reservation.find({
+          professional: id,
+          customer: customerId,
+          status: { $in: ['pending', 'confirmed'] },
+        })
+          .select('serviceStartDateTime serviceEndDateTime')
+          .lean()
+      : [],
+  ]);
+
   if (!schedule) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
   }
 
-  // Create a map of days with a default structure
   const daysMap = new Map(
     defaultDays.map((day) => [
       day,
@@ -307,31 +373,38 @@ const getTimeScheduleFromDBForProfessional = async (id: string) => {
     ]),
   );
 
-  // Populate the map with days from the database
+  // Helper to check if a time slot is reserved
+  const isTimeSlotReserved = (timeCode: number, targetDay: string) => {
+    return customerReservations.some((reservation) => {
+      const reservationDate = new Date(reservation.serviceStartDateTime);
+      const reservationDay = defaultDays[reservationDate.getUTCDay()]; // Get day name in UTC
+      const reservationTimeCode =
+        reservationDate.getUTCHours() * 100 + reservationDate.getUTCMinutes();
+      return reservationDay === targetDay && reservationTimeCode === timeCode;
+    });
+  };
+
+  // Populate days with updated time slot availability
   for (const day of schedule.days) {
     daysMap.set(day.day, {
       ...day,
       check: true,
-      //@ts-ignore
-      timeSlots: day.timeSlots.map((time) => ({
-        time: time.time,
-        timeCode: time.timeCode,
-        isAvailable: time.isAvailable ?? false,
-        discount: time.discount ?? 0,
+      timeSlots: day.timeSlots.map((timeSlot) => ({
+        ...timeSlot,
+        isAvailable: customerId
+          ? !isTimeSlotReserved(timeSlot.timeCode, day.day) &&
+            (timeSlot.isAvailable ?? false)
+          : timeSlot.isAvailable ?? false,
       })),
     });
   }
 
-  // Convert map values to an array for the response
   const populatedDays = Array.from(daysMap.values());
-
   return {
     ...schedule,
     days: populatedDays,
   };
 };
-
-export default getTimeScheduleFromDBForProfessional;
 
 const deleteScheduleFromDB = async (id: string) => {
   const schedule = await Schedule.findByIdAndDelete(id);

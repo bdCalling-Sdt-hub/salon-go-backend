@@ -20,30 +20,30 @@ router.get(
   ReservationController.getSingleReservation,
 );
 
-router.patch(
-  '/confirm/:id',
-  auth(USER_ROLES.PROFESSIONAL),
-  validateRequest(ReservationValidations.confirmReservationZodSchema),
-  ReservationController.confirmReservation,
-);
+// router.patch(
+//   '/confirm/:id',
+//   auth(USER_ROLES.PROFESSIONAL),
+//   validateRequest(ReservationValidations.confirmReservationZodSchema),
+//   ReservationController.confirmReservation,
+// );
 
-router.patch(
-  '/cancel/:id',
-  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
-  ReservationController.cancelReservation,
-);
+// router.patch(
+//   '/cancel/:id',
+//   auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+//   ReservationController.cancelReservation,
+// );
 
-router.patch(
-  '/completed/:id',
-  auth(USER_ROLES.PROFESSIONAL),
-  ReservationController.markReservationAsCompleted,
-);
+// router.patch(
+//   '/completed/:id',
+//   auth(USER_ROLES.PROFESSIONAL),
+//   ReservationController.markReservationAsCompleted,
+// );
 
-router.patch(
-  '/reject/:id',
-  auth(USER_ROLES.PROFESSIONAL),
-  ReservationController.rejectReservation,
-);
+// router.patch(
+//   '/reject/:id',
+//   auth(USER_ROLES.PROFESSIONAL),
+//   ReservationController.rejectReservation,
+// );
 
 router.patch(
   '/update-status/:id',

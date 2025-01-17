@@ -90,14 +90,14 @@ router.delete(
 
 router.post(
   '/sub-sub-category',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(CategoriesValidations.createSubSubCategorySchema),
   CategoriesController.createSubSubCategory,
 );
 
 router.patch(
   '/sub-sub-category/:id',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(CategoriesValidations.updateSubSubCategorySchema),
   CategoriesController.updateSubSubCategory,
 );
