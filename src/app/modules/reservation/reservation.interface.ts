@@ -1,4 +1,7 @@
 import { Model, Types } from 'mongoose';
+import { IService } from '../service/service.interface';
+import { ICustomer } from '../customer/customer.interface';
+import { IProfessional } from '../professional/professional.interface';
 type Point = {
   type: 'Point';
   coordinates: [number, number];
@@ -19,7 +22,7 @@ export type IReservation = {
     | 'rejected'
     | 'completed'
     | 'started'
-    | 'cancelled';
+    | 'canceled';
   travelFee: number;
   subSubCategory: Types.ObjectId;
   serviceLocation: Point;
@@ -39,3 +42,10 @@ export type IReservationFilterableFields = {
 };
 
 export type ReservationModel = Model<IReservation>;
+
+export interface PopulatedReservation
+  extends Omit<IReservation, 'service' | 'customer' | 'professional'> {
+  service: Pick<IService, '_id' | 'title'>;
+  customer: Pick<ICustomer, '_id'>;
+  professional: Pick<IProfessional, '_id' | 'businessName'>;
+}

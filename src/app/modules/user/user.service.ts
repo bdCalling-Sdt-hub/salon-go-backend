@@ -31,6 +31,7 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
   //check if the user email exist with any active account
   const isExistUser = await User.findOne({
     email: user.email,
+    // contact: user.contact,
     status: { $in: ['active', 'restricted'] },
   });
   if (isExistUser) {
@@ -195,28 +196,33 @@ const getAllUser = async (
   };
 };
 
-const deleteUser = async (id: string): Promise<IUser | null> => {
-  const isUserExists = await User.findOne({ _id: id });
-  if (!isUserExists) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
-  }
-  const updatedData = {
-    status: 'delete',
-  };
-
+const restrictOrUnrestrictUser = async (id: Types.ObjectId) => {
   const result = await User.findByIdAndUpdate(
-    { _id: id },
-    { $set: { ...updatedData } },
+    id,
+    { $set: { status: 'restricted' } },
     {
       new: true,
     },
   );
-  return result;
+
+  return `${result?.name} is restricted`;
 };
 
+const approveUser = async (id: Types.ObjectId) => {
+  const result = await User.findByIdAndUpdate(
+    id,
+    { $set: { approvedByAdmin: true } },
+    {
+      new: true,
+    },
+  );
+  return `${result?.name} is approved`;
+};
 export const UserService = {
   createUserToDB,
   getUserProfileFromDB,
   getAllUser,
-  deleteUser,
+
+  restrictOrUnrestrictUser,
+  approveUser,
 };

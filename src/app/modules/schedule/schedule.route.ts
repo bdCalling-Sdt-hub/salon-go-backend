@@ -7,20 +7,20 @@ import { ScheduleValidations } from './schedule.validation';
 
 const router = express.Router();
 
-router.post(
+router.patch(
   '/',
   auth(USER_ROLES.PROFESSIONAL),
-  validateRequest(ScheduleValidations.createScheduleZodSchema),
+  validateRequest(ScheduleValidations.updateScheduleZodSchema),
   ScheduleController.createSchedule,
 );
 
-router.patch(
-  '/',
+// router.patch(
+//   '/',
 
-  auth(USER_ROLES.PROFESSIONAL),
-  validateRequest(ScheduleValidations.updateScheduleZodSchema),
-  ScheduleController.updateSchedule,
-);
+//   auth(USER_ROLES.PROFESSIONAL),
+//   validateRequest(ScheduleValidations.updateScheduleZodSchema),
+//   ScheduleController.updateSchedule,
+// );
 
 router.delete(
   '/:id',
@@ -28,6 +28,10 @@ router.delete(
   ScheduleController.deleteSchedule,
 );
 
-router.get('/:id', ScheduleController.getScheduleForProfessional);
+router.get(
+  '/',
+  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+  ScheduleController.getScheduleForProfessional,
+);
 
 export const ScheduleRoutes = router;

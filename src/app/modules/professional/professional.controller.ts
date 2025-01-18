@@ -25,7 +25,7 @@ const updateProfessionalProfile = catchAsync(
       updatedData.ID = req.files.ID[0].path;
     }
 
-    if (req.files && 'KIBIS' in req.files && req.files.KBIS[0]) {
+    if (req.files && 'KBIS' in req.files && req.files.KBIS[0]) {
       updatedData.KBIS = req.files.KBIS[0].path;
     }
 
@@ -168,6 +168,49 @@ const getAllProfessional = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+
+const getProfessionalRevenue = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user;
+    const range = req.query.range as string;
+    const result = await ProfessionalService.getProfessionalRevenue(user, range);
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Revenue retrieved successfully',
+      data: result,
+    });
+  },
+);
+
+const getProfessionalEngagementRate = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user;
+    const range = req.query.range as string;
+    const result = await ProfessionalService.getProfessionalEngagementRate(user, range);
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Engagement rate retrieved successfully',
+      data: result,
+    });
+  },
+);
+
+const  getProfessionalReservationRate = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user;
+    const range = req.query.range as string;
+    const result = await ProfessionalService.getProfessionalReservationCount(user, range);
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Reservation rate retrieved successfully',
+      data: result,
+    });
+  },
+);
+
 export const ProfessionalController = {
   updateProfessionalProfile,
   getBusinessInformationForProfessional,
@@ -176,4 +219,9 @@ export const ProfessionalController = {
   getSingleProfessional,
   managePortfolio,
   getProfessionalPortfolio,
+  getProfessionalRevenue
+,
+  getProfessionalEngagementRate
+,
+  getProfessionalReservationRate
 };

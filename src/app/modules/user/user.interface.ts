@@ -15,6 +15,7 @@ export type IUser = {
   wrongLoginAttempts: number;
   restrictionLeftAt: Date | null;
   appId: string;
+  approvedByAdmin: boolean;
   authentication?: {
     passwordChangedAt: Date;
     isResetPassword: boolean;

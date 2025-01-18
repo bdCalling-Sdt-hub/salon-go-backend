@@ -21,7 +21,7 @@ const sendMessage = catchAsync(async (req: Request, res: Response) => {
 
   messageData.images = images;
 
-  const result = await MessageService.sendMessage(user, messageData, chatId);
+  const result = await MessageService.sendMessage(messageData, chatId);
 
   sendResponse(res, {
     success: true,

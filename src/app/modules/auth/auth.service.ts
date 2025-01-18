@@ -47,6 +47,16 @@ const loginUserFromDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
+  if (
+    isExistUser.role === USER_ROLES.PROFESSIONAL &&
+    !isExistUser.approvedByAdmin
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Your account is not approved by admin, please submit your documents and wait for approval. If you have any questions, please contact us at 8wW8J@example.com',
+    );
+  }
+
   if (isExistUser.status === 'restricted') {
     if (
       isExistUser.restrictionLeftAt &&
@@ -134,7 +144,9 @@ const loginUserFromDB = async (
     config.jwt.jwt_secret as Secret,
     config.jwt.jwt_expire_in as string,
   );
-
+  console.log(accessToken);
+  console.log(config.jwt.jwt_expire_in as string);
+  console.log(config.jwt.jwt_refresh_expire_in as string);
   const refreshToken = jwtHelper.createToken(
     {
       id: isExistUser._id,
@@ -164,6 +176,7 @@ const refreshToken = async (
   token: string,
 ): Promise<IRefreshTokenResponse | null> => {
   let verifiedToken = null;
+  console.log(token);
   try {
     // Verify the refresh token
     verifiedToken = jwtHelper.verifyToken(
@@ -219,9 +232,8 @@ const verifyPhoneToDB = async (payload: IPhoneVerify) => {
   const { contact, oneTimeCode } = payload;
   const isExistUser = await User.findOne(
     { contact },
-    { vendor: 1, role: 1, _id: 1, contact: 1, verified: 1 },
+    { role: 1, _id: 1, contact: 1, verified: 1 },
   ).select('+authentication');
-
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
@@ -237,19 +249,18 @@ const verifyPhoneToDB = async (payload: IPhoneVerify) => {
   if (!isValidOtp) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid or expired OTP.');
   }
-
-  console.log(isExistUser);
-  console.log(isExistUser.verified);
-
-  await User.findByIdAndUpdate(
-    { _id: isExistUser._id },
-    {
-      $set: {
-        verified: true,
-        authentication: { oneTimeCode: null, expireAt: null },
+  if (isValidOtp) {
+    const updatedUser = await User.findByIdAndUpdate(
+      isExistUser._id,
+      {
+        $set: {
+          verified: true,
+          authentication: { oneTimeCode: null, expireAt: null },
+        },
       },
-    },
-  );
+      { new: true }, // Add this to return updated document
+    );
+  }
 
   let roleUser;
   if (isExistUser.role === USER_ROLES.ADMIN) {
@@ -391,7 +402,7 @@ const resetPasswordToDB = async (
   const isExistToken = await ResetToken.isExistToken(token);
 
   if (!isExistToken) {
-    throw new ApiError(StatusCodes.UNAUTHORIZED, 'You are not authorized');
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'You are not authorized');
   }
 
   //user permission check
@@ -401,7 +412,7 @@ const resetPasswordToDB = async (
 
   if (!isExistUser?.authentication?.isResetPassword) {
     throw new ApiError(
-      StatusCodes.UNAUTHORIZED,
+      StatusCodes.BAD_REQUEST,
       "You don't have permission to change the password. Please click again to 'Forgot Password'",
     );
   }
