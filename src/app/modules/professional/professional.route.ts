@@ -85,6 +85,7 @@ router.get(
   ProfessionalController.getSingleProfessional,
 );
 
+//get all professionals profile with filter and pagination
 router.get(
   '/',
   auth(USER_ROLES.USER, USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL),

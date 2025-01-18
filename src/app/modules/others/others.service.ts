@@ -11,11 +11,33 @@ import {
 } from './others.interface';
 import { JwtPayload } from 'jsonwebtoken';
 import { USER_ROLES } from '../../../enums/user';
+import {
+  deleteResourcesFromCloudinary,
+  uploadToCloudinary,
+} from '../../../utils/cloudinary';
 
 const addBanner = async (payload: IBanner, user: JwtPayload) => {
   payload.createdBy = user.userId;
+  //upload banner image to cloudinary
+  if (payload.imgUrl) {
+    const uploadedImage = await uploadToCloudinary(
+      payload.imgUrl,
+      'banners',
+      'image',
+    );
+    if (!uploadedImage) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to upload image to Cloudinary',
+      );
+    }
+    payload.imgUrl = uploadedImage[0];
+  }
   const result = await Banner.create(payload);
   if (!result) {
+    if (payload.imgUrl.includes('cloudinary')) {
+      await deleteResourcesFromCloudinary(payload.imgUrl, 'image', true);
+    }
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to add banner');
   }
   return result;

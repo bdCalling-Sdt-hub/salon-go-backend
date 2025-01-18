@@ -370,6 +370,7 @@ const getAllProfessional = async (
       previouslyUsedTools: 0,
       scheduleId: 0,
       subCategories: 0,
+      helpingTags: 0,
     },
   )
     .populate<{ auth: IUser }>('auth', { profile: 1, status: 1, name: 1 })
@@ -533,10 +534,9 @@ const managePortfolio = async (
   }
 };
 
-
-
 const getProfessionalRevenue = async (user: JwtPayload, range: string) => {
-  const { startDate, endDate, intervalMilliseconds } = getDateRangeAndIntervals(range);
+  const { startDate, endDate, intervalMilliseconds } =
+    getDateRangeAndIntervals(range);
   const totalRangeMilliseconds = endDate.getTime() - startDate.getTime();
   const segmentCount = 10;
   const segmentMilliseconds = totalRangeMilliseconds / segmentCount;
@@ -552,7 +552,10 @@ const getProfessionalRevenue = async (user: JwtPayload, range: string) => {
       $group: {
         _id: {
           $floor: {
-            $divide: [{ $subtract: ['$createdAt', startDate] }, segmentMilliseconds],
+            $divide: [
+              { $subtract: ['$createdAt', startDate] },
+              segmentMilliseconds,
+            ],
           },
         },
         totalRevenue: { $sum: '$amount' },
@@ -562,8 +565,12 @@ const getProfessionalRevenue = async (user: JwtPayload, range: string) => {
   ]);
 
   const revenueData = Array.from({ length: segmentCount }, (_, index) => {
-    const segmentStartDate = new Date(startDate.getTime() + index * segmentMilliseconds);
-    const segmentEndDate = new Date(segmentStartDate.getTime() + segmentMilliseconds);
+    const segmentStartDate = new Date(
+      startDate.getTime() + index * segmentMilliseconds,
+    );
+    const segmentEndDate = new Date(
+      segmentStartDate.getTime() + segmentMilliseconds,
+    );
     const matchingReservation = reservations.find((r) => r._id === index);
 
     return {
@@ -576,8 +583,12 @@ const getProfessionalRevenue = async (user: JwtPayload, range: string) => {
   return revenueData;
 };
 
-const getProfessionalEngagementRate = async (user: JwtPayload, range: string) => {
-  const { startDate, endDate, intervalMilliseconds } = getDateRangeAndIntervals(range);
+const getProfessionalEngagementRate = async (
+  user: JwtPayload,
+  range: string,
+) => {
+  const { startDate, endDate, intervalMilliseconds } =
+    getDateRangeAndIntervals(range);
   const totalRangeMilliseconds = endDate.getTime() - startDate.getTime();
   const segmentCount = 10;
   const segmentMilliseconds = totalRangeMilliseconds / segmentCount;
@@ -593,12 +604,17 @@ const getProfessionalEngagementRate = async (user: JwtPayload, range: string) =>
       $group: {
         _id: {
           $floor: {
-            $divide: [{ $subtract: ['$createdAt', startDate] }, segmentMilliseconds],
+            $divide: [
+              { $subtract: ['$createdAt', startDate] },
+              segmentMilliseconds,
+            ],
           },
         },
         totalReservations: { $sum: 1 },
         completedReservations: {
-          $sum: { $cond: [{ $eq: ['$status', 'completed pending confirmed'] }, 1, 0] },
+          $sum: {
+            $cond: [{ $eq: ['$status', 'completed pending confirmed'] }, 1, 0],
+          },
         },
       },
     },
@@ -606,13 +622,24 @@ const getProfessionalEngagementRate = async (user: JwtPayload, range: string) =>
   ]);
 
   const engagementData = Array.from({ length: segmentCount }, (_, index) => {
-    const segmentStartDate = new Date(startDate.getTime() + index * segmentMilliseconds);
-    const segmentEndDate = new Date(segmentStartDate.getTime() + segmentMilliseconds);
+    const segmentStartDate = new Date(
+      startDate.getTime() + index * segmentMilliseconds,
+    );
+    const segmentEndDate = new Date(
+      segmentStartDate.getTime() + segmentMilliseconds,
+    );
     const matchingReservation = reservations.find((r) => r._id === index);
 
-    const totalReservations = matchingReservation ? matchingReservation.totalReservations : 0;
-    const completedReservations = matchingReservation ? matchingReservation.completedReservations : 0;
-    const engagementRate = totalReservations > 0 ? (completedReservations / totalReservations) * 100 : 0;
+    const totalReservations = matchingReservation
+      ? matchingReservation.totalReservations
+      : 0;
+    const completedReservations = matchingReservation
+      ? matchingReservation.completedReservations
+      : 0;
+    const engagementRate =
+      totalReservations > 0
+        ? (completedReservations / totalReservations) * 100
+        : 0;
 
     return {
       startDate: segmentStartDate.toISOString(),
@@ -626,10 +653,12 @@ const getProfessionalEngagementRate = async (user: JwtPayload, range: string) =>
   return engagementData;
 };
 
-
-
-const getProfessionalReservationCount = async (user: JwtPayload, range: string) => {
-  const { startDate, endDate, intervalMilliseconds } = getDateRangeAndIntervals(range);
+const getProfessionalReservationCount = async (
+  user: JwtPayload,
+  range: string,
+) => {
+  const { startDate, endDate, intervalMilliseconds } =
+    getDateRangeAndIntervals(range);
   const totalRangeMilliseconds = endDate.getTime() - startDate.getTime();
   const segmentCount = 10;
   const segmentMilliseconds = totalRangeMilliseconds / segmentCount;
@@ -645,7 +674,10 @@ const getProfessionalReservationCount = async (user: JwtPayload, range: string) 
       $group: {
         _id: {
           $floor: {
-            $divide: [{ $subtract: ['$createdAt', startDate] }, segmentMilliseconds],
+            $divide: [
+              { $subtract: ['$createdAt', startDate] },
+              segmentMilliseconds,
+            ],
           },
         },
         reservationCount: { $sum: 1 },
@@ -655,20 +687,25 @@ const getProfessionalReservationCount = async (user: JwtPayload, range: string) 
   ]);
 
   const reservationData = Array.from({ length: segmentCount }, (_, index) => {
-    const segmentStartDate = new Date(startDate.getTime() + index * segmentMilliseconds);
-    const segmentEndDate = new Date(segmentStartDate.getTime() + segmentMilliseconds);
+    const segmentStartDate = new Date(
+      startDate.getTime() + index * segmentMilliseconds,
+    );
+    const segmentEndDate = new Date(
+      segmentStartDate.getTime() + segmentMilliseconds,
+    );
     const matchingReservation = reservations.find((r) => r._id === index);
 
     return {
       startDate: segmentStartDate.toISOString(),
       endDate: segmentEndDate.toISOString(),
-      reservationCount: matchingReservation ? matchingReservation.reservationCount : 0,
+      reservationCount: matchingReservation
+        ? matchingReservation.reservationCount
+        : 0,
     };
   });
 
   return reservationData;
 };
-
 
 export const ProfessionalService = {
   updateProfessionalProfile,
@@ -680,5 +717,5 @@ export const ProfessionalService = {
   getProfessionalPortfolio,
   getProfessionalRevenue,
   getProfessionalEngagementRate,
-  getProfessionalReservationCount
+  getProfessionalReservationCount,
 };
