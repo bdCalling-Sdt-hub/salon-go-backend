@@ -3,8 +3,11 @@ import { ScheduleServices } from './schedule.service';
 import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
+import { USER_ROLES } from '../../../enums/user';
+import { Types } from 'mongoose';
 
 const createSchedule = catchAsync(async (req: Request, res: Response) => {
+  console.log(req.body);
   const user = req.user;
   const result = await ScheduleServices.createScheduleToDB(user, req.body);
   sendResponse(res, {
@@ -31,9 +34,12 @@ const updateSchedule = catchAsync(async (req: Request, res: Response) => {
 
 const getScheduleForProfessional = catchAsync(
   async (req: Request, res: Response) => {
-    const id = req.params.id;
+    const id = req.query.professionalId;
+    const user = req.user;
+
     const result = await ScheduleServices.getTimeScheduleFromDBForProfessional(
-      id,
+      id as string,
+      user,
     );
     sendResponse(res, {
       success: true,

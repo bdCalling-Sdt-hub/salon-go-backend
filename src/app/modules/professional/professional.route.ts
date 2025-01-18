@@ -61,11 +61,31 @@ router.get(
 );
 
 router.get(
+  '/revenue',
+
+  auth(USER_ROLES.PROFESSIONAL),
+  ProfessionalController.getProfessionalRevenue,
+);
+
+router.get(
+  '/reservation-rate',
+  auth(USER_ROLES.PROFESSIONAL),
+  ProfessionalController.getProfessionalReservationRate,
+);
+
+router.get(
+  '/engagement-rate',
+  auth(USER_ROLES.PROFESSIONAL),
+  ProfessionalController.getProfessionalEngagementRate,
+);
+
+router.get(
   '/:id',
   auth(USER_ROLES.USER, USER_ROLES.ADMIN),
   ProfessionalController.getSingleProfessional,
 );
 
+//get all professionals profile with filter and pagination
 router.get(
   '/',
   auth(USER_ROLES.USER, USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL),

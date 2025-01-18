@@ -4,12 +4,15 @@ import sendResponse from '../../../shared/sendResponse';
 import { IBookmark } from './bookmark.interface';
 import { BookmarkService } from './bookmark.service';
 import { Request, Response } from 'express';
-
+import { Types } from 'mongoose';
 const createOrRemoveBookmark = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
-    const payload = req.body;
-    const result = await BookmarkService.createOrRemoveBookmark(user, payload);
+    const { id } = req.params;
+    console.log(id);
+    const result = await BookmarkService.createOrRemoveBookmark(user, {
+      professional: new Types.ObjectId(id),
+    });
     sendResponse<IBookmark>(res, {
       success: true,
       statusCode: StatusCodes.OK,

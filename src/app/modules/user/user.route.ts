@@ -20,7 +20,19 @@ router.post(
   UserController.createUser,
 );
 
-router.delete('/delete/:id', auth(USER_ROLES.ADMIN), UserController.deleteUser);
+//restrict or unrestrict user
+router.patch(
+  '/restrict/:id',
+  auth(USER_ROLES.ADMIN),
+  UserController.restrictOrUnrestrictUser,
+);
+
+//approve user
+router.patch(
+  '/approve/:id',
+  auth(USER_ROLES.ADMIN),
+  UserController.approveUser,
+);
 
 //get all user
 router.get('/', auth(USER_ROLES.ADMIN), UserController.getAllUser);

@@ -3,13 +3,16 @@ import { IMessage, MessageModel } from './message.interface';
 
 const messageSchema = new Schema<IMessage, MessageModel>(
   {
-    senderId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     receiverId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     message: { type: String },
     isRead: { type: Boolean, default: false },
     chatId: { type: Schema.Types.ObjectId, ref: 'Chat', required: true },
     images: { type: [String] },
-    type: { type: String, enum: ['text', 'image', 'both'], required: true },
+    messageType: {
+      type: String,
+      enum: ['text', 'image', 'both'],
+      required: true,
+    },
   },
   { timestamps: true },
 );

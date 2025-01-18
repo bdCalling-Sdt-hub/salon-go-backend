@@ -11,6 +11,7 @@ const scheduleSchema = new Schema<ISchedule, ScheduleModel>(
     days: [
       {
         day: {
+          _id: false,
           type: String,
           enum: [
             'Monday',
@@ -25,7 +26,9 @@ const scheduleSchema = new Schema<ISchedule, ScheduleModel>(
         },
         startTime: { type: String, required: true },
         endTime: { type: String, required: true },
+
         timeSlots: {
+          _id: false,
           type: [
             {
               time: { type: String, required: true },
