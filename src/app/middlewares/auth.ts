@@ -27,6 +27,7 @@ const auth =
 
           // Set user to header
           req.user = verifyUser;
+          console.log(verifyUser);
 
           // Guard user
           if (roles.length && !roles.includes(verifyUser.role)) {

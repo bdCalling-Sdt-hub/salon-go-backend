@@ -13,10 +13,8 @@ const createSubCategorySchema = z.object({
 });
 
 const createSubSubCategorySchema = z.object({
-  body: z.object({
-    name: z.string().min(1, 'Name is required'),
-    description: z.string().optional(),
-  }),
+  name: z.string().min(1, 'Name is required'),
+  description: z.string().optional(),
 });
 
 const updateCategorySchema = z.object({

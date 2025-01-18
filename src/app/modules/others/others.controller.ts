@@ -15,7 +15,7 @@ const addBanner = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
 
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    payload.imgUrl = `/images/${req.files.image[0].filename}`;
+    payload.imgUrl = `/images/${req.files.image[0].path}`;
   }
 
   const result = await OthersService.addBanner(payload, user);

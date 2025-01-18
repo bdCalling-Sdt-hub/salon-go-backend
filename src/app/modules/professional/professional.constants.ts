@@ -8,6 +8,7 @@ export const professionalSearchableFields = [
 ];
 export const professionalFilterableFields = [
   'searchTerm',
+  'offers',
   'sortBy',
   'sortOrder',
   'category',

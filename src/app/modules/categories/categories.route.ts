@@ -8,6 +8,12 @@ import validateRequest from '../../middlewares/validateRequest';
 
 const router = express.Router();
 
+router.get(
+  '/sub-categories',
+  auth(USER_ROLES.PROFESSIONAL),
+  CategoriesController.getSubCategories,
+);
+
 router.post(
   '/category',
   auth(USER_ROLES.ADMIN),
@@ -70,7 +76,7 @@ router.patch(
       );
     }
 
-    return CategoriesController.createSubCategory(req, res, next);
+    return CategoriesController.updateSubCategory(req, res, next);
   },
 );
 
@@ -98,7 +104,7 @@ router.patch(
 
 router.delete(
   '/sub-sub-category/:id',
-  // auth(USER_ROLES.ADMIN),
+  auth(USER_ROLES.ADMIN),
   CategoriesController.deleteSubSubCategory,
 );
 
@@ -150,6 +156,10 @@ router.get('/sub-categories', CategoriesController.getAllSubCategories);
 
 router.get('/sub-sub-categories', CategoriesController.getAllSubSubCategories);
 //filter categories
-router.get('/', CategoriesController.filterCategories);
+router.get(
+  '/',
+  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER, USER_ROLES.ADMIN),
+  CategoriesController.filterCategories,
+);
 
 export const CategoriesRoutes = router;

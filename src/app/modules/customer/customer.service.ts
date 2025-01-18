@@ -21,6 +21,7 @@ const getCustomerProfile = async (user: JwtPayload) => {
       name: 1,
       email: 1,
       role: 1,
+      contact: 1,
       status: 1,
       profile: 1,
     },
