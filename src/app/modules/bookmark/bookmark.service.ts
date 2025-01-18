@@ -4,10 +4,10 @@ import { Bookmark } from './bookmark.model';
 import ApiError from '../../../errors/ApiError';
 import { JwtPayload } from 'jsonwebtoken';
 import { Customer } from '../customer/customer.model';
-
+import { Types } from 'mongoose';
 const createOrRemoveBookmark = async (
   user: JwtPayload,
-  payload: IBookmark,
+  payload: { professional: Types.ObjectId },
 ): Promise<IBookmark> => {
   const isExist = await Bookmark.findOne({
     professional: payload.professional,
