@@ -23,12 +23,9 @@ const createReview = catchAsync(async (req: Request, res: Response) => {
 
 const getReviewsByProfessionalId = catchAsync(
   async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const user = req.user;
     const paginationOptions = pick(req.query, paginationFields);
-    const result = await ReviewService.getReviewsByProfessionalIdFromDB(
-      id,
-      paginationOptions,
-    );
+    const result = await ReviewService.getReviews(user, paginationOptions);
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,

@@ -34,4 +34,9 @@ router.get(
   ScheduleController.getScheduleForProfessional,
 );
 
+router.get(
+  '/professional/:id',
+  auth(USER_ROLES.USER),
+  ScheduleController.getScheduleForCustomer,
+);
 export const ScheduleRoutes = router;

@@ -478,7 +478,6 @@ const managePortfolio = async (
       }
 
       // 🗑️ Delete Removed Images
-      console.log(removedImages);
       if (removedImages.length > 0) {
         await deleteResourcesFromCloudinary(removedImages, 'image', true);
       }

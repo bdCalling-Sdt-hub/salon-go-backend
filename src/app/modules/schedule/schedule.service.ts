@@ -286,56 +286,57 @@ const updateScheduleForDaysInDB = async (
   }
 };
 
-// const getTimeScheduleFromDBForProfessional = async (id: string) => {
-//   const defaultDays = [
-//     'Sunday',
-//     'Monday',
-//     'Tuesday',
-//     'Wednesday',
-//     'Thursday',
-//     'Friday',
-//     'Saturday',
-//   ];
+const getTimeScheduleFromDBForProfessional = async (user: JwtPayload) => {
+  const defaultDays = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ];
+  console.log(user.userId);
+  const schedule = await Schedule.findOne({
+    professional: user.userId,
+  }).lean();
+  if (!schedule) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
+  }
+  // Create a map of days with a default structure
+  const daysMap = new Map(
+    defaultDays.map((day) => [
+      day,
+      { day, check: false, timeSlots: [], startTime: '', endTime: '' },
+    ]),
+  );
 
-//   const schedule = await Schedule.findOne({ professional: id }).lean();
-//   if (!schedule) {
-//     throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
-//   }
+  // Populate the map with days from the database
+  for (const day of schedule.days) {
+    daysMap.set(day.day, {
+      ...day,
+      check: true,
+      //@ts-ignore
+      timeSlots: day.timeSlots.map((time) => ({
+        time: time.time,
+        timeCode: time.timeCode,
+        isAvailable: time.isAvailable ?? false,
+        discount: time.discount ?? 0,
+      })),
+    });
+  }
 
-//   // Create a map of days with a default structure
-//   const daysMap = new Map(
-//     defaultDays.map((day) => [
-//       day,
-//       { day, check: false, timeSlots: [], startTime: '', endTime: '' },
-//     ]),
-//   );
+  // Convert map values to an array for the response
+  const populatedDays = Array.from(daysMap.values());
 
-//   // Populate the map with days from the database
-//   for (const day of schedule.days) {
-//     daysMap.set(day.day, {
-//       ...day,
-//       check: true,
-//       //@ts-ignore
-//       timeSlots: day.timeSlots.map((time) => ({
-//         time: time.time,
-//         timeCode: time.timeCode,
-//         isAvailable: time.isAvailable ?? false,
-//         discount: time.discount ?? 0,
-//       })),
-//     });
-//   }
+  return {
+    ...schedule,
+    days: populatedDays,
+  };
+};
 
-//   // Convert map values to an array for the response
-//   const populatedDays = Array.from(daysMap.values());
-
-//   return {
-//     ...schedule,
-//     days: populatedDays,
-//   };
-// };
-
-const getTimeScheduleFromDBForProfessional = async (
-  id: string,
+const getTimeScheduleForCustomer = async (
+  id: Types.ObjectId,
   user: JwtPayload,
 ) => {
   const defaultDays = [
@@ -349,6 +350,7 @@ const getTimeScheduleFromDBForProfessional = async (
   ];
 
   const customerId = user.role === USER_ROLES.USER ? user.userId : null;
+  console.log(customerId, id);
   const [schedule, customerReservations] = await Promise.all([
     Schedule.findOne({ professional: id }).lean(),
     customerId
@@ -389,6 +391,7 @@ const getTimeScheduleFromDBForProfessional = async (
     daysMap.set(day.day, {
       ...day,
       check: true,
+      //@ts-ignore
       timeSlots: day.timeSlots.map((timeSlot) => ({
         ...timeSlot,
         isAvailable: customerId
@@ -419,4 +422,5 @@ export const ScheduleServices = {
   updateScheduleForDaysInDB,
   getTimeScheduleFromDBForProfessional,
   deleteScheduleFromDB,
+  getTimeScheduleForCustomer,
 };
