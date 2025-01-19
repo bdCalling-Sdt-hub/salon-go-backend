@@ -1,3 +1,4 @@
+import { groupBy } from 'lodash';
 import { USER_ROLES } from './../../../enums/user';
 import { LocationHelper } from './../../../utils/locationHelper';
 import { StatusCodes } from 'http-status-codes';
@@ -296,31 +297,24 @@ const getReservationsForUsersFromDB = async (
 ) => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
-  const { searchTerm, status, subSubCategory, date } = filters;
+  const { status, subSubCategory, date } = filters;
 
-  const andCondition = [];
+  const andCondition: any[] = [];
 
   if (status) {
-    andCondition.push({
-      status: status,
-    });
+    andCondition.push({ status });
   }
   if (subSubCategory) {
-    andCondition.push({
-      subSubCategory: subSubCategory,
-    });
+    andCondition.push({ subSubCategory });
   }
-
   if (date) {
-    //add date filter to find reservation on that particular date [ date will be in this format 2025-01-01 ] but he service and professional will be in this format 2025-01-01T00:00:00.000Z
-    console.log(new Date(date));
+    const startOfDay = new Date(date);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setUTCHours(23, 59, 59, 999);
     andCondition.push({
-      date: new Date(date),
+      serviceStartDateTime: { $gte: startOfDay, $lte: endOfDay },
     });
-  } else {
-    // andCondition.push({
-    //   date: new Date(),
-    // });
   }
 
   const query =
@@ -328,7 +322,8 @@ const getReservationsForUsersFromDB = async (
       ? { professional: user.userId }
       : { customer: user.userId };
 
-  const result = await Reservation.find({
+  // Fetch filtered reservations with pagination
+  const reservations = await Reservation.find({
     $and: [query, ...andCondition],
   })
     .select({
@@ -345,45 +340,52 @@ const getReservationsForUsersFromDB = async (
     })
     .populate({
       path: 'service',
-      select: {
-        _id: 0,
-        title: 1,
-      },
+      select: { title: 1 },
     })
-    .populate('subSubCategory', {
-      _id: 0,
-      name: 1,
-    })
-    .populate('professional', {
-      _id: 1,
-      businessName: 1,
-    })
+    .populate('subSubCategory', { name: 1 })
+    .populate('professional', { businessName: 1 })
     .populate({
       path: 'customer',
       select: { auth: 1 },
-      populate: {
-        path: 'auth',
-        select: { name: 1, address: 1 },
-      },
+      populate: { path: 'auth', select: { name: 1, address: 1 } },
     })
-    .sort({
-      [sortBy]: sortOrder,
-    })
+    .sort({ [sortBy]: sortOrder })
     .skip(skip)
     .limit(limit)
     .lean();
 
-  const totalEarning = result.reduce((total, reservation) => {
-    return total + (reservation.amount + (reservation.travelFee ?? 0));
-  }, 0);
+  // Group reservations by date and calculate totals
+  const groupedData = groupBy(
+    reservations,
+    (res) => new Date(res.serviceStartDateTime).toISOString().split('T')[0],
+  );
+
+  const dailyReservations = Object.entries(groupedData).map(
+    ([date, reservations]) => {
+      const totalAmount = reservations.reduce(
+        (total, reservation) =>
+          total + reservation.amount + (reservation.travelFee ?? 0),
+        0,
+      );
+      return { date, totalAmount, reservations };
+    },
+  );
+
+  // Independent counts for confirmed and pending reservations (not affected by filters)
+  const baseQuery = {
+    $or: [{ customer: user.userId }, { professional: user.userId }],
+  };
+  const confirmedCount = await Reservation.countDocuments({
+    ...baseQuery,
+    status: 'confirmed',
+  });
+  const pendingCount = await Reservation.countDocuments({
+    ...baseQuery,
+    status: 'pending',
+  });
 
   const total = await Reservation.countDocuments({
-    $and: [
-      {
-        $or: [{ customer: user.userId }, { professional: user.userId }],
-      },
-      ...andCondition,
-    ],
+    $and: [baseQuery, ...andCondition],
   });
 
   return {
@@ -393,7 +395,11 @@ const getReservationsForUsersFromDB = async (
       totalPage: Math.ceil(total / limit),
       limit,
     },
-    data: { totalEarning, result },
+    data: {
+      dailyReservations,
+      confirmedCount,
+      pendingCount,
+    },
   };
 };
 

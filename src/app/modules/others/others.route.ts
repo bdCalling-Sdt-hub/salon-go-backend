@@ -47,19 +47,19 @@ router.patch(
 );
 router.post(
   '/privacy-policy',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(othersValidation.createPrivacyPolicyZodSchema),
   OthersController.createPrivacyPolicy,
 );
 router.post(
   '/terms-and-condition',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(othersValidation.createTermsAndConditionsZodSchema),
   OthersController.createTermsAndConditions,
 );
 router.post(
   '/faq',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(othersValidation.createFaqsZodSchema),
   OthersController.createFaQs,
 );

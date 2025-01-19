@@ -77,7 +77,7 @@ const accessChat = async (
   return {
     chatId: chat._id,
     ...participantData,
-    latestMessage: message,
+    latestMessage: message ?? '',
     latestMessageTime: latestMessageTime,
   };
 };
@@ -97,9 +97,9 @@ const getChatListByUserId = async (
 
   // Fetch chats with base query and pagination
   const chats = await Chat.find(baseQuery)
-    .populate('participants', {
-      name: 1,
-      profile: 1,
+    .populate({
+      path: 'participants',
+      select: { name: 1, profile: 1 },
     })
     .populate({
       path: 'latestMessage',
@@ -111,6 +111,8 @@ const getChatListByUserId = async (
     .skip(skip)
     .limit(limit)
     .lean();
+
+  console.log(chats, 'chats');
 
   if (!chats || chats.length === 0) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get chat list.');
@@ -146,7 +148,7 @@ const getChatListByUserId = async (
 
   // Recalculate the total based on the search filter
   const total = await Chat.find(baseQuery)
-    .populate('participants', { name: 1 })
+    .populate('participants', { name: 1, profile: 1 })
     .lean()
     .then(
       (allChats) =>

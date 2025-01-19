@@ -7,7 +7,7 @@ const messageSchema = new Schema<IMessage, MessageModel>(
     message: { type: String },
     isRead: { type: Boolean, default: false },
     chatId: { type: Schema.Types.ObjectId, ref: 'Chat', required: true },
-    images: { type: [String] },
+    image: { type: String },
     messageType: {
       type: String,
       enum: ['text', 'image', 'both'],

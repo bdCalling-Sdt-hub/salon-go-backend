@@ -35,28 +35,28 @@ const sendMessage = async (payload: IMessage, chatId: string) => {
   // ...existing code...
 
   payload.messageType =
-    payload.images && payload.images.length > 0 && payload.message
+    payload.image && payload.image.length > 0 && payload.message
       ? 'both'
-      : payload.images && payload.images.length > 0
+      : payload.image && payload.image.length > 0
       ? 'image'
       : 'text';
 
   // ...existing code...
 
   if (payload.messageType === 'both' || payload.messageType === 'image') {
-    if (payload.images.length > 0) {
-      const uploadedImages = await uploadToCloudinary(
-        payload.images,
+    if (payload.image.length > 0) {
+      const uploadedImage = await uploadToCloudinary(
+        payload.image,
         'message',
         'image',
       );
-      if (!uploadedImages || uploadedImages.length === 0) {
+      if (!uploadedImage || uploadedImage.length === 0) {
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
           'Failed to upload image to Cloudinary',
         );
       }
-      payload.images = uploadedImages;
+      payload.image = uploadedImage[0];
     }
   }
 

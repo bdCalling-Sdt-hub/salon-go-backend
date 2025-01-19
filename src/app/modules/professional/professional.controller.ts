@@ -57,6 +57,8 @@ const managePortfolio = catchAsync(async (req: Request, res: Response) => {
       link: link || undefined,
     };
   }
+
+  console.log(updatedImage, removedImages, portfolioImage);
   // Handle Multiple Removed Images
   const removedImagesArray: string[] = Array.isArray(removedImages)
     ? removedImages
@@ -68,7 +70,6 @@ const managePortfolio = catchAsync(async (req: Request, res: Response) => {
   if (updatedImage) {
     (payload.url = updatedImage), (payload.link = link);
   }
-  console.log(removedImages);
   // Call the service
   const result = await ProfessionalService.managePortfolio(
     user,
@@ -168,12 +169,14 @@ const getAllProfessional = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-
 const getProfessionalRevenue = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
     const range = req.query.range as string;
-    const result = await ProfessionalService.getProfessionalRevenue(user, range);
+    const result = await ProfessionalService.getProfessionalRevenue(
+      user,
+      range,
+    );
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
@@ -187,7 +190,10 @@ const getProfessionalEngagementRate = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
     const range = req.query.range as string;
-    const result = await ProfessionalService.getProfessionalEngagementRate(user, range);
+    const result = await ProfessionalService.getProfessionalEngagementRate(
+      user,
+      range,
+    );
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
@@ -197,11 +203,14 @@ const getProfessionalEngagementRate = catchAsync(
   },
 );
 
-const  getProfessionalReservationRate = catchAsync(
+const getProfessionalReservationRate = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
     const range = req.query.range as string;
-    const result = await ProfessionalService.getProfessionalReservationCount(user, range);
+    const result = await ProfessionalService.getProfessionalReservationCount(
+      user,
+      range,
+    );
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
@@ -219,9 +228,7 @@ export const ProfessionalController = {
   getSingleProfessional,
   managePortfolio,
   getProfessionalPortfolio,
-  getProfessionalRevenue
-,
-  getProfessionalEngagementRate
-,
-  getProfessionalReservationRate
+  getProfessionalRevenue,
+  getProfessionalEngagementRate,
+  getProfessionalReservationRate,
 };
