@@ -15,6 +15,7 @@ import { ReportRoutes } from '../app/modules/report/report.route';
 import { DashboardRoutes } from '../app/modules/dashboard/dashboard.route';
 import { AdminRoutes } from '../app/modules/admin/admin.route';
 import { OthersRoutes } from '../app/modules/others/others.route';
+import { NotificationRoutes } from '../app/modules/notification/notification.route';
 
 const router = express.Router();
 
@@ -67,6 +68,10 @@ export const apiRoutes: { path: string; route: any }[] = [
   {
     path: '/report',
     route: ReportRoutes,
+  },
+  {
+    path: '/notification',
+    route: NotificationRoutes,
   },
   {
     path: '/dashboard',

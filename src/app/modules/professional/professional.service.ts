@@ -453,7 +453,7 @@ const managePortfolio = async (
         { _id: user.userId, 'portfolio.path': updatedImage.url },
         { 'portfolio.$.link': updatedImage.link || undefined },
       );
-      console.log(removedImages);
+      console.log(removedImages, 'removedImages');
     } else {
       // 🖼️ Upload New Portfolio Image
       let uploadedImage: { path: string; link?: string } | null = null;

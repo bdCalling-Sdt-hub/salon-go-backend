@@ -71,13 +71,14 @@ const accessChat = async (
     (participant: any) => participant._id.toString() !== user.id,
   );
 
-  const { message } = chat.latestMessage as Partial<IMessage>;
+  const latestMessageData = (chat.latestMessage as Partial<IMessage>) || {};
+  const message = latestMessageData.message || ''; // Default to an empty string
   const { latestMessageTime } = chat;
 
   return {
     chatId: chat._id,
     ...participantData,
-    latestMessage: message ?? '',
+    latestMessage: message ?? null,
     latestMessageTime: latestMessageTime,
   };
 };
@@ -135,13 +136,14 @@ const getChatListByUserId = async (
       (participant) => participant._id.toString() !== user.id,
     );
 
-    const { message } = chat.latestMessage as Partial<IMessage>;
+    const latestMessageData = (chat.latestMessage as Partial<IMessage>) || {};
+    const message = latestMessageData.message || ''; // Default to an empty string
     const { latestMessageTime } = chat;
 
     return {
       chatId: chat._id,
       ...otherParticipant,
-      latestMessage: message,
+      latestMessage: message ?? null,
       latestMessageTime: latestMessageTime,
     };
   });
