@@ -106,7 +106,7 @@ const createPrivacyPolicy = async (
 };
 
 const createAbout = async (payload: IAbout): Promise<IAbout | null> => {
-  const isExist = await PrivacyPolicy.findOne({ type: payload.type });
+  const isExist = await About.findOne({ type: payload.type });
   if (isExist) {
     await About.findOneAndUpdate({ userType: payload.type }, payload);
   }
