@@ -47,10 +47,20 @@ const updateBannerSchema = z.object({
   btnText: z.string().optional(),
 });
 
+const createdAboutZodSchema = z.object({
+  body: z.object({
+    content: z.string().min(1, { message: 'Content is required' }),
+    type: z.enum(['ABOUT'], {
+      required_error: 'Type is required',
+    }),
+  }),
+});
+
 export const othersValidation = {
   createPrivacyPolicyZodSchema,
   createTermsAndConditionsZodSchema,
   createFaqsZodSchema,
   createBannerSchema,
   updateBannerSchema,
+  createdAboutZodSchema,
 };

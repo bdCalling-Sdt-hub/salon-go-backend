@@ -2,8 +2,15 @@
 
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
-import { Banner, FaQs, PrivacyPolicy, TermsAndCondition } from './others.model';
 import {
+  About,
+  Banner,
+  FaQs,
+  PrivacyPolicy,
+  TermsAndCondition,
+} from './others.model';
+import {
+  IAbout,
   IBanner,
   IFaQs,
   IPrivacyPolicy,
@@ -94,6 +101,18 @@ const createPrivacyPolicy = async (
       StatusCodes.BAD_REQUEST,
       'Failed to create privacy policy',
     );
+  }
+  return result;
+};
+
+const createAbout = async (payload: IAbout): Promise<IAbout | null> => {
+  const isExist = await PrivacyPolicy.findOne({ type: payload.type });
+  if (isExist) {
+    await About.findOneAndUpdate({ userType: payload.type }, payload);
+  }
+  const result = await About.create(payload);
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create About us');
   }
   return result;
 };
@@ -204,6 +223,14 @@ const deleteBanner = async (id: string) => {
   return result;
 };
 
+const getAbout = async (type: string): Promise<IAbout | null> => {
+  const result = await About.findOne({ type: type });
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get About us');
+  }
+  return result;
+};
+
 export const OthersService = {
   createPrivacyPolicy,
   getPrivacyPolicy,
@@ -219,4 +246,6 @@ export const OthersService = {
   updateBanner,
   getSingleBanner,
   deleteBanner,
+  createAbout,
+  getAbout,
 };

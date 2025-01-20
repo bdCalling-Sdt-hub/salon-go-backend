@@ -98,4 +98,16 @@ router.get(
   OthersController.getFaQs,
 );
 
+router.post(
+  '/about-us',
+  validateRequest(othersValidation.createdAboutZodSchema),
+  OthersController.createAbout,
+);
+
+router.get(
+  '/about-us/:type',
+  // auth(USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+  OthersController.getAbout,
+);
+
 export const OthersRoutes = router;

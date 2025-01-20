@@ -25,6 +25,7 @@ export type IReservation = {
     | 'canceled';
   travelFee: number;
   subSubCategory: Types.ObjectId;
+  serviceAddress: string;
   serviceLocation: Point;
   serviceStartDateTime: Date;
   serviceEndDateTime: Date;

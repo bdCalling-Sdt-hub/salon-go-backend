@@ -31,7 +31,8 @@ const createReservationToDB = async (
   payload: IReservation,
   user: JwtPayload,
 ) => {
-  const { professional, date, time, serviceLocation, amount } = payload;
+  const { professional, date, time, serviceLocation, amount, serviceAddress } =
+    payload;
 
   const [isProfessionalExists, isCustomerExist, isServiceExist] =
     await Promise.all([
@@ -136,6 +137,12 @@ const createReservationToDB = async (
   }
   payload.serviceLocation =
     serviceLocation !== undefined ? serviceLocation : location;
+  payload.serviceAddress =
+    serviceAddress !== undefined
+      ? serviceAddress || ''
+      : serviceType === 'home'
+      ? isCustomerExist.address || ''
+      : isProfessionalExists.address || '';
 
   if (isFreelancer) {
     const isNotAvailable = await Reservation.exists({
@@ -193,6 +200,8 @@ const createReservationToDB = async (
       travelFee: 1,
       serviceStartDateTime: 1,
       serviceEndDateTime: 1,
+      serviceType: 1,
+      isStarted: 1,
       duration: 1,
       serviceLocation: 1,
       address: 1,
@@ -203,6 +212,13 @@ const createReservationToDB = async (
         _id: 0,
         title: 1,
       },
+      populate: {
+        path: 'category',
+        select: {
+          _id: 0,
+          name: 1,
+        },
+      },
     })
     .populate('subSubCategory', {
       _id: 0,
@@ -211,13 +227,15 @@ const createReservationToDB = async (
     .populate('professional', {
       _id: 1,
       businessName: 1,
+      address: 1,
+      location: 1,
     })
     .populate({
       path: 'customer',
       select: { auth: 1 },
       populate: {
         path: 'auth',
-        select: { name: 1, address: 1 },
+        select: { name: 1, address: 1, profile: 1 },
       },
     })
     .lean();
@@ -255,6 +273,8 @@ const getSingleReservationFromDB = async (
       travelFee: 1,
       serviceStartDateTime: 1,
       serviceEndDateTime: 1,
+      serviceType: 1,
+      isStarted: 1,
       duration: 1,
       serviceLocation: 1,
       address: 1,
@@ -265,6 +285,13 @@ const getSingleReservationFromDB = async (
         _id: 0,
         title: 1,
       },
+      populate: {
+        path: 'category',
+        select: {
+          _id: 0,
+          name: 1,
+        },
+      },
     })
     .populate('subSubCategory', {
       _id: 0,
@@ -273,15 +300,18 @@ const getSingleReservationFromDB = async (
     .populate('professional', {
       _id: 1,
       businessName: 1,
+      address: 1,
+      location: 1,
     })
     .populate({
       path: 'customer',
       select: { auth: 1 },
       populate: {
         path: 'auth',
-        select: { name: 1, address: 1 },
+        select: { name: 1, address: 1, profile: 1 },
       },
-    });
+    })
+    .lean();
 
   if (!isReservationExists) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Reservation not found');
@@ -302,7 +332,9 @@ const getReservationsForUsersFromDB = async (
   const andCondition: any[] = [];
 
   if (status) {
-    andCondition.push({ status });
+    if (status === 'all')
+      andCondition.push({ status: { $in: ['pending', 'confirmed'] } });
+    else andCondition.push({ status });
   }
   if (subSubCategory) {
     andCondition.push({ subSubCategory });
@@ -334,20 +366,43 @@ const getReservationsForUsersFromDB = async (
       travelFee: 1,
       serviceStartDateTime: 1,
       serviceEndDateTime: 1,
+      serviceType: 1,
+      isStarted: 1,
       duration: 1,
       serviceLocation: 1,
       address: 1,
     })
     .populate({
       path: 'service',
-      select: { title: 1 },
+      select: {
+        _id: 0,
+        title: 1,
+      },
+      populate: {
+        path: 'category',
+        select: {
+          _id: 0,
+          name: 1,
+        },
+      },
     })
-    .populate('subSubCategory', { name: 1 })
-    .populate('professional', { businessName: 1 })
+    .populate('subSubCategory', {
+      _id: 0,
+      name: 1,
+    })
+    .populate('professional', {
+      _id: 1,
+      businessName: 1,
+      address: 1,
+      location: 1,
+    })
     .populate({
       path: 'customer',
       select: { auth: 1 },
-      populate: { path: 'auth', select: { name: 1, address: 1 } },
+      populate: {
+        path: 'auth',
+        select: { name: 1, address: 1, profile: 1 },
+      },
     })
     .sort({ [sortBy]: sortOrder })
     .skip(skip)
@@ -355,9 +410,46 @@ const getReservationsForUsersFromDB = async (
     .lean();
 
   // Group reservations by date and calculate totals
-  const groupedData = groupBy(
-    reservations,
-    (res) => new Date(res.serviceStartDateTime).toISOString().split('T')[0],
+  const formatDate = (date: Date): string => {
+    const today = new Date();
+    const isToday =
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear();
+
+    if (isToday) return 'Today';
+
+    const days = [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return `${days[date.getDay()]}, ${
+      months[date.getMonth()]
+    } ${date.getDate()}`;
+  };
+
+  const groupedData = groupBy(reservations, (res) =>
+    formatDate(new Date(res.serviceStartDateTime)),
   );
 
   const dailyReservations = Object.entries(groupedData).map(
@@ -420,6 +512,8 @@ const updateReservationStatusToDB = async (
         travelFee: 1,
         serviceStartDateTime: 1,
         serviceEndDateTime: 1,
+        serviceType: 1,
+        isStarted: 1,
         duration: 1,
         serviceLocation: 1,
         address: 1,
@@ -430,17 +524,30 @@ const updateReservationStatusToDB = async (
           _id: 0,
           title: 1,
         },
+        populate: {
+          path: 'category',
+          select: {
+            _id: 0,
+            name: 1,
+          },
+        },
       })
       .populate('subSubCategory', {
         _id: 0,
         name: 1,
+      })
+      .populate('professional', {
+        _id: 1,
+        businessName: 1,
+        address: 1,
+        location: 1,
       })
       .populate({
         path: 'customer',
         select: { auth: 1 },
         populate: {
           path: 'auth',
-          select: { name: 1, address: 1 },
+          select: { name: 1, address: 1, profile: 1 },
         },
       })
       .session(session);

@@ -28,6 +28,7 @@ const reservationSchema = new Schema<IReservation, ReservationModel>(
     },
     subSubCategory: { type: Schema.Types.ObjectId, ref: 'SubSubCategory' },
     travelFee: { type: Number },
+    serviceAddress: { type: String },
     serviceLocation: {
       type: { type: String, default: 'Point', enum: ['Point'] },
       coordinates: { type: [Number], default: [0, 0] },
