@@ -8,14 +8,15 @@ import { Types } from 'mongoose';
 const createOrRemoveBookmark = async (
   user: JwtPayload,
   payload: { professional: Types.ObjectId },
-): Promise<IBookmark> => {
+) => {
+  let status;
   const isExist = await Bookmark.findOne({
     professional: payload.professional,
     customer: user.userId,
   });
   if (isExist) {
     await Bookmark.deleteOne({ _id: isExist._id });
-    return isExist;
+    return `Bookmark removed successfully`;
   }
   const result = await Bookmark.create({
     customer: user.userId,
@@ -24,7 +25,7 @@ const createOrRemoveBookmark = async (
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create bookmark');
   }
-  return result;
+  return `Bookmark created successfully`;
 };
 
 const getAllBookmarks = async (id: string): Promise<IBookmark[] | null> => {

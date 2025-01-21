@@ -15,7 +15,7 @@ import { JwtPayload } from 'jsonwebtoken';
 import { IUser } from '../user/user.interface';
 import { Professional } from '../professional/professional.model';
 
-const getAllCategories = async (): Promise<ICategory[]> => {
+const getAllCategories = async () => {
   const result = await Category.find()
     .populate({
       path: 'subCategories',
@@ -25,23 +25,43 @@ const getAllCategories = async (): Promise<ICategory[]> => {
         select: '_id name',
       },
     })
-    .exec();
+    .lean();
 
-  return result;
+  //add type as category to all the categories
+  const categoriesWithType = result.map((category) => ({
+    ...category,
+    type: 'category',
+  }));
+
+  return categoriesWithType;
 };
 
-const getAllSubCategories = async (): Promise<ISubCategory[]> => {
+interface ISubCategoryWithType extends ISubCategory {
+  type: 'subCategory';
+}
+
+const getAllSubCategories = async () => {
   const result = await SubCategory.find()
-    .populate({ path: 'subSubCategories', select: '_id name' })
-    .exec();
-  return result;
+    .populate({
+      path: 'subSubCategories',
+      select: '_id name',
+    })
+    .lean();
+
+  return result.map((subCategory) => ({
+    ...subCategory,
+    type: 'subCategory',
+  }));
 };
 
-const getAllSubSubCategories = async (): Promise<ISubSubCategory[]> => {
-  const result = await SubSubCategory.find().exec();
-  return result;
-};
+const getAllSubSubCategories = async () => {
+  const result = await SubSubCategory.find().lean();
 
+  return result.map((subSubCategory) => ({
+    ...subSubCategory,
+    type: 'subSubCategory',
+  }));
+};
 const createCategoryToDB = async (payload: ICategory): Promise<ICategory> => {
   console.log(payload);
   if (payload.image) {
@@ -91,7 +111,7 @@ const updateCategoryToDB = async (
 
     payload.image = uploadedImage[0];
   }
-
+  console.log(payload);
   const result = await Category.findOneAndUpdate(
     { _id: id },
     { $set: { ...payload } },
@@ -303,255 +323,45 @@ export const deleteSubSubCategoryToDB = async (id: string): Promise<string> => {
 };
 
 // Add multiple subCategories to a category (without duplicates)
-const addSubCategoryToCategory = async (
-  category: Types.ObjectId,
-  subCategories: Types.ObjectId[],
-) => {
-  const session = await mongoose.startSession();
-  try {
-    session.startTransaction();
-
-    // Add subcategories to the category, ensuring no duplicates
-    await Category.findOneAndUpdate(
-      { _id: category },
-      { $addToSet: { subCategories: { $each: subCategories } } }, // Use $addToSet to prevent duplicates
-      { new: true, session },
-    );
-
-    await session.commitTransaction();
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
-  }
-};
-
-// Remove a subCategory from a category
-const removeSubCategoryFromCategory = async (
-  category: Types.ObjectId,
+const updateSubCategoriesInCategory = async (
+  categoryId: Types.ObjectId,
   subCategories: Types.ObjectId[],
 ) => {
   const result = await Category.findOneAndUpdate(
-    { _id: category },
-    { $pull: { subCategories: { $in: subCategories } } }, // Use $in to remove multiple subCategories
+    { _id: categoryId },
+    { subCategories },
     { new: true },
   );
 
   if (!result) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'Failed to remove subCategory from category',
+      'Failed to update subCategories in category',
     );
   }
-
   return result;
 };
-
 // Add a subSubCategory to a subCategory (without duplicates)
-const addSubSubCategoryToSubCategory = async (
-  subCategory: Types.ObjectId,
-  subSubCategories: Types.ObjectId[], // Expecting an array of subSubCategory IDs
-) => {
-  // Add multiple subSubCategories to the subCategory, ensuring no duplicates
-  const result = await SubCategory.findOneAndUpdate(
-    { _id: subCategory },
-    { $addToSet: { subSubCategories: { $each: subSubCategories } } }, // Use $addToSet with $each for multiple IDs
-    { new: true },
-  );
-
-  if (!result) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Failed to add subSubCategory to subCategory',
-    );
-  }
-
-  return result;
-};
-
-// Remove a subSubCategory from a subCategory
-const removeSubSubCategoryFromSubCategory = async (
-  subCategory: Types.ObjectId,
+const updateSubSubCategoriesInSubCategory = async (
+  subCategoryId: Types.ObjectId,
   subSubCategories: Types.ObjectId[],
 ) => {
   const result = await SubCategory.findOneAndUpdate(
-    { _id: subCategory },
-    { $pull: { subSubCategories: { $in: subSubCategories } } },
+    { _id: subCategoryId },
+    { subSubCategories },
     { new: true },
   );
 
   if (!result) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'Failed to remove subSubCategory from subCategory',
+      'Failed to update subSubCategories in subCategory',
     );
   }
-
   return result;
 };
 
-// export const filterCategories = async (
-//   categoryId?: string,
-//   subCategoryId?: string,
-// ) => {
-//   try {
-//     const pipeline: any[] = [];
-//     pipeline.push({
-//       $project: {
-//         name: 1,
-//         image: 1,
-//         subCategories: 1,
-//       },
-//     });
-
-//     const categories = await Category.aggregate(pipeline);
-
-//     let subCategories: any[] = [];
-//     let subSubCategories: any[] = [];
-
-//     if (categoryId) {
-//       const selectedCategory = categories.find(
-//         (category) => category._id.toString() === categoryId,
-//       );
-
-//       if (selectedCategory && selectedCategory.subCategories.length > 0) {
-//         subCategories = await SubCategory.find(
-//           { _id: { $in: selectedCategory.subCategories } },
-//           { name: 1, subSubCategories: 1 },
-//         ).lean();
-
-//         if (subCategoryId) {
-//           const selectedSubCategory = subCategories.find(
-//             (subCategory) => subCategory._id.toString() === subCategoryId,
-//           );
-
-//           if (
-//             selectedSubCategory &&
-//             selectedSubCategory.subSubCategories.length > 0
-//           ) {
-//             subSubCategories = await SubSubCategory.find(
-//               { _id: { $in: selectedSubCategory.subSubCategories } },
-//               { name: 1 },
-//             ).lean();
-//           }
-//         } else {
-//           const firstSubCategory = subCategories[0];
-//           if (
-//             firstSubCategory &&
-//             firstSubCategory.subSubCategories.length > 0
-//           ) {
-//             subSubCategories = await SubSubCategory.find(
-//               { _id: { $in: firstSubCategory.subSubCategories } },
-//               { name: 1 },
-//             ).lean();
-//           }
-//         }
-//       }
-//     } else {
-//       subCategories = await SubCategory.find({}, { name: 1 }).lean();
-//     }
-//     const data = {
-//       categories,
-//       subCategories,
-//       subSubCategories,
-//     };
-//     return data;
-//   } catch (error) {
-//     console.error(error);
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Error fetching categories');
-//   }
-// };
-
-// const filterCategories = async (
-//   categoryId?: string,
-//   subCategoryId?: string,
-// ) => {
-//   try {
-//     let categories: any[] = [];
-//     let subCategories: any[] = [];
-//     let subSubCategories: any[] = [];
-
-//     // Fetch all categories without populating subCategories
-//     categories = await Category.find({}, { name: 1, image: 1 }).lean();
-
-//     if (categoryId) {
-//       // Find and filter subCategories when categoryId is provided
-//       const category = await Category.findById(categoryId, {
-//         subCategories: 1,
-//       }).lean();
-//       const subCategoryIds = category?.subCategories || [];
-
-//       if (subCategoryIds.length > 0) {
-//         subCategories = await SubCategory.find(
-//           { _id: { $in: subCategoryIds } },
-//           { _id: 1, name: 1, image: 1 },
-//         ).lean();
-
-//         if (subCategoryId) {
-//           const subCategory = await SubCategory.findById(subCategoryId, {
-//             subSubCategories: 1,
-//           }).lean();
-//           const subSubCategoryIds = subCategory?.subSubCategories || [];
-
-//           if (subSubCategoryIds.length > 0) {
-//             subSubCategories = await SubSubCategory.find(
-//               { _id: { $in: subSubCategoryIds } },
-//               { _id: 1, name: 1 },
-//             ).lean();
-//           }
-//         } else {
-//           const firstSubCategory = subCategories[0];
-//           if (firstSubCategory) {
-//             const subSubCategoryIds = await SubCategory.findById(
-//               firstSubCategory._id,
-//               { subSubCategories: 1 },
-//             ).lean();
-//             if ((subSubCategoryIds?.subSubCategories ?? []).length > 0) {
-//               subSubCategories = await SubSubCategory.find(
-//                 { _id: { $in: subSubCategoryIds?.subSubCategories ?? [] } },
-//                 { _id: 1, name: 1 },
-//               ).lean();
-//             }
-//           }
-//         }
-//       }
-//     } else {
-//       // No categoryId provided, fetch all subCategories and subSubCategories separately
-//       subCategories = await SubCategory.find(
-//         {},
-//         { _id: 1, name: 1, image: 1 },
-//       ).lean();
-//       const allSubSubCategoryIds = await SubCategory.find(
-//         {},
-//         { subSubCategories: 1 },
-//       )
-//         .lean()
-//         .then((result) =>
-//           result.flatMap((subCategory) => subCategory.subSubCategories),
-//         );
-//       if (allSubSubCategoryIds.length > 0) {
-//         subSubCategories = await SubSubCategory.find(
-//           { _id: { $in: allSubSubCategoryIds } },
-//           { _id: 1, name: 1 },
-//         ).lean();
-//       }
-//     }
-
-//     return {
-//       categories: [...categories, ...subCategories],
-//       subSubCategories,
-//     };
-//   } catch (error) {
-//     console.error(error);
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Error fetching categories');
-//   }
-// };
-
-const filterCategories = async (
-  categoryId?: string,
-  subCategoryId?: string,
-) => {
+const filterCategories = async () => {
   const result = await Category.find({})
     .populate({
       path: 'subCategories',
@@ -560,115 +370,6 @@ const filterCategories = async (
     })
     .lean();
   return result;
-  // try {
-  //   // Fetch all categories with minimal fields
-  //   const categories = await Category.find(
-  //     {},
-  //     { _id: 1, name: 1, image: 1 },
-  //   ).lean();
-
-  //   let subCategories: any[] = [];
-  //   let subSubCategories: any[] = [];
-
-  //   if (categoryId) {
-  //     // Find the selected category for reference, but do not filter out the main categories list
-  //     const category = await Category.findById(categoryId, {
-  //       name: 1,
-  //       image: 1,
-  //       subCategories: 1,
-  //     }).lean();
-
-  //     if (category) {
-  //       const subCategoryIds = category.subCategories || [];
-  //       subCategories = await SubCategory.find(
-  //         { _id: { $in: subCategoryIds } },
-  //         { _id: 1, name: 1, image: 1 },
-  //       ).lean();
-
-  //       if (subCategoryId) {
-  //         // Find the selected subCategory and its subSubCategories
-  //         const subCategory = await SubCategory.findById(subCategoryId, {
-  //           name: 1,
-  //           image: 1,
-  //           subSubCategories: 1,
-  //         }).lean();
-
-  //         if (subCategory) {
-  //           const subSubCategoryIds = subCategory.subSubCategories || [];
-  //           subSubCategories = await SubSubCategory.find(
-  //             { _id: { $in: subSubCategoryIds } },
-  //             { _id: 1, name: 1, image: 1 },
-  //           ).lean();
-  //         }
-
-  //         subCategories = [
-  //           categories.find(
-  //             (category) => category._id.toString() === categoryId,
-  //           ),
-  //           ...subCategories,
-  //         ];
-  //       } else if (subCategories.length > 0) {
-  //         // Fetch subSubCategories for the first subCategory if none is selected
-  //         const firstSubCategory = subCategories[0];
-  //         const subSubCategoryIds = await SubCategory.findById(
-  //           firstSubCategory._id,
-  //           { subSubCategories: 1 },
-  //         ).lean();
-
-  //         if ((subSubCategoryIds?.subSubCategories ?? []).length > 0) {
-  //           subSubCategories = await SubSubCategory.find(
-  //             { _id: { $in: subSubCategoryIds?.subSubCategories || [] } },
-  //             { _id: 1, name: 1, image: 1 },
-  //           ).lean();
-  //         }
-
-  //         subCategories = [
-  //           categories.find(
-  //             (category) => category._id.toString() === categoryId,
-  //           ),
-  //           ...subCategories,
-  //         ];
-  //       }
-
-  //       return {
-  //         categories: categories, // Keep all categories
-  //         subCategories: subCategories,
-  //         subSubCategories: subSubCategories,
-  //       };
-  //     }
-  //   } else {
-  //     // No categoryId provided, fetch all subCategories and subSubCategories
-  //     subCategories = await SubCategory.find(
-  //       {},
-  //       { _id: 1, name: 1, image: 1 },
-  //     ).lean();
-
-  //     const allSubSubCategoryIds = await SubCategory.find(
-  //       {},
-  //       { subSubCategories: 1 },
-  //     )
-  //       .lean()
-  //       .then((result) =>
-  //         result.flatMap((subCategory) => subCategory.subSubCategories || []),
-  //       );
-
-  //     if (allSubSubCategoryIds.length > 0) {
-  //       subSubCategories = await SubSubCategory.find(
-  //         { _id: { $in: allSubSubCategoryIds } },
-  //         { _id: 1, name: 1, image: 1 },
-  //       ).lean();
-  //     }
-
-  //     return {
-  //       categories: categories,
-  //       subCategories: subCategories,
-  //       subSubCategories: subSubCategories,
-  //     };
-  //   }
-  // } catch (error) {
-  //   console.error(error);
-  //   throw new ApiError(StatusCodes.BAD_REQUEST, 'Error fetching categories');
-  // }
 };
 
 const getCategoryForProfessionalUpdateFromDB = async (categoryId?: string) => {
@@ -786,10 +487,9 @@ export const CategoriesServices = {
   deleteSubSubCategoryToDB,
   getCategoryForProfessionalUpdateFromDB,
   //manage add and remove sub category and sub sub category
-  addSubCategoryToCategory,
-  removeSubCategoryFromCategory,
-  addSubSubCategoryToSubCategory,
-  removeSubSubCategoryFromSubCategory,
+
+  updateSubCategoriesInCategory,
+  updateSubSubCategoriesInSubCategory,
 
   //filter categories
   filterCategories,

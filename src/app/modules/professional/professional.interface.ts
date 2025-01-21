@@ -47,6 +47,7 @@ export type IProfessional = {
   previouslyUsedTools?: boolean;
   portfolio?: [{ path: string; link?: string }];
   helpingTags?: string[];
+  isBookmarked?: boolean;
   createdAt: Date;
   updatedAt: Date;
 };

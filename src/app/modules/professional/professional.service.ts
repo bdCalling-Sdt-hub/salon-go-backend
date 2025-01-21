@@ -210,16 +210,21 @@ const getProfessionalProfile = async (
   return result as unknown as IProfessional;
 };
 
-const getSingleProfessional = async (id: string) => {
-  const result = await Professional.findById(id).populate<{
-    auth: Partial<IUser>;
-  }>('auth', {
-    name: 1,
-    email: 1,
-    role: 1,
-    profile: 1,
-    status: 1,
-  });
+const getSingleProfessional = async (id: string, user: JwtPayload) => {
+  const result = await Professional.findById(id)
+    .populate<{
+      auth: Partial<IUser>;
+    }>('auth', {
+      name: 1,
+      email: 1,
+      role: 1,
+      profile: 1,
+      status: 1,
+    })
+    .populate('categories', { name: 1 })
+    .populate('subCategories', { name: 1 })
+    .populate('scheduleId');
+
   if (!result) {
     throw new ApiError(
       StatusCodes.NOT_FOUND,
@@ -233,7 +238,17 @@ const getSingleProfessional = async (id: string) => {
       'Requested professional profile has been deleted.',
     );
   }
-  return result;
+
+  const bookmarkedProfessionals = await Bookmark.findOne({
+    customer: user.userId,
+    professional: id,
+  });
+
+  if (bookmarkedProfessionals) {
+    result.isBookmarked = true;
+  }
+
+  return { isBookmarked: result.isBookmarked ?? false, result };
 };
 
 const getAllProfessional = async (
@@ -241,6 +256,8 @@ const getAllProfessional = async (
   paginationOptions: IPaginationOptions,
   user: JwtPayload,
 ) => {
+  console.log(filterOptions, 'FROM SERVICE');
+
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
 
@@ -322,14 +339,13 @@ const getAllProfessional = async (
     }).distinct('professional');
 
     anyCondition.push({ _id: { $in: professionalsWithOffers } });
-    console.log(offers, professionalsWithOffers);
   }
 
   if (minPrice && maxPrice) {
-    const priceFilterCondition = QueryHelper.rangeQueryHelper(
+    const priceFilterCondition = await QueryHelper.rangeQueryHelper(
       'price',
-      minPrice,
-      maxPrice,
+      Number(minPrice),
+      Number(maxPrice),
     );
     const servicesWithBudget = await Service.find(
       priceFilterCondition,
@@ -341,7 +357,7 @@ const getAllProfessional = async (
   if (date) {
     const requestedDay = parse(
       date,
-      'dd-MM-yyyy',
+      'dd/MM/yyyy',
       new Date(),
     ).toLocaleDateString('en-US', { weekday: 'long' });
 
@@ -386,7 +402,7 @@ const getAllProfessional = async (
   const total = await Professional.countDocuments({
     $and: anyCondition,
   });
-  console.log(professionals);
+
   const bookmarkedProfessionals = await Bookmark.find({
     customer: user.userId,
     professional: { $in: activeProfessionals },

@@ -83,19 +83,26 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
     newUserData = await User.findOne({ _id: newUserData._id });
   }
 
-  // Send OTP via Twilio
-  await sendOtp(newUserData!.contact, newUserData!._id);
-
-  // Save OTP metadata to authentication
-  const authentication = {
-    oneTimeCode: null, // OTP is saved in Otp model, not directly in User model
-    expireAt: new Date(Date.now() + 5 * 60000),
+  let authentication: { oneTimeCode: null; expireAt: Date | null } = {
+    oneTimeCode: null,
+    expireAt: null,
   };
+
+  if (user.role !== USER_ROLES.ADMIN) {
+    // Send OTP via Twilio
+    await sendOtp(newUserData!.contact, newUserData!._id);
+
+    // Save OTP metadata to authentication
+    authentication = {
+      oneTimeCode: null, // OTP is saved in Otp model, not directly in User model
+      expireAt: new Date(Date.now() + 5 * 60000),
+    };
+  }
   await User.findOneAndUpdate(
     { _id: newUserData!._id },
     { $set: { authentication } },
   );
-
+  console.log(user, newUserData);
   return newUserData!;
 };
 
