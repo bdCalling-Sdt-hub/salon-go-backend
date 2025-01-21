@@ -145,7 +145,8 @@ const getProfessionalProfile = catchAsync(
 const getSingleProfessional = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const result = await ProfessionalService.getSingleProfessional(id);
+    const user = req.user;
+    const result = await ProfessionalService.getSingleProfessional(id, user);
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
@@ -160,6 +161,8 @@ const getAllProfessional = catchAsync(async (req: Request, res: Response) => {
   const filters = pick(req.query, professionalFilterableFields);
   const paginationOptions = pick(req.query, paginationFields);
   const user = req.user;
+  console.log(filters, 'FROM CONTROLLER');
+
   const result = await ProfessionalService.getAllProfessional(
     filters,
     paginationOptions,

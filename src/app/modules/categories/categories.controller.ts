@@ -61,10 +61,12 @@ const updateCategory = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { ...categoryData } = req.body;
   let categoryImage;
+
   if (req.files && 'image' in req.files && req.files.image[0]) {
     categoryImage = req.files.image[0].path;
     categoryData.image = categoryImage;
   }
+  console.log(categoryImage);
   const result = await CategoriesServices.updateCategoryToDB(id, categoryData);
   sendResponse(res, {
     success: true,
@@ -191,72 +193,35 @@ const getCategoryForProfessionalUpdate = catchAsync(
 
 //------------------------------------------------------
 
-//manage add and remove sub category and sub sub category
-const addSubCategoryToCategory = catchAsync(
+const updateSubCategoriesInCategory = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
-
     const { subCategories } = req.body;
-
-    const result = await CategoriesServices.addSubCategoryToCategory(
+    const result = await CategoriesServices.updateSubCategoriesInCategory(
       new Types.ObjectId(id),
       subCategories,
     );
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
-      message: 'SubCategory added successfully',
+      message: 'All categories retrieved successfully',
       data: result,
     });
   },
 );
 
-const removeSubCategoryFromCategory = catchAsync(
-  async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { subCategories } = req.body;
-    const result = await CategoriesServices.removeSubCategoryFromCategory(
-      new Types.ObjectId(id),
-      subCategories,
-    );
-    sendResponse(res, {
-      success: true,
-      statusCode: StatusCodes.OK,
-      message: 'SubCategory removed successfully',
-      data: result,
-    });
-  },
-);
-
-const addSubSubCategoryToSubCategory = catchAsync(
+const updateSubSubCategoriesInSubCategory = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
     const { subSubCategories } = req.body;
-    const result = await CategoriesServices.addSubSubCategoryToSubCategory(
+    const result = await CategoriesServices.updateSubSubCategoriesInSubCategory(
       new Types.ObjectId(id),
       subSubCategories,
     );
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
-      message: 'SubSubCategory added successfully',
-      data: result,
-    });
-  },
-);
-
-const removeSubSubCategoryFromSubCategory = catchAsync(
-  async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { subSubCategories } = req.body;
-    const result = await CategoriesServices.removeSubSubCategoryFromSubCategory(
-      new Types.ObjectId(id),
-      subSubCategories,
-    );
-    sendResponse(res, {
-      success: true,
-      statusCode: StatusCodes.OK,
-      message: 'SubSubCategory removed successfully',
+      message: 'All categories retrieved successfully',
       data: result,
     });
   },
@@ -265,10 +230,7 @@ const removeSubSubCategoryFromSubCategory = catchAsync(
 const filterCategories = catchAsync(async (req: Request, res: Response) => {
   const { categoryId, subCategoryId } = req.query;
 
-  const result = await CategoriesServices.filterCategories(
-    categoryId as string,
-    subCategoryId as string,
-  );
+  const result = await CategoriesServices.filterCategories();
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -308,11 +270,10 @@ export const CategoriesController = {
   deleteSubCategory,
   deleteSubSubCategory,
   getCategoryForProfessionalUpdate,
+
   //manage add and remove sub category and sub sub category
-  addSubCategoryToCategory,
-  removeSubCategoryFromCategory,
-  addSubSubCategoryToSubCategory,
-  removeSubSubCategoryFromSubCategory,
+  updateSubCategoriesInCategory,
+  updateSubSubCategoriesInSubCategory,
 
   getSubCategories,
   //filter categories
