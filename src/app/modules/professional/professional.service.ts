@@ -9,7 +9,6 @@ import { Professional } from './professional.model';
 import { Service } from '../service/service.model';
 import getNextOnboardingStep, {
   getDateRangeAndIntervals,
-  handleObjectUpdate,
   uploadImageAndHandleRollback,
 } from './professional.utils';
 import { paginationHelper } from '../../../helpers/paginationHelper';
@@ -222,8 +221,7 @@ const getSingleProfessional = async (id: string, user: JwtPayload) => {
       status: 1,
     })
     .populate('categories', { name: 1 })
-    .populate('subCategories', { name: 1 })
-    .populate('scheduleId');
+    .populate('subCategories', { name: 1 });
 
   if (!result) {
     throw new ApiError(

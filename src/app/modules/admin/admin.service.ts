@@ -68,7 +68,7 @@ const updateAdminProfile = async (
       );
 
       // Rollback uploaded image if User update fails
-      if (!userUpdateResult || userUpdateResult.profile !== uploadedImageUrl) {
+      if (!userUpdateResult || (profile && userUpdateResult.profile !== uploadedImageUrl)) {
         if (uploadedImageUrl) {
           await deleteResourcesFromCloudinary(uploadedImageUrl, 'image', true);
         }

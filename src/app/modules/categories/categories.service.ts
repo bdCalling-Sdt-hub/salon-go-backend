@@ -472,6 +472,42 @@ const getSubCategoriesFromDB = async (
   }
 };
 
+const getSubSubCategoriesByProfessionalId = async (
+  user: JwtPayload,
+  id?: string,
+) => {
+  console.log(user)
+  const professionalId = id ? id : user.userId;
+  console.log(professionalId)
+  const professional = await Professional.findById(professionalId).populate<{subCategories: {subSubCategories: Array<ISubSubCategory>}}>({
+    path: 'subCategories',
+    populate: {
+      path: 'subSubCategories',
+      select: { name: 1 },
+    },
+  });
+  console.log(professional,"PPPPPPPPPP")
+  if (!professional) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional not found');
+  }
+
+  const uniqueSubSubCategories = new Set();
+
+  if (!professional.subCategories || !Array.isArray(professional.subCategories)) {
+    return [];
+  }
+
+  professional.subCategories.forEach(subCategory => {
+    if (subCategory.subSubCategories) {
+      subCategory.subSubCategories.forEach((subSubCategory: ISubSubCategory) => {
+        uniqueSubSubCategories.add(subSubCategory);
+      });
+    }
+  });
+
+  return Array.from(uniqueSubSubCategories);
+};
+
 export const CategoriesServices = {
   getAllCategories,
   getAllSubCategories,
@@ -490,7 +526,7 @@ export const CategoriesServices = {
 
   updateSubCategoriesInCategory,
   updateSubSubCategoriesInSubCategory,
-
+  getSubSubCategoriesByProfessionalId,
   //filter categories
   filterCategories,
 

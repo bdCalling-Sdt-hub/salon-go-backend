@@ -256,6 +256,24 @@ const getSubCategories = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getSubSubCategoriesByProfessionalId = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user;
+    const { professionalId } = req.query;
+
+    const result = await CategoriesServices.getSubSubCategoriesByProfessionalId(
+      user,
+      professionalId as string,
+    );
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'All sub sub categories retrieved successfully',
+      data: result,
+    });
+  },
+);
+
 export const CategoriesController = {
   getAllCategories,
   getAllSubCategories,
@@ -278,4 +296,5 @@ export const CategoriesController = {
   getSubCategories,
   //filter categories
   filterCategories,
+  getSubSubCategoriesByProfessionalId,
 };

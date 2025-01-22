@@ -375,34 +375,35 @@ const getTimeScheduleForCustomer = async (
     ]),
   );
 
-  // Helper to check if a time slot is reserved
   const isTimeSlotReserved = (timeCode: number, targetDay: string) => {
     return customerReservations.some((reservation) => {
       const reservationDate = new Date(reservation.serviceStartDateTime);
-      const reservationDay = defaultDays[reservationDate.getUTCDay()]; // Get day name in UTC
+      const reservationDay = defaultDays[reservationDate.getUTCDay()];
       const reservationTimeCode =
         reservationDate.getUTCHours() * 100 + reservationDate.getUTCMinutes();
       return reservationDay === targetDay && reservationTimeCode === timeCode;
     });
   };
 
-  // Populate days with updated time slot availability
   for (const day of schedule.days) {
     daysMap.set(day.day, {
       ...day,
       check: true,
       //@ts-ignore
       timeSlots: day.timeSlots.map((timeSlot) => ({
-        ...timeSlot,
+        time: timeSlot.time,
+        timeCode: timeSlot.timeCode,
         isAvailable: customerId
           ? !isTimeSlotReserved(timeSlot.timeCode, day.day) &&
             (timeSlot.isAvailable ?? false)
           : timeSlot.isAvailable ?? false,
+        discount: timeSlot.discount ?? 0,
       })),
     });
   }
 
   const populatedDays = Array.from(daysMap.values());
+
   return {
     ...schedule,
     days: populatedDays,
