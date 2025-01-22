@@ -144,9 +144,6 @@ const loginUserFromDB = async (
     config.jwt.jwt_secret as Secret,
     config.jwt.jwt_expire_in as string,
   );
-  console.log(accessToken);
-  console.log(config.jwt.jwt_expire_in as string);
-  console.log(config.jwt.jwt_refresh_expire_in as string);
   const refreshToken = jwtHelper.createToken(
     {
       id: isExistUser._id,
@@ -176,7 +173,7 @@ const refreshToken = async (
   token: string,
 ): Promise<IRefreshTokenResponse | null> => {
   let verifiedToken = null;
-  console.log(token);
+
   try {
     // Verify the refresh token
     verifiedToken = jwtHelper.verifyToken(

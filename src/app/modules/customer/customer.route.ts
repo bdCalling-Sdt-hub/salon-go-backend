@@ -8,11 +8,7 @@ import fileUploadHandler from '../../middlewares/fileUploadHandler';
 const router = express.Router();
 
 //done
-router.get(
-  '/',
-  auth(USER_ROLES.USER),
-  CustomerController.getCustomerProfile,
-);
+router.get('/', auth(USER_ROLES.USER), CustomerController.getCustomerProfile);
 
 //done
 router.patch(

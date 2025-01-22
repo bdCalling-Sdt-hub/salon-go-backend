@@ -165,4 +165,10 @@ router.get(
   CategoriesController.filterCategories,
 );
 
+router.get(
+  '/sub-sub-categories-by-professional/',
+  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER, USER_ROLES.ADMIN),
+  CategoriesController.getSubSubCategoriesByProfessionalId,
+);
+
 export const CategoriesRoutes = router;
