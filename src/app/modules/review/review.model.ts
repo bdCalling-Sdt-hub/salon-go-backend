@@ -5,7 +5,6 @@ const reviewSchema = new Schema<IReview, ReviewModel>(
   {
     review: {
       type: String,
-      required: true,
     },
     rating: {
       type: Number,
@@ -14,6 +13,11 @@ const reviewSchema = new Schema<IReview, ReviewModel>(
     professional: {
       type: Schema.Types.ObjectId,
       ref: 'Professional',
+      required: true,
+    },
+    reservation: {
+      type: Schema.Types.ObjectId,
+      ref: 'Reservation',
       required: true,
     },
     customer: {

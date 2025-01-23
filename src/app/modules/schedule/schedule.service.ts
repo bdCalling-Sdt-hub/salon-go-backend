@@ -9,17 +9,16 @@ import { Professional } from '../professional/professional.model';
 import { DateHelper } from '../../../utils/date.helper';
 import { Reservation } from '../reservation/reservation.model';
 import { USER_ROLES } from '../../../enums/user';
+import getNextOnboardingStep from '../professional/professional.utils';
+import { IProfessional } from '../professional/professional.interface';
 
 const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
   const isUserExist = await User.findById({ _id: user.id, status: 'active' });
   if (!isUserExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found!');
   }
-
   const isScheduleExist = await Schedule.findOne({ professional: user.userId });
-  if (!isScheduleExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Schedule does not exist!');
-  }
+
 
   try {
     // Filter out the days where `check` is false
@@ -40,6 +39,22 @@ const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
         };
       });
 
+      if (!isScheduleExist) {
+        const result = await Schedule.create({
+          professional: user.userId,
+          days: validDays,
+        });
+
+        const professional = await Professional.findOneAndUpdate(
+          { _id: user.userId },
+          { scheduleId: result._id },
+          { new: true },
+        );
+        const nextStep = getNextOnboardingStep(professional as IProfessional);
+
+        return { result, nextStep };
+      }
+
     const result = await Schedule.findOneAndUpdate(
       { professional: user.userId },
       {
@@ -49,156 +64,23 @@ const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
     if (!result) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Schedule does not exist!');
     }
-    console.log(result, 'result');
 
     // Update the professional's scheduleId
-    await Professional.findOneAndUpdate(
+    const professional = await Professional.findOneAndUpdate(
       { _id: user.userId },
       { scheduleId: result._id },
       { new: true },
     );
 
-    return result;
+    const nextStep = getNextOnboardingStep(professional as IProfessional);
+  
+
+    return {result, nextStep};
   } catch (error) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create schedule');
   }
 };
-// const updateScheduleForDaysInDB = async (
-//   user: JwtPayload,
-//   updates: Partial<ISchedule>,
-// ) => {
-//   try {
-//     // Validate the input
-//     if (!Array.isArray(updates.days)) {
-//       throw new ApiError(
-//         StatusCodes.BAD_REQUEST,
-//         'Invalid input: days should be an array',
-//       );
-//     }
 
-//     // Find the professional and their existing schedule
-//     const professional = await Professional.findOne({ _id: user.userId });
-//     if (!professional || !professional.scheduleId) {
-//       throw new ApiError(
-//         StatusCodes.NOT_FOUND,
-//         'Professional or schedule not found!',
-//       );
-//     }
-
-//     // Find the schedule
-//     const schedule = await Schedule.findById(professional.scheduleId);
-//     if (!schedule) {
-//       throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
-//     }
-
-//     // Update the days in the schedule
-//     updates.days.forEach((updateDay) => {
-//       const dayIndex = schedule.days.findIndex((d) => d.day === updateDay.day);
-//       if (dayIndex === -1) {
-//         throw new ApiError(
-//           StatusCodes.NOT_FOUND,
-//           `Schedule for ${updateDay.day} not found!`,
-//         );
-//       }
-
-//       const dayToUpdate = schedule.days[dayIndex];
-
-//       // Update startTime and endTime if provided
-//       if (updateDay.startTime) {
-//         dayToUpdate.startTime = updateDay.startTime;
-//       }
-//       if (updateDay.endTime) {
-//         dayToUpdate.endTime = updateDay.endTime;
-//       }
-
-//       if (updateDay.timeSlots) {
-//         dayToUpdate.timeSlots = updateDay.timeSlots.map((time) => {
-//           //@ts-ignore
-//           const timeCode = DateHelper.parseTimeTo24Hour(time); // Adjusted for plain string `time`
-//           return {
-//             ...time, // Spread the original TimeSlots properties
-//             timeCode: timeCode, // Add timeCode property
-//             isAvailable: time.isAvailable ?? false, // Default value for isAvailable
-//             discount: time.discount ?? [], // Default value for discounts
-//           };
-//         });
-//       }
-
-//       schedule.days[dayIndex] = dayToUpdate;
-//     });
-
-//     // Save the updated schedule
-//     const updatedSchedule = await schedule.save();
-
-//     return updatedSchedule;
-//   } catch (error) {
-//     console.error('Error updating schedule for days:', error);
-//     throw new ApiError(
-//       StatusCodes.BAD_REQUEST,
-//       'Failed to update schedule for one or more days',
-//     );
-//   }
-// };
-
-// const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
-//   const [isUserExist, existingSchedule] = await Promise.all([
-//     User.findById({ _id: user.id, status: 'active' }),
-//     Schedule.findOne({ professional: user.userId }),
-//   ]);
-
-//   if (!isUserExist) {
-//     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found!');
-//   }
-//   const validDays = data.days
-//     .filter((day) => day.check) // Keep only days where check is true
-//     .map((day) => {
-//       const { check, ...rest } = day; // Remove the check field from the payload
-//       return {
-//         ...rest,
-//         timeSlots: day.timeSlots.map((time) => {
-//           //@ts-ignore
-//           const timeCode = DateHelper.parseTimeTo24Hour(time); // Adjusted for plain string `time`
-//           return {
-//             time: time.time, // Ensure time is a string
-//             timeCode: timeCode, // ISO 24-hour format
-//             isAvailable: time.isAvailable ?? false, // Default value for isAvailable
-//             discount: time.discount ?? [], // Default value for discounts
-//           };
-//         }),
-//       };
-//     });
-
-//   try {
-//     let result;
-//     if (existingSchedule) {
-//       // If the schedule exists, update it
-//       existingSchedule.days = validDays; // Update the days
-//       result = await existingSchedule.save(); // Save the updated schedule
-//       console.log('Schedule updated:', result);
-//     } else {
-//       // If the schedule doesn't exist, create a new one
-//       result = await Schedule.create({
-//         professional: user.userId,
-//         days: validDays, // Only include valid days
-//       });
-//       console.log('Schedule created:', result);
-//     }
-
-//     // Update the professional's scheduleId if it's a new schedule or updated one
-//     await Professional.findOneAndUpdate(
-//       { _id: user.userId },
-//       { scheduleId: result._id },
-//       { new: true },
-//     );
-
-//     return result;
-//   } catch (error) {
-//     throw new ApiError(
-//       StatusCodes.BAD_REQUEST,
-//       'Failed to create or update schedule',
-//     );
-//   }
-// };
 
 const updateScheduleForDaysInDB = async (
   user: JwtPayload,
@@ -296,7 +178,7 @@ const getTimeScheduleFromDBForProfessional = async (user: JwtPayload) => {
     'Friday',
     'Saturday',
   ];
-  console.log(user.userId);
+
   const schedule = await Schedule.findOne({
     professional: user.userId,
   }).lean();
@@ -338,6 +220,7 @@ const getTimeScheduleFromDBForProfessional = async (user: JwtPayload) => {
 const getTimeScheduleForCustomer = async (
   id: Types.ObjectId,
   user: JwtPayload,
+  date?: string
 ) => {
   const defaultDays = [
     'Sunday',
@@ -350,7 +233,6 @@ const getTimeScheduleForCustomer = async (
   ];
 
   const customerId = user.role === USER_ROLES.USER ? user.userId : null;
-  console.log(customerId, id);
   const [schedule, customerReservations] = await Promise.all([
     Schedule.findOne({ professional: id }).lean(),
     customerId
@@ -385,7 +267,16 @@ const getTimeScheduleForCustomer = async (
     });
   };
 
+  let selectedDay: string | undefined;
+  if (date) {
+    const [day, month, year] = date.split('/').map(Number);
+    const dateObj = new Date(year, month - 1, day);
+    selectedDay = defaultDays[dateObj.getDay()];
+  }
+
   for (const day of schedule.days) {
+    if (selectedDay && day.day !== selectedDay) continue;
+    
     daysMap.set(day.day, {
       ...day,
       check: true,
@@ -402,7 +293,7 @@ const getTimeScheduleForCustomer = async (
     });
   }
 
-  const populatedDays = Array.from(daysMap.values());
+  const populatedDays = Array.from(daysMap.values()).filter(day => !selectedDay || day.day === selectedDay);
 
   return {
     ...schedule,
@@ -417,6 +308,8 @@ const deleteScheduleFromDB = async (id: string) => {
   }
   return schedule;
 };
+
+
 
 export const ScheduleServices = {
   createScheduleToDB,

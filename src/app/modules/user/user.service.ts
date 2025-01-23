@@ -204,6 +204,21 @@ const getAllUser = async (
 };
 
 const restrictOrUnrestrictUser = async (id: Types.ObjectId) => {
+
+  const user = await User.findById(id);
+  if (!user) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found');
+  }
+  if (user.status === 'restricted') {
+    await User.findByIdAndUpdate(
+      id,
+      { $set: { status: 'active' } },
+      {
+        new: true,
+      },
+    )
+    return `${user?.name} is un-restricted`;
+  }
   const result = await User.findByIdAndUpdate(
     id,
     { $set: { status: 'restricted' } },
@@ -211,6 +226,7 @@ const restrictOrUnrestrictUser = async (id: Types.ObjectId) => {
       new: true,
     },
   );
+
 
   return `${result?.name} is restricted`;
 };

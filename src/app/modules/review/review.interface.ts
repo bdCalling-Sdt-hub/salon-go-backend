@@ -7,6 +7,7 @@ export type IReview = {
   professional: Types.ObjectId;
   customer: Types.ObjectId;
   service: Types.ObjectId;
+  reservation: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 };

@@ -52,8 +52,13 @@ const getScheduleForCustomer = catchAsync(
   async (req: Request, res: Response) => {
     const id = new Types.ObjectId(req.params.id);
     const user = req.user;
+    const { date } = req.query;
 
-    const result = await ScheduleServices.getTimeScheduleForCustomer(id, user);
+    const result = await ScheduleServices.getTimeScheduleForCustomer(
+      id,
+      user,
+      date as string,
+    );
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
