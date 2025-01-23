@@ -14,6 +14,7 @@ const reservationSchema = new Schema<IReservation, ReservationModel>(
     amount: { type: Number, required: true },
     date: { type: Date, required: true },
     time: { type: String, required: true },
+    review: { type: Schema.Types.ObjectId, ref: 'Review' },
     status: {
       type: String,
       enum: [

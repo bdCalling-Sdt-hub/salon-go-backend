@@ -206,6 +206,10 @@ const createReservationToDB = async (
       serviceLocation: 1,
       address: 1,
     })
+    .populate('review', {
+      _id: 0,
+      rating: 1,
+    })
     .populate({
       path: 'service',
       select: {
@@ -278,6 +282,10 @@ const getSingleReservationFromDB = async (
       duration: 1,
       serviceLocation: 1,
       address: 1,
+    })
+    .populate('review', {
+      _id: 0,
+      rating: 1,
     })
     .populate({
       path: 'service',
@@ -372,6 +380,10 @@ const getReservationsForUsersFromDB = async (
       serviceLocation: 1,
       address: 1,
     })
+    .populate('review', {
+      _id: 0,
+      rating: 1,
+    })
     .populate({
       path: 'service',
       select: {
@@ -408,6 +420,25 @@ const getReservationsForUsersFromDB = async (
     .skip(skip)
     .limit(limit)
     .lean();
+
+
+    if (user.role !== USER_ROLES.PROFESSIONAL) {
+      // Skip grouping for customers and return the raw filtered data
+      const total = await Reservation.countDocuments({
+        $and: [query, ...andCondition],
+      });
+      return {
+        meta: {
+          total,
+          page,
+          totalPage: Math.ceil(total / limit),
+          limit,
+        },
+        data: {
+          reservations,
+        },
+      };
+    }
 
   // Group reservations by date and calculate totals
   const formatDate = (date: Date): string => {
@@ -447,6 +478,7 @@ const getReservationsForUsersFromDB = async (
       months[date.getMonth()]
     } ${date.getDate()}`;
   };
+
 
   const groupedData = groupBy(reservations, (res) =>
     formatDate(new Date(res.serviceStartDateTime)),
@@ -517,6 +549,10 @@ const updateReservationStatusToDB = async (
         duration: 1,
         serviceLocation: 1,
         address: 1,
+      })
+      .populate('review', {
+        _id: 0,
+        rating: 1,
       })
       .populate({
         path: 'service',

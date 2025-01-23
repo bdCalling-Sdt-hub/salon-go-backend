@@ -12,18 +12,24 @@ import { sendNotification } from '../../../helpers/sendNotificationHelper';
 import { USER_ROLES } from '../../../enums/user';
 import { Customer } from '../customer/customer.model';
 import { ICustomer } from '../customer/customer.interface';
+import { Reservation } from '../reservation/reservation.model';
+import { IUser } from '../user/user.interface';
+import { IService } from '../service/service.interface';
 
 const createReviewToDB = async (user: JwtPayload, payload: IReview) => {
   const session = await mongoose.startSession();
-
+const reservationExists = await Reservation.findById(payload.reservation).session(session);
+if (!reservationExists) {
+  throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
+}
   try {
     session.startTransaction();
 
     // Check existing review
     const existingReview = await Review.findOne({
       customer: user.userId,
-      service: payload.service,
-      professional: payload.professional,
+      reservation: reservationExists._id,
+      professional: reservationExists.professional,
     }).session(session);
 
     if (existingReview) {
@@ -31,23 +37,24 @@ const createReviewToDB = async (user: JwtPayload, payload: IReview) => {
     }
 
     // Fetch service and professional
-    const [service, professional] = await Promise.all([
-      Service.findById(payload.service).session(session),
-      Professional.findById(payload.professional)
+    const [service, professional, reservation] = await Promise.all([
+      Service.findById(reservationExists.service).session(session),
+      Professional.findById(reservationExists.professional)
         .populate('auth', { name: 1 })
         .session(session),
+      Reservation.findById(payload.reservation).session(session),
     ]);
 
-    if (!service || !professional) {
+    if (!service || !professional || !reservation) {
       throw new ApiError(
         StatusCodes.NOT_FOUND,
-        'Service or Professional not found',
+        'Something went wrong, please try again with valid data',
       );
     }
 
     // Create review
     payload.customer = user.userId;
-    const [result] = await Review.create([payload], { session });
+    const [result] = await Review.create([{professional: reservationExists.professional, reservation: reservationExists._id, service: reservationExists.service, rating: payload.rating, review: payload.review, customer: user.userId}], { session });
 
     // Update service rating
     const serviceNewRating = parseFloat(
@@ -84,11 +91,18 @@ const createReviewToDB = async (user: JwtPayload, payload: IReview) => {
         },
         { session },
       ),
+      Reservation.findByIdAndUpdate(
+        payload.reservation,
+        {
+          $set: { review: result._id },
+        },
+        { session },
+      ),
     ]);
 
     // Get populated review
     const finalReview = await Review.findById(result._id)
-      .populate('service', { title: 1 })
+      .populate<{ service: IService }>('service', { title: 1 })
       .populate({
         path: 'professional',
         select: { auth: 1 },
@@ -97,7 +111,7 @@ const createReviewToDB = async (user: JwtPayload, payload: IReview) => {
           select: { name: 1 },
         },
       })
-      .populate({
+      .populate<{ customer: { auth: IUser } }>({
         path: 'customer',
         select: { auth: 1 },
         populate: {
