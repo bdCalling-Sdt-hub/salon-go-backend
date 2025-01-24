@@ -8,7 +8,6 @@ import fileUploadHandler from '../../middlewares/fileUploadHandler';
 const router = express.Router();
 
 //done
-router.get('/', auth(USER_ROLES.USER), CustomerController.getCustomerProfile);
 
 //done
 router.patch(
@@ -21,7 +20,7 @@ router.patch(
         JSON.parse(req.body.data),
       );
     }
-
+    
     return CustomerController.updateCustomerProfile(req, res, next);
   },
 );
@@ -32,4 +31,5 @@ router.get(
   CustomerController.getSingleCustomer,
 );
 
+router.get('/', auth(USER_ROLES.USER), CustomerController.getCustomerProfile);
 export const CustomerRoutes = router;

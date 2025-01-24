@@ -46,9 +46,7 @@ const getNotifications = async (
 };
 
 const getSingleNotification = async (id: string) => {
-  await Notification.findByIdAndUpdate(id, { isRead: true }, { new: true });
-
-  const result = await Notification.findById(id);
+  const result = await Notification.findByIdAndUpdate(id, { isRead: true }, { new: true });
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get notification');
@@ -56,20 +54,6 @@ const getSingleNotification = async (id: string) => {
   return result;
 };
 
-const changeNotificationStatus = async (id: string) => {
-  const result = await Notification.findByIdAndUpdate(
-    id,
-    { isRead: true },
-    { new: true },
-  );
-  if (!result) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Failed to update notification status',
-    );
-  }
-  return result;
-};
 
 const makeCountTrueToDB = async () => {
   const result = await Notification.updateMany(
@@ -89,6 +73,6 @@ export const NotificationService = {
   storeNotificationToDB,
   getNotifications,
   getSingleNotification,
-  changeNotificationStatus,
+
   makeCountTrueToDB,
 };
