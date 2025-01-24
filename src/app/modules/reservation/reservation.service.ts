@@ -744,14 +744,26 @@ const updateReservationStatusToDB = async (
       );
     }
 
-    const isCustomerExist = await Customer.findById(result.customer)
-      .populate<{ auth: IUser }>({
-        path: 'auth',
-        select: { name: 1, email: 1, status: 1 },
-      })
-      .session(session);
-    if (!isCustomerExist?.auth.status) {
-      throw new ApiError(StatusCodes.NOT_FOUND, 'Customer not found');
+
+
+    const [isCustomerExist, isProfessionalExist] = await Promise.all([
+      Customer.findById(result.customer)
+        .populate<{ auth: IUser }>({
+          path: 'auth',
+          select: { name: 1, email: 1, status: 1 },
+        })
+        .session(session),
+      Professional.findById(result.professional)
+        .populate<{ auth: IUser }>({
+          path: 'auth',
+          select: { name: 1, email: 1, status: 1 },
+        })
+        .session(session),
+    ]);
+
+
+    if(!isCustomerExist || !isProfessionalExist){
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Customer or Professional not found');
     }
 
     reservation.status = result.status;
@@ -768,13 +780,13 @@ const updateReservationStatusToDB = async (
     );
     const { title } = reservation.service as Partial<IService>;
     const { businessName } = reservation.professional as Partial<IProfessional>;
-
+    //TODO: check if the bug fix works or not
     const notificationUserId =
       status === 'confirmed' || status === 'completed' || status === 'rejected'
-        ? reservation.customer._id
+        ? isCustomerExist?.auth._id
         : status === 'canceled' && user.role === USER_ROLES.USER
-        ? reservation.professional._id
-        : reservation.customer._id;
+        ? isProfessionalExist?.auth._id
+        : isCustomerExist?.auth._id;
 
     const notificationUserRole =
       status === 'confirmed' || status === 'completed' || status === 'rejected'

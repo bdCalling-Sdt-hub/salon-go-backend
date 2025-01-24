@@ -29,7 +29,7 @@ export const sendNotification = async (
   //@ts-ignore
   const socket = global.io;
 
-  socket.emit(`${namespace}::${recipient}`, data);
+  socket.emit(`${namespace}::${recipient}`, result);
 };
 
 export const sendNotificationToMultipleRecipients = async (
