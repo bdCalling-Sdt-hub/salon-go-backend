@@ -23,7 +23,7 @@ const storeNotificationToDB = async (
 const getNotifications = async (
   user: JwtPayload,
   paginationOptions: IPaginationOptions,
-): Promise<IGenericResponse<INotification[]>> => {
+): Promise<IGenericResponse<{result:INotification[]} & {count:number}>> => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
   const result = await Notification.find({ userId: user.id })
@@ -34,6 +34,7 @@ const getNotifications = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get notifications');
   }
   const total = await Notification.countDocuments({ userId: user.id });
+  const count = await Notification.countDocuments({ userId: user.id, isRead: false });
   return {
     meta: {
       page,
@@ -41,7 +42,10 @@ const getNotifications = async (
       total: total,
       totalPage: Math.ceil(total / limit),
     },
-    data: result,
+    data: {
+      result,
+      count:count,
+    },
   };
 };
 
