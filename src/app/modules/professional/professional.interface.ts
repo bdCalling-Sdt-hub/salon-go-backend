@@ -33,6 +33,7 @@ export type IProfessional = {
   scheduleId?: Types.ObjectId;
   description?: string;
   license?: string;
+  recommended?: boolean;
   ID?: string;
   KBIS?: string;
   experience?: string;

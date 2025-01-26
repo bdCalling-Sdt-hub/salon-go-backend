@@ -1,3 +1,4 @@
+
 import { ProfessionalRoutes } from './../app/modules/professional/professional.route';
 import express from 'express';
 import { UserRoutes } from '../app/modules/user/user.route';
@@ -85,6 +86,7 @@ export const apiRoutes: { path: string; route: any }[] = [
     path: '/admin',
     route: AdminRoutes,
   },
+
 ];
 
 apiRoutes.forEach((route) => router.use(route.path, route.route));

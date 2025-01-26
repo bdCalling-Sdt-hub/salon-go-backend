@@ -34,6 +34,7 @@ const createReservationToDB = async (
   const { professional, date, time, serviceLocation, amount, serviceAddress } =
     payload;
 
+
   const [isProfessionalExists, isCustomerExist, isServiceExist] =
     await Promise.all([
       Professional.findById(professional).populate<{ auth: IUser }>('auth'),
@@ -48,6 +49,7 @@ const createReservationToDB = async (
         title: 1,
         subSubCategory: 1,
         price: 1,
+        duration: 1,
       }),
     ]);
 
@@ -94,7 +96,7 @@ const createReservationToDB = async (
 
   const serviceStartDateTime = DateHelper.convertToISODate(time, date);
   const serviceEndDateTime = DateHelper.convertToISODate(
-    DateHelper.calculateEndTime(time, payload.duration),
+    DateHelper.calculateEndTime(time, isServiceExist.duration),
     date,
   );
 
@@ -108,6 +110,8 @@ const createReservationToDB = async (
   const serviceEnd = new Date(serviceEndDateTime);
   const operationStart = new Date(operationStartTime);
   const operationEnd = new Date(operationEndTime);
+
+
 
   if (
     isBefore(serviceStart, operationStart) ||
@@ -183,7 +187,8 @@ const createReservationToDB = async (
       );
     }
   }
-
+  payload.duration = isServiceExist.duration;
+  console.log(payload)
   const result = await Reservation.create([payload]);
 
   if (!result.length) {
@@ -599,9 +604,6 @@ const updateReservationStatusToDB = async (
 
     if (status === 'confirmed') {
       const { amount } = payload;
-      if (!amount) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, 'Amount is required');
-      }
 
       if (!reservation.professional._id.equals(user.userId)) {
         throw new ApiError(
@@ -803,7 +805,7 @@ const updateReservationStatusToDB = async (
     });
 
     await session.commitTransaction();
-    return reservation;
+    return `Reservation ${status} successfully for ${title}`;
   } catch (error) {
     await session.abortTransaction();
     throw error;
