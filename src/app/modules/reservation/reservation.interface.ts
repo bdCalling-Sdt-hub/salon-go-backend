@@ -12,7 +12,7 @@ export type IReservation = {
   serviceType: string | 'home' | 'in-place';
   professional: Types.ObjectId;
   customer: Types.ObjectId;
-  date: Date;
+  date: string;
   amount: number;
   time: string;
   status:

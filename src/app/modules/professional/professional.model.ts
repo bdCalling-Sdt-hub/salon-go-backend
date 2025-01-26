@@ -52,6 +52,7 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: [Types.ObjectId],
       ref: 'SubCategory',
     },
+
     isFreelancer: {
       type: Boolean,
       default: false,
@@ -87,7 +88,10 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: { type: String, default: 'Point', enum: ['Point'] },
       coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude] // Default to [0, 0] if coordinates are not provided
     },
-
+    recommended: {  
+      type: Boolean,
+      default: false,
+    },
     license: {
       type: String,
     },
