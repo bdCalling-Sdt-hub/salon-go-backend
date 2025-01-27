@@ -217,10 +217,12 @@ const getTimeScheduleFromDBForProfessional = async (user: JwtPayload) => {
   };
 };
 
+
 const getTimeScheduleForCustomer = async (
   id: Types.ObjectId,
   user: JwtPayload,
-  date?: string
+  date?: string,
+  serviceDuration?: string // in minutes
 ) => {
   const defaultDays = [
     'Sunday',
@@ -254,7 +256,7 @@ const getTimeScheduleForCustomer = async (
     defaultDays.map((day) => [
       day,
       { day, check: false, timeSlots: [], startTime: '', endTime: '' },
-    ]),
+    ])
   );
 
   const isTimeSlotReserved = (timeCode: number, targetDay: string) => {
@@ -274,22 +276,65 @@ const getTimeScheduleForCustomer = async (
     selectedDay = defaultDays[dateObj.getDay()];
   }
 
+  // Convert serviceDuration to minutes
+  const serviceDurationMinutes = serviceDuration ? parseInt(serviceDuration) : 0;
+
+  // Helper function to check if a time slot conflicts with unavailable slots
+  const hasConflictWithUnavailableSlots = (startTimeCode: number, duration: number, dayTimeSlots: any[]) => {
+    const startTimeInMinutes = Math.floor(startTimeCode / 100) * 60 + (startTimeCode % 100);
+    const endTimeInMinutes = startTimeInMinutes + duration;
+
+    // Check each time slot within the duration
+    return dayTimeSlots.some(slot => {
+      const slotTimeInMinutes = Math.floor(slot.timeCode / 100) * 60 + (slot.timeCode % 100);
+      return (
+        slotTimeInMinutes >= startTimeInMinutes &&
+        slotTimeInMinutes < endTimeInMinutes &&
+        !slot.isAvailable
+      );
+    });
+  };
+
   for (const day of schedule.days) {
     if (selectedDay && day.day !== selectedDay) continue;
-    
+
+    const timeSlots = day.timeSlots.map(timeSlot => {
+      const timeCode = timeSlot.timeCode;
+      const startHour = Math.floor(timeCode / 100);
+      const startMinute = timeCode % 100;
+      const startTimeInMinutes = startHour * 60 + startMinute;
+      
+      let isSlotAvailable = timeSlot.isAvailable ?? false;
+
+      if (customerId) {
+        isSlotAvailable = isSlotAvailable && !isTimeSlotReserved(timeCode, day.day);
+      }
+
+      if (serviceDurationMinutes > 0 && isSlotAvailable) {
+        // Check if service would go beyond closing time (20:00)
+        const endTimeInMinutes = startTimeInMinutes + serviceDurationMinutes;
+        if (endTimeInMinutes > 20 * 60) { // 20:00 in minutes
+          isSlotAvailable = false;
+        }
+
+        // Check for conflicts with unavailable slots
+        if (isSlotAvailable && hasConflictWithUnavailableSlots(timeCode, serviceDurationMinutes, day.timeSlots)) {
+          isSlotAvailable = false;
+        }
+      }
+
+      return {
+        time: timeSlot.time,
+        timeCode: timeCode,
+        isAvailable: isSlotAvailable,
+        discount: timeSlot.discount ?? 0,
+      };
+    });
+
     daysMap.set(day.day, {
       ...day,
       check: true,
-      //@ts-ignore
-      timeSlots: day.timeSlots.map((timeSlot) => ({
-        time: timeSlot.time,
-        timeCode: timeSlot.timeCode,
-        isAvailable: customerId
-          ? !isTimeSlotReserved(timeSlot.timeCode, day.day) &&
-            (timeSlot.isAvailable ?? false)
-          : timeSlot.isAvailable ?? false,
-        discount: timeSlot.discount ?? 0,
-      })),
+      timeSlots: timeSlots,
     });
   }
 
@@ -300,6 +345,7 @@ const getTimeScheduleForCustomer = async (
     days: populatedDays,
   };
 };
+
 
 const deleteScheduleFromDB = async (id: string) => {
   const schedule = await Schedule.findByIdAndDelete(id);

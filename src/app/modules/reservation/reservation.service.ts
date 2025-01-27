@@ -14,7 +14,7 @@ import { ReservationHelper } from './reservation.utils';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { JwtPayload } from 'jsonwebtoken';
-import mongoose, { ClientSession, Types } from 'mongoose';
+import mongoose, {  Types } from 'mongoose';
 import { DateHelper } from '../../../utils/date.helper';
 import { format, isAfter, isBefore } from 'date-fns';
 import {
@@ -814,10 +814,72 @@ const updateReservationStatusToDB = async (
   }
 };
 
+
+
+const startReservationTracking = async (id: string) => {
+  const isReservationExist = await Reservation.findById({ _id: id, status: 'ongoing' });
+  if (!isReservationExist) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
+  }
+
+  //check if the vendor already has any other order as started
+  const professionalExist = await Reservation.findOne({
+    professional: isReservationExist.professional,
+    status: { $in: ['started'] },
+    _id: { $ne: id },
+  });
+
+  if (professionalExist) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'You already have an order in delivery process'
+    );
+  }
+
+  const result = await Reservation.findOneAndUpdate(
+    { _id: id, status: 'confirmed' },
+    { $set: { status: 'started' } },
+    { new: true }
+  ).populate<{service: IService}>({
+    path: 'service',
+    select: {
+      _id: 0,
+      title: 1,
+    },
+  });
+
+  if (!result) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to change the order status'
+    );
+  }
+
+  await sendNotification(
+    'getNotification',
+    result.customer as Types.ObjectId,
+    {
+      userId: result.customer as Types.ObjectId,
+      title: `Live tracking for ${result.service.title} has been started.`,
+      message: `You have a live tracking for ${result.service.title} on ${DateHelper.convertISOTo12HourFormat(
+        result.serviceStartDateTime.toString()
+      )}. Please be on time.`,
+      type: USER_ROLES.USER,
+    }
+  );
+  await sendDataWithSocket('startedReservation', result.customer as Types.ObjectId, {
+    ...result,
+  });
+
+  return result;
+};
+
 export const ReservationServices = {
   createReservationToDB,
   getReservationsForUsersFromDB,
   getSingleReservationFromDB,
 
   updateReservationStatusToDB,
+
+  startReservationTracking,
 };

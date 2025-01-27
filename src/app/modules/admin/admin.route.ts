@@ -23,4 +23,10 @@ router.patch(
   },
 );
 
+router.patch(
+  '/recommend/:id',
+  auth(USER_ROLES.ADMIN),
+  AdminController.recommendProfessional,
+);
+
 export const AdminRoutes = router;

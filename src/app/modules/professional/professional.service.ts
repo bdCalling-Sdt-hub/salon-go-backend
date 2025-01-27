@@ -25,6 +25,7 @@ import { Types } from 'mongoose';
 import { Bookmark } from '../bookmark/bookmark.model';
 import { ICategory, ISubCategory } from '../categories/categories.interface';
 import { Reservation } from '../reservation/reservation.model';
+import { Review } from '../review/review.model';
 
 const updateProfessionalProfile = async (
   user: JwtPayload,
@@ -394,7 +395,6 @@ const getAllProfessional = async (
     })
     .skip(skip)
     .limit(limit)
-    .sort({ [sortBy || 'createdAt']: sortOrder === 'desc' ? -1 : 1 })
     .lean();
 
   const total = await Professional.countDocuments({
@@ -406,14 +406,22 @@ const getAllProfessional = async (
     professional: { $in: activeProfessionals },
   }).distinct('professional');
 
+  // Get schedules for all professionals in one query
+  const schedules = await Schedule.find({
+    professional: { $in: professionals.map((p) => p._id) },
+  }).lean();
+
+  // Create a map for quick lookup
+  const schedulesMap = new Map(
+    schedules.map((schedule) => [schedule.professional.toString(), schedule]),
+  );
+
   const enrichProfessional = await Promise.all(
     professionals.map(async (professional) => {
-      // Find the schedule for the current professional
-      const schedule = await Schedule.findOne({
-        professional: professional._id,
-      });
+      // Get the schedule from the map
+      const schedule = schedulesMap.get(professional._id.toString());
 
-      // Get the maximum discount from the available time slots
+      // Calculate maximum discount
       let maxDiscount = 0;
       if (schedule) {
         schedule.days.forEach((day) => {
@@ -430,10 +438,22 @@ const getAllProfessional = async (
         isBookmarked: bookmarkedProfessionals
           .map((_id) => _id.toString())
           .includes(professional._id.toString()),
-        discount: maxDiscount, // Add the discount field
+        discount: maxDiscount,
+        rating: professional.rating || 0,
+        totalReviews: professional.totalReviews || 0,
       };
     }),
   );
+
+  // Sort the enriched professionals by rating (primary) and discount (secondary)
+  const sortedProfessionals = enrichProfessional.sort((a, b) => {
+    // First, compare by rating
+    if (b.rating !== a.rating) {
+      return b.rating - a.rating;
+    }
+    // If ratings are equal, compare by discount
+    return b.discount - a.discount;
+  });
 
   return {
     meta: {
@@ -442,7 +462,7 @@ const getAllProfessional = async (
       total,
       totalPage: Math.ceil(total / limit),
     },
-    data: enrichProfessional,
+    data: sortedProfessionals,
   };
 };
 
@@ -589,7 +609,9 @@ const getProfessionalRevenue = async (user: JwtPayload, range: string) => {
     return {
       startDate: segmentStartDate.toISOString(),
       endDate: segmentEndDate.toISOString(),
-      totalRevenue: matchingReservation ? matchingReservation.totalRevenue : 0,
+      totalRevenue: matchingReservation
+        ? matchingReservation.totalRevenue
+        : 0,
     };
   });
 
