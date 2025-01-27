@@ -10,6 +10,7 @@ import {
   deleteResourcesFromCloudinary,
   uploadToCloudinary,
 } from '../../../utils/cloudinary';
+import { Professional } from '../professional/professional.model';
 
 const getAdminProfile = async (user: JwtPayload) => {
   const result = await Admin.findById({ _id: user.userId }).populate('auth');
@@ -117,7 +118,24 @@ const updateAdminProfile = async (
   }
 };
 
+
+const recommendProfessional = async (id: string) => {
+  const professional = await Professional.findById(id).populate<{auth: IUser}>({
+    path: 'auth',
+    select: {
+      name: 1
+    },
+  });
+  if (!professional) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional not found');
+  }
+  const status = professional.recommended ? false : true;
+  await Professional.findByIdAndUpdate(id, { $set: { recommended: status } });
+  return professional.auth.name;
+}
+
 export const AdminService = {
   getAdminProfile,
   updateAdminProfile,
+  recommendProfessional
 };

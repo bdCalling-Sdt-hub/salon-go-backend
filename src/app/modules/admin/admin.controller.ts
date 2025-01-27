@@ -31,7 +31,18 @@ const updateAdminProfile = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const recommendProfessional = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await AdminService.recommendProfessional(id);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: `${result} recommended successfully`,
+  });
+});
+
 export const AdminController = {
   getAdminProfile,
   updateAdminProfile,
+  recommendProfessional
 };

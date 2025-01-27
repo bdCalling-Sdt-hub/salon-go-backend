@@ -28,13 +28,13 @@ const getNotifications = async (
     paginationHelper.calculatePagination(paginationOptions);
   const result = await Notification.find({ userId: user.id })
     .sort({ [sortBy]: sortOrder })
-    .skip(skip)
-    .limit(limit);
+;
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get notifications');
   }
   const total = await Notification.countDocuments({ userId: user.id });
   const count = await Notification.countDocuments({ userId: user.id, isRead: false });
+  console.log(total, count);
   return {
     meta: {
       page,

@@ -52,12 +52,13 @@ const getScheduleForCustomer = catchAsync(
   async (req: Request, res: Response) => {
     const id = new Types.ObjectId(req.params.id);
     const user = req.user;
-    const { date } = req.query;
+    const { date, serviceDuration } = req.query;
 
     const result = await ScheduleServices.getTimeScheduleForCustomer(
       id,
       user,
       date as string,
+      serviceDuration as string,
     );
     sendResponse(res, {
       success: true,
