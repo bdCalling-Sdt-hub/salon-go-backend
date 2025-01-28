@@ -346,7 +346,8 @@ const getReservationsForUsersFromDB = async (
 
   if (status) {
     if (status === 'all')
-      andCondition.push({ status: { $in: ['pending', 'confirmed'] } });
+      andCondition.push({ status: { $in: ['rejected', 'completed'] } });
+    else if (status === 'present') andCondition.push({ status: { $in: ['pending', 'confirmed'] } })
     else andCondition.push({ status });
   }
   if (subSubCategory) {
@@ -510,7 +511,12 @@ const getReservationsForUsersFromDB = async (
   });
   const pendingCount = await Reservation.countDocuments({
     ...baseQuery,
-    status: 'pending',
+    status: { $in: ['pending'] },
+  });
+
+  const allCount = await Reservation.countDocuments({
+    ...baseQuery,
+    status: { $in: ['rejected', 'completed'] },
   });
 
   const total = await Reservation.countDocuments({
@@ -528,6 +534,7 @@ const getReservationsForUsersFromDB = async (
       dailyReservations,
       confirmedCount,
       pendingCount,
+      allCount,
     },
   };
 };
@@ -775,7 +782,7 @@ const updateReservationStatusToDB = async (
       `reservation${
         payload.status.charAt(0).toUpperCase() + status.substring(1)
       }`,
-      reservation._id,
+      reservation.customer._id, 
       {
         reservation,
       },
