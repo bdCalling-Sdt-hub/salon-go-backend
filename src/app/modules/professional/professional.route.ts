@@ -61,22 +61,9 @@ router.get(
 );
 
 router.get(
-  '/revenue',
-
+  '/metrics',
   auth(USER_ROLES.PROFESSIONAL),
-  ProfessionalController.getProfessionalRevenue,
-);
-
-router.get(
-  '/reservation-rate',
-  auth(USER_ROLES.PROFESSIONAL),
-  ProfessionalController.getProfessionalReservationRate,
-);
-
-router.get(
-  '/engagement-rate',
-  auth(USER_ROLES.PROFESSIONAL),
-  ProfessionalController.getProfessionalEngagementRate,
+  ProfessionalController.getProfessionalMetrics,
 );
 
 router.get(
