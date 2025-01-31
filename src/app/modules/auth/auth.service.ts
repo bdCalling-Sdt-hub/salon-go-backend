@@ -47,15 +47,15 @@ const loginUserFromDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  // if (
-  //   isExistUser.role === USER_ROLES.PROFESSIONAL &&
-  //   !isExistUser.approvedByAdmin
-  // ) {
-  //   throw new ApiError(
-  //     StatusCodes.BAD_REQUEST,
-  //     'Your account is not approved by admin, please submit your documents and wait for approval. If you have any questions, please contact us at 8wW8J@example.com',
-  //   );
-  // }
+  if (
+    isExistUser.role === USER_ROLES.PROFESSIONAL &&
+    !isExistUser.approvedByAdmin
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Your account is not approved by admin, please submit your documents and wait for approval. If you have any questions, please contact us at 8wW8J@example.com',
+    );
+  }
 
   if (isExistUser.status === 'restricted') {
     if (
@@ -356,9 +356,10 @@ const verifyEmailOrPhoneToDB = async (payload: IVerifyEmailOrPhone) => {
 
 //forget password
 const forgetPasswordToDB = async (email?: string, contact?: string) => {
-  const isExistUser = await User.findOne({ $or: [{ email }, { contact }] });
+  console.log(email, contact)
+  const isExistUser = await User.findOne({ $or: [{ email: email }, { contact: contact }] });
   if (!isExistUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+    throw new ApiError(StatusCodes.BAD_REQUEST, `No user found with this ${email ? 'email' : 'contact'}`);
   }
   const otp = generateOTP();
 

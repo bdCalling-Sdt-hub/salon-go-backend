@@ -61,7 +61,7 @@ const updateCustomerProfile = async (
 
     // Check if profile image is provided
     if (profile) {
-      console.log(profile,"1111111111111111111");
+
       const uploadedImage = await uploadToCloudinary(profile, 'customer', 'image');
 
       if (!uploadedImage || uploadedImage.length === 0) {

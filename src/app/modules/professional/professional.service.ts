@@ -168,7 +168,6 @@ const getBusinessInformationForProfessional = async (
       'Failed to update business information',
     );
   }
-  console.log(result);
   const nextStep = getNextOnboardingStep(result);
   console.log(nextStep);
   return {

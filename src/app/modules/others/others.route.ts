@@ -13,6 +13,7 @@ router.post(
   auth(USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
+    console.log(req.files, 'files')
     if (req.body.data) {
       req.body = othersValidation.createBannerSchema.parse(
         JSON.parse(req.body.data),
