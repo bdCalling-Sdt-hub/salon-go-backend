@@ -116,7 +116,15 @@ const getChatListByUserId = async (
   console.log(chats, 'chats');
 
   if (!chats || chats.length === 0) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get chat list.');
+    return {
+      meta: {
+        page,
+        limit,
+        total: 0,
+        totalPage: 0,
+      },
+      data: [],
+    };
   }
 
   // Filter chats based on the search term

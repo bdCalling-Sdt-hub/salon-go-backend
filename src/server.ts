@@ -6,6 +6,8 @@ import config from './config'
 
 import { errorLogger, logger } from './shared/logger'
 import { socketHelper } from './helpers/socketHelper'
+import { User } from './app/modules/user/user.model'
+import { Admin } from './app/modules/admin/admin.model'
 
 //uncaught exception
 process.on('uncaughtException', error => {
@@ -18,7 +20,36 @@ async function main() {
   try {
     mongoose.connect(config.database_url as string)
     logger.info(colors.green('🚀 Database connected successfully'))
+// Super Admin creation
+    const existingAdmin = await User.findOne({ role: 'SUPER_ADMIN' })
 
+    if (!existingAdmin) {
+      try {
+        const superAdmin = {
+          name: 'Super Admin',
+          email: config.super_admin.email as string,
+          password: config.super_admin.password as string,
+          profile: 'https://res.cloudinary.com/dmvht7o8m/image/upload/v1737370875/zcd3awdjgvsenzewd4t0.png',
+          contact: '+01889126591',
+          role: 'ADMIN',
+        }
+
+
+        const newAdmin = await User.create(superAdmin)
+        if (!newAdmin) {
+          logger.error(colors.red('Failed to create Super Admin'))
+        }
+
+        await Admin.create([{ auth: newAdmin._id, address: 'Dhaka' }])
+        logger.info(colors.green('Super Admin created successfully'))
+      } catch (error) {
+        if (error instanceof Error) {
+          logger.error(`Error in superAdmin creation: ${error.message}`)
+        } else {
+          logger.error('Error in superAdmin creation: unknown error')
+        }
+      }
+    }
     const port =
       typeof config.port === 'number' ? config.port : Number(config.port)
 

@@ -48,7 +48,7 @@ export const sendOtp = async (
     }
 
     // Generate a random 5-digit OTP
-    const otp = Math.floor(10000 + Math.random() * 89999).toString();
+    const otp = Math.floor(100000 + Math.random() * 899999).toString();
     const hashedOtp = hashOtp(otp); // Hash the OTP before saving
 
     // Set OTP expiration (e.g., 5 minutes)
@@ -66,37 +66,39 @@ export const sendOtp = async (
           lastRequestAt: new Date(),
         });
 
-    await newOtp.save();
+    
 
-    await client.messages.create({
+   const twilioResponse =  await client.messages.create({
       body: `Your Salon go one time verification code is ${otp}. It will expire in 5 minutes.`,
       from: twilioPhoneNumber,
       to: phoneNumber,
     });
+
+    newOtp.sid = twilioResponse.sid;
+    await newOtp.save();
+    console.log(twilioResponse)
   } catch (error) {
-    if (existingOtp) {
+    const session = await mongoose.startSession();
+    try {
+      session.startTransaction();
+      // Delete the user and associated professional profile
+      await User.findByIdAndDelete(id, { session });
+      await Professional.findOneAndDelete({ auth: id }, { session });
+      await Otp.findOneAndDelete({ phoneNumber }, { session });
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        'Failed to send OTP. Please try again later.',
+        'Failed to send OTP and user data could not be deleted. Please try again later.',
       );
-    } else {
-      const session = await mongoose.startSession();
-      try {
-        session.startTransaction();
-        await User.findByIdAndDelete(id);
-        await Professional.findOneAndDelete({ auth: id });
-
-        await session.commitTransaction();
-      } catch (error) {
-        await session.abortTransaction();
-        throw new ApiError(
-          StatusCodes.BAD_REQUEST,
-          'Failed to send OTP. Please try again later.',
-        );
-      } finally {
-        session.endSession();
-      }
+    } finally {
+      session.endSession();
     }
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to send OTP. Please try again.',
+    );
   }
 };
 
@@ -122,6 +124,7 @@ export const verifyOtp = async (
     if (existingOtp.otp !== hashedOtp) {
       throw new Error('Invalid OTP.');
     }
+    await User.findOneAndUpdate({ contact: phoneNumber }, { $set: { authentication: { oneTimeCode: null, expireAt: null }, verified: true } });
 
     // Delete OTP after successful verification
     await existingOtp.deleteOne();
@@ -132,5 +135,51 @@ export const verifyOtp = async (
       StatusCodes.BAD_REQUEST,
       'Failed to verify OTP. Please try again later.',
     );
+  }
+};
+
+
+
+
+export const twilioStatusCallback = async (payload: any) => {
+  console.log('twilioStatusCallback');
+  console.log(payload);
+console.log(payload.Level, payload.Payload.error_code)
+  if (payload.Level === 'ERROR' || payload.Payload.error_code === '30008') {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      console.log(payload.Payload.service_sid)
+      const parsedData = JSON.parse(payload.Payload)
+      console.log(parsedData)
+      // Find and delete the OTP, user, and professional in a single transaction
+      const otp = await Otp.findOneAndDelete({ sid: parsedData.service_sid  }, { session });
+
+      if (!otp) {
+        throw new ApiError(StatusCodes.NOT_FOUND, 'OTP not found.');
+      }
+      console.log(otp)
+      const user = await User.findOneAndDelete({ contact: otp.phoneNumber }, { session });
+
+      if (user) {
+        await Professional.findOneAndDelete({ auth: user._id }, { session });
+      }
+
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+
+      if (error instanceof ApiError) {
+        throw error; // Re-throw known ApiError
+      }
+
+      throw new ApiError(
+        StatusCodes.INTERNAL_SERVER_ERROR,
+        'Failed to process Twilio status callback.',
+      );
+    } finally {
+      session.endSession();
+    }
   }
 };

@@ -1,15 +1,16 @@
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import { USER_ROLES } from '../../../enums/user';
 import auth from '../../middlewares/auth';
 import validateRequest from '../../middlewares/validateRequest';
 import { AuthController } from './auth.controller';
 import { AuthValidation } from './auth.validation';
-import { rateLimiter } from '../../../utils/rateLimmiter';
+// import { rateLimiter } from '../../../utils/rateLimmiter';
+
 const router = express.Router();
 
 router.post(
   '/login',
-  rateLimiter,
+  // rateLimiter,
   validateRequest(AuthValidation.createLoginZodSchema),
   AuthController.loginUser,
 );
@@ -52,5 +53,8 @@ router.post(
   validateRequest(AuthValidation.deleteAccountZodSchema),
   AuthController.deleteAccount,
 );
+
+
+
 
 export const AuthRoutes = router;

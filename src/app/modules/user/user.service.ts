@@ -27,17 +27,19 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
 
   let newUserData = null;
   let createdUser;
-
+console.log(user)
   //check if the user email exist with any active account
   const isExistUser = await User.findOne({
-    email: user.email,
-    // contact: user.contact,
+    $or: [
+      { email: user.email },
+      { contact: user.contact },
+    ],
     status: { $in: ['active', 'restricted'] },
   });
   if (isExistUser) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'An account with this email already exist. Please login',
+      'An account with this email or contact already exist. Please login',
     );
   }
 
@@ -88,16 +90,16 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
     expireAt: null,
   };
 
-  if (user.role !== USER_ROLES.ADMIN) {
-    // Send OTP via Twilio
-    await sendOtp(newUserData!.contact, newUserData!._id);
+  // if (user.role !== USER_ROLES.ADMIN) {
+  //   // Send OTP via Twilio
+  //   await sendOtp(newUserData!.contact, newUserData!._id);
 
-    // Save OTP metadata to authentication
-    authentication = {
-      oneTimeCode: null, // OTP is saved in Otp model, not directly in User model
-      expireAt: new Date(Date.now() + 5 * 60000),
-    };
-  }
+  //   // Save OTP metadata to authentication
+  //   authentication = {
+  //     oneTimeCode: null, // OTP is saved in Otp model, not directly in User model
+  //     expireAt: new Date(Date.now() + 5 * 60000),
+  //   };
+  // }
   await User.findOneAndUpdate(
     { _id: newUserData!._id },
     { $set: { authentication } },

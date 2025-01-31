@@ -12,14 +12,13 @@ const socket = (io: Server) => {
 
     socket.on('reservationTracking', async data => {
       try {
-        const { professionalId, latitude, longitude } = data;
-        if (!professionalId || latitude == null || longitude == null) {
+        const { professionalId, location } = data;
+        if (!professionalId || !location) {
           return;
         }
-
+console.log(professionalId,location)
         socket.emit(`reservationTracking::${professionalId}`, {
-          longitude: longitude,
-          latitude: latitude,
+          location,
         });
       } catch (error) {
         if (error instanceof Error) {

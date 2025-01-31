@@ -419,7 +419,7 @@ const getReservationsForUsersFromDB = async (
       select: { auth: 1 },
       populate: {
         path: 'auth',
-        select: { name: 1, address: 1, profile: 1 },
+        select: { name: 1, address: 1, profile: 1, contact: 1 },
       },
     })
     .sort({ [sortBy]: sortOrder })
@@ -589,6 +589,7 @@ const updateReservationStatusToDB = async (
         businessName: 1,
         address: 1,
         location: 1,
+        contact: 1,
       })
       .populate({
         path: 'customer',

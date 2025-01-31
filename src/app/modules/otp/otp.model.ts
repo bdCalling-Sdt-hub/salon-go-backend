@@ -12,6 +12,10 @@ const otpSchema = new Schema<IOtp>(
       type: String,
       required: true,
     },
+    sid: {
+      type: String,
+      required: true,
+    },
     expiresAt: {
       type: Date,
       required: true,
