@@ -20,7 +20,7 @@ import { Professional } from '../professional/professional.model';
 import { JwtPayload } from 'jsonwebtoken';
 import { sendOtp } from '../../../helpers/twilio.helper';
 
-type IPayload = Pick<IUser, 'email' | 'password' | 'name' | 'role' | 'contact'>;
+type IPayload = Pick<IUser & { businessName: string }, 'email' | 'password' | 'name' | 'role' | 'contact' | 'businessName'>;
 
 const createUserToDB = async (payload: IPayload): Promise<IUser> => {
   const { ...user } = payload;
@@ -56,7 +56,7 @@ console.log(user)
     if (user.role === USER_ROLES.ADMIN) {
       createdUser = await Admin.create([{ auth: newUser[0]._id }], { session });
     } else if (user.role === USER_ROLES.PROFESSIONAL) {
-      createdUser = await Professional.create([{ auth: newUser[0]._id }], {
+      createdUser = await Professional.create([{ auth: newUser[0]._id, businessName: user.businessName }], {
         session,
       });
     } else {
@@ -90,16 +90,16 @@ console.log(user)
     expireAt: null,
   };
 
-  // if (user.role !== USER_ROLES.ADMIN) {
-  //   // Send OTP via Twilio
-  //   await sendOtp(newUserData!.contact, newUserData!._id);
+  if (user.role !== USER_ROLES.ADMIN) {
+    // Send OTP via Twilio
+    await sendOtp(newUserData!.contact, newUserData!._id);
 
-  //   // Save OTP metadata to authentication
-  //   authentication = {
-  //     oneTimeCode: null, // OTP is saved in Otp model, not directly in User model
-  //     expireAt: new Date(Date.now() + 5 * 60000),
-  //   };
-  // }
+    // Save OTP metadata to authentication
+    authentication = {
+      oneTimeCode: null, // OTP is saved in Otp model, not directly in User model
+      expireAt: new Date(Date.now() + 5 * 60000),
+    };
+  }
   await User.findOneAndUpdate(
     { _id: newUserData!._id },
     { $set: { authentication } },
