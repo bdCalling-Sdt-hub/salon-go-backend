@@ -74,7 +74,7 @@ export const sendOtp = async (
       to: phoneNumber,
     });
 
-    newOtp.sid = twilioResponse.sid;
+    newOtp.sid = twilioResponse.sid || '';
     await newOtp.save();
     console.log(twilioResponse)
   } catch (error) {

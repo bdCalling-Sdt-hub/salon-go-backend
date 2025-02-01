@@ -254,7 +254,7 @@ const getAllProfessional = async (
   paginationOptions: IPaginationOptions,
   user: JwtPayload,
 ) => {
-  console.log(filterOptions, 'FROM SERVICE');
+
 
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
@@ -308,23 +308,13 @@ const getAllProfessional = async (
     // Prepare the filter conditions
     const filterConditions = [];
 
-    if (category) {
-      filterConditions.push({ category: category });
-    }
-
-    if (subCategory) {
-      filterConditions.push({ subCategory: subCategory });
-    }
-
-    if (subSubCategory) {
-      filterConditions.push({ subSubCategory: subSubCategory });
-    }
+    if (category) filterConditions.push({ category });
+    if (subCategory) filterConditions.push({ subCategory });
+    if (subSubCategory) filterConditions.push({ subSubCategory });
 
     const servicesWithConditions = await Service.find(
       { $or: filterConditions },
-      {
-        createdBy: 1,
-      },
+      { createdBy: 1 },
     ).distinct('createdBy');
 
     anyCondition.push({ _id: { $in: servicesWithConditions } });
@@ -369,6 +359,7 @@ const getAllProfessional = async (
   const activeProfessionals = await User.find(
     {
       status: 'active',
+      approvedByAdmin: true,
     },
     '_id',
   ).distinct('_id');
@@ -400,15 +391,10 @@ const getAllProfessional = async (
     $and: anyCondition,
   });
 
-  const bookmarkedProfessionals = await Bookmark.find({
-    customer: user.userId,
-    professional: { $in: activeProfessionals },
-  }).distinct('professional');
-
-  // Get schedules for all professionals in one query
-  const schedules = await Schedule.find({
-    professional: { $in: professionals.map((p) => p._id) },
-  }).lean();
+  const [bookmarkedProfessionals, schedules] = await Promise.all([
+    Bookmark.find({ customer: user.userId, professional: { $in: activeProfessionals } }).distinct('professional'),
+    Schedule.find({ professional: { $in: professionals.map((p) => p._id) } }).lean(),
+  ]);
 
   // Create a map for quick lookup
   const schedulesMap = new Map(

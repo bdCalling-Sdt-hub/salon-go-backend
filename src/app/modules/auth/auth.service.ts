@@ -47,15 +47,7 @@ const loginUserFromDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  if (
-    isExistUser.role === USER_ROLES.PROFESSIONAL &&
-    !isExistUser.approvedByAdmin
-  ) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Your account is not approved by admin, please submit your documents and wait for approval. If you have any questions, please contact us at 8wW8J@example.com',
-    );
-  }
+
 
   if (isExistUser.status === 'restricted') {
     if (
@@ -397,7 +389,8 @@ const resetPasswordToDB = async (
 ) => {
   const { newPassword, confirmPassword } = payload;
   //isExist token
-  const isExistToken = await ResetToken.isExistToken(token);
+
+  const isExistToken = await ResetToken.isExistToken(token.split(' ')[1]);
 
   if (!isExistToken) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'You are not authorized');
@@ -415,8 +408,9 @@ const resetPasswordToDB = async (
     );
   }
 
-  //validity check
-  const isValid = await ResetToken.isExpireToken(token);
+  // Validity check
+  const isValid = await ResetToken.isExpireToken(token.split(' ')[1]);
+
   if (!isValid) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
