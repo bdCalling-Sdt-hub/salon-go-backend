@@ -105,10 +105,12 @@ const getServicesByProfessionalIdFromDB = async (
 
   const andCondition = [];
 
-  if (filters.subSubCategory) {
-    andCondition.push({
-      subSubCategory: filters.subSubCategory,
-    });
+  if (filters.subSubCategory && (filters.subSubCategory !== '67a1eaa063af91b280b2bca2')) {
+
+      andCondition.push({
+        subSubCategory: filters.subSubCategory,
+      });
+    
   }
 
   andCondition.push({
@@ -118,7 +120,7 @@ const getServicesByProfessionalIdFromDB = async (
   const result = await Service.find({ $and: andCondition })
     .populate({
       path: 'createdBy',
-      select: { auth: 1 },
+      select: { auth: 1, businessName: 1 },
       populate: {
         path: 'auth',
         select: { name: 1 },

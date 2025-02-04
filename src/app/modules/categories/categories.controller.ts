@@ -274,6 +274,20 @@ const getSubSubCategoriesByProfessionalId = catchAsync(
   },
 );
 
+const getSubCategoriesAndSubSubCategoriesForFiltering = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user;
+    const { subCategoryId, filter, professionalId } = req.query;
+  
+  const result = await CategoriesServices.getSubCategoriesAndSubSubCategoriesForFiltering( user, subCategoryId as string, Boolean(filter), professionalId as string );
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'All categories retrieved successfully',
+    data: result,
+  });
+});
+
 export const CategoriesController = {
   getAllCategories,
   getAllSubCategories,
@@ -297,4 +311,5 @@ export const CategoriesController = {
   //filter categories
   filterCategories,
   getSubSubCategoriesByProfessionalId,
+  getSubCategoriesAndSubSubCategoriesForFiltering,
 };

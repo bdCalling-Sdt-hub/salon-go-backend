@@ -6,7 +6,7 @@ import {
   ISubSubCategory,
 } from './categories.interface';
 import { Category, SubCategory, SubSubCategory } from './categories.model';
-import mongoose, { Types } from 'mongoose';
+import mongoose, { Schema, Types } from 'mongoose';
 import {
   deleteResourcesFromCloudinary,
   uploadToCloudinary,
@@ -476,9 +476,8 @@ const getSubSubCategoriesByProfessionalId = async (
   user: JwtPayload,
   id?: string,
 ) => {
-  console.log(user)
   const professionalId = id ? id : user.userId;
-  console.log(professionalId)
+
   const professional = await Professional.findById(professionalId).populate<{subCategories: {subSubCategories: Array<ISubSubCategory>}}>({
     path: 'subCategories',
     populate: {
@@ -486,7 +485,7 @@ const getSubSubCategoriesByProfessionalId = async (
       select: { name: 1 },
     },
   });
-  console.log(professional,"PPPPPPPPPP")
+
   if (!professional) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional not found');
   }
@@ -507,6 +506,153 @@ const getSubSubCategoriesByProfessionalId = async (
 
   return Array.from(uniqueSubSubCategories);
 };
+
+// const getSubCategoriesAndSubSubCategoriesForFiltering = async (
+//   user: JwtPayload,
+//   subCategoryId?: string,
+//   filter?: boolean,
+//   professionalId?: string,
+// ) => {
+
+//   const all = new SubCategory({
+//     _id: new Types.ObjectId("67a1e1942ecb947b28a4c857"),  
+//     name: 'All',  
+//   });
+
+//   const id = professionalId ? professionalId : user.userId;
+//   const isUserExist = await Professional.findById(id).populate<{
+//     auth: IUser;
+//   }>('auth', { status: 1, role: 1 });
+
+//   if (!isUserExist) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'User does not exist');
+//   }
+//   if (filter) {
+//     // When filter is true, we return only the subSubCategories related to the professional
+//     const categoryId = isUserExist.categories![0];
+//     const category = await Category.findById(categoryId).populate(
+//       'subCategories',
+//       { name: 1 },
+//     );
+//     if (!category) {
+//       return [];
+//     }
+
+//     category.subCategories.unshift(all);  // Add the "All" object with both _id and name
+//     return category.subCategories || [];
+
+//   } else if (!subCategoryId) {
+
+
+//     const categoryId = isUserExist.categories![0];
+//     const category = await Category.findById(categoryId).populate(
+//       'subCategories',
+//       { name: 1 },
+//     );
+
+//     if (!category) {
+//       return [];
+//     }
+//     category.subCategories.unshift(all);  // Add the "All" object with both _id and name
+//     return category.subCategories || [];
+//   } else {
+//     const subCategory = await SubCategory.findById(subCategoryId).populate(
+//       'subSubCategories',
+//       {
+//         name: 1,
+//       },
+//     );
+//     if (!subCategory) {
+//       return [];
+//     }
+//     return subCategory.subSubCategories || [];
+//   }
+// };
+
+
+const getSubCategoriesAndSubSubCategoriesForFiltering = async (
+  user: JwtPayload,
+  subCategoryId?: string,
+  filter?: boolean,
+  professionalId?: string,
+) => {
+  const id = professionalId || user.userId;
+  const isUserExist = await Professional.findById(id).populate<{
+    auth: IUser;
+  }>('auth', { status: 1, role: 1 });
+
+  if (!isUserExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'User does not exist');
+  }
+
+  const all = new SubSubCategory({
+    _id: new mongoose.Types.ObjectId('67a1eaa063af91b280b2bca2'),
+    name: 'All',
+  });
+
+  if (filter) {
+    // When filter is true, we return only the subSubCategories related to the professional
+    const categoryId = isUserExist.categories![0];
+    const category = await Category.findById(categoryId).populate({
+      path: 'subCategories',
+      select: 'name',
+      populate: {
+        path: 'subSubCategories',
+        select: 'name _id', // Only select name and _id
+      },
+    });
+
+    if (!category) {
+      return [];
+    }
+
+    // Collect all unique subSubCategories
+    const uniqueSubSubCategories = new Map<string, any>();
+    category.subCategories.forEach((subCategory: any) => {
+      if (subCategory.subSubCategories) {
+        subCategory.subSubCategories.forEach((subSubCategory: any) => {
+          uniqueSubSubCategories.set(subSubCategory._id.toString(), {
+            _id: subSubCategory._id,
+            name: subSubCategory.name,
+          });
+        });
+      }
+    });
+    const subSubCategories = Array.from(uniqueSubSubCategories.values()) || [];
+    subSubCategories.unshift(all);
+    return subSubCategories;
+  } else if (!subCategoryId) {
+    const categoryId = isUserExist.categories![0];
+    const category = await Category.findById(categoryId).populate({
+      path: 'subCategories',
+      select: 'name _id', // Only select name and _id
+    });
+
+    if (!category) {
+      return [];
+    }
+
+
+    return category.subCategories || [];
+  } else {
+    const subCategory = await SubCategory.findById(subCategoryId).populate(
+      'subSubCategories',
+      {
+        name: 1,
+        _id: 1,
+      },
+    );
+
+    if (!subCategory) {
+      return [];
+    }
+
+    return subCategory.subSubCategories || [];
+  }
+};
+
+export default getSubCategoriesAndSubSubCategoriesForFiltering;
+
 
 export const CategoriesServices = {
   getAllCategories,
@@ -532,4 +678,5 @@ export const CategoriesServices = {
 
   //get category for professional update
   getSubCategoriesFromDB,
+  getSubCategoriesAndSubSubCategoriesForFiltering
 };
