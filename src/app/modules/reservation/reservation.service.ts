@@ -249,8 +249,8 @@ const createReservationToDB = async (
     })
     .lean();
 
-  await sendNotification('getNotification', professional, {
-    userId: professional,
+  await sendNotification('getNotification', isProfessionalExists._id, {
+    userId: isProfessionalExists.auth._id,
     title: `You have a new reservation request from ${isCustomerExist.auth.name}`,
     message: `${isCustomerExist.auth.name} has requested a reservation for ${
       isServiceExist.title

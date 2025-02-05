@@ -462,7 +462,6 @@ const managePortfolio = async (
   removedImages: string[] | [],
   updatedImage?: { url: string; link: string },
 ) => {
-  console.log(portfolioImage, removedImages, updatedImage);
   const session = await Professional.startSession();
   session.startTransaction();
   try {
@@ -472,7 +471,7 @@ const managePortfolio = async (
         { _id: user.userId, 'portfolio.path': updatedImage.url },
         { 'portfolio.$.link': updatedImage.link || undefined },
       );
-      console.log(removedImages, 'removedImages');
+ 
     } else {
       // 🖼️ Upload New Portfolio Image
       let uploadedImage: { path: string; link?: string } | null = null;
