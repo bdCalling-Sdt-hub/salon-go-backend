@@ -58,12 +58,7 @@ const managePortfolio = catchAsync(async (req: Request, res: Response) => {
     };
   }
 
-  console.log(
-    updatedImage,
-    removedImages,
-    portfolioImage,
-    'professional Controller',
-  );
+
   // Handle Multiple Removed Images
   const removedImagesArray: string[] = Array.isArray(removedImages)
     ? removedImages
