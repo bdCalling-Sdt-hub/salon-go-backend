@@ -66,7 +66,7 @@ const sendMessage = async (payload: IMessage, chatId: string) => {
   }
   //update the latest message
 
-  await Chat.findByIdAndUpdate(
+ const updatedChat = await Chat.findByIdAndUpdate(
     chatId,
     { latestMessage: result._id, latestMessageTime: new Date() },
     { new: true },
@@ -78,6 +78,11 @@ const sendMessage = async (payload: IMessage, chatId: string) => {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   global.io?.emit(`getMessage::${chatId}`, populatedResult);
+
+  //emit the unread count to the client
+  //eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  global.io?.emit(`getUnreadChat::${chatId}`, updatedChat);
 
   await Chat.findByIdAndUpdate(
     payload.chatId,
@@ -113,6 +118,14 @@ const getMessagesByChatId = async (
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get messages.');
   }
+
+
+  //update isRead to true for each message
+  await Message.updateMany(
+    { chatId },
+    { isRead: true },
+  );
+
   return {
     meta: {
       page,
