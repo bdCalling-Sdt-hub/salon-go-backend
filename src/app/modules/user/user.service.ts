@@ -19,6 +19,7 @@ import { Customer } from '../customer/customer.model';
 import { Professional } from '../professional/professional.model';
 import { JwtPayload } from 'jsonwebtoken';
 import { sendOtp } from '../../../helpers/twilio.helper';
+import { Reservation } from '../reservation/reservation.model';
 
 type IPayload = Pick<IUser & { businessName: string }, 'email' | 'password' | 'name' | 'role' | 'contact' | 'businessName'>;
 
@@ -134,6 +135,19 @@ const getUserProfileFromDB = async (user: JwtPayload) => {
       path: 'auth',
       select: { name: 1, email: 1, role: 1, status: 1, needInformation: 1 },
     });
+
+    const [totalReservations, totalCompletedReservations] = await Promise.all([
+      Reservation.countDocuments({
+        professional: user.userId,
+      }),
+      Reservation.countDocuments({
+        professional: user.userId,
+        status: 'completed',
+      }), 
+    ]);
+    
+    userData = { ...userData, totalReservations, totalCompletedReservations };
+
     if (!userData) {
       throw new ApiError(StatusCodes.NOT_FOUND, "Professional doesn't exist!");
     }
