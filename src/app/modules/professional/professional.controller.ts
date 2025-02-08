@@ -128,7 +128,7 @@ const getProfessionalProfile = catchAsync(
 
     const result = await ProfessionalService.getProfessionalProfile(user);
 
-    sendResponse<IProfessional | null>(res, {
+    sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
       message: 'profile retrieved successfully',

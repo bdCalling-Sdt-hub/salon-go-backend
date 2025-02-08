@@ -178,7 +178,7 @@ const getBusinessInformationForProfessional = async (
 
 const getProfessionalProfile = async (
   user: JwtPayload,
-): Promise<IProfessional | null> => {
+) => {
   const result = await Professional.findById({
     _id: user.userId,
   })
@@ -206,7 +206,21 @@ const getProfessionalProfile = async (
       'Requested professional profile has been deleted.',
     );
   }
-  return result as unknown as IProfessional;
+
+  const [totalReservations, totalCompletedReservations] = await Promise.all([
+    Reservation.countDocuments({
+      professional: result._id,
+    }),
+    Reservation.countDocuments({
+      professional: result._id,
+      status: 'completed',
+    }), 
+  ]);
+  
+
+ return{ ...result, totalReservations, totalCompletedReservations };
+
+  // return result as unknown as IProfessional;
 };
 
 const getSingleProfessional = async (id: string, user: JwtPayload) => {
