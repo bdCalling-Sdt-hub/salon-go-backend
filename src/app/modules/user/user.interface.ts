@@ -15,6 +15,7 @@ export type IUser = {
   wrongLoginAttempts: number;
   restrictionLeftAt: Date | null;
   appId: string;
+  deviceId: string;
   approvedByAdmin: boolean;
   authentication?: {
     passwordChangedAt: Date;
@@ -34,8 +35,8 @@ export type IUserFilters = {
   role?: USER_ROLES;
   status?: 'active' | 'restricted' | 'delete';
   verified?: boolean;
-
   appId?: string;
+  deviceId?: string; 
 };
 
 export type UserModel = {

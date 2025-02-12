@@ -34,7 +34,7 @@ async function main() {
           role: 'ADMIN',
         }
 
-
+              
         const newAdmin = await User.create(superAdmin)
         if (!newAdmin) {
           logger.error(colors.red('Failed to create Super Admin'))
