@@ -115,6 +115,18 @@ const verifyPhone = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const socialLogin = catchAsync(async (req: Request, res: Response) => {
+  const { appId, deviceId } = req.body;
+  const result = await AuthService.socialLogin(appId, deviceId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'User login successfully',
+    data: result,
+  });
+});
+
 export const AuthController = {
   verifyEmailOrPhone,
   loginUser,
@@ -124,4 +136,5 @@ export const AuthController = {
   changePassword,
   deleteAccount,
   verifyPhone,
+  socialLogin
 };

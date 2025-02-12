@@ -41,7 +41,7 @@ const updateCustomerProfile = async (
   const session = await User.startSession();
   session.startTransaction();
 
-  const { name, profile, ...restData } = payload;
+  const { name, profile,email, ...restData } = payload;
 
   const userExist = await Customer.findById(user.userId).populate<{
     auth: IUser;
@@ -55,6 +55,7 @@ const updateCustomerProfile = async (
   if (!userExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Customer doesn't exist!");
   }
+
 
   try {
     let uploadedImageUrl: string | null = null;
@@ -74,12 +75,22 @@ const updateCustomerProfile = async (
     // 📝 Update User Profile
     if (name || uploadedImageUrl) {
 
-      const userUpdatedData  = {
+      const userUpdatedData: Partial<IUser>  = {
         ...(name && { name }),
         ...(uploadedImageUrl && { profile: uploadedImageUrl }),
       };
 
-
+      if (email) {
+        //check if email already exist in database
+        const isEmailExist = await User.findOne({
+          email,
+          _id: { $ne: user.id },
+        });
+        if (isEmailExist) {
+          throw new ApiError(StatusCodes.BAD_REQUEST, 'An account with this email already exist.');
+        }
+        userUpdatedData.email = email;
+      }
 
       const userUpdateResult = await User.findByIdAndUpdate(
         user.id,
