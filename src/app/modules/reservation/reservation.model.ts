@@ -14,6 +14,7 @@ const reservationSchema = new Schema<IReservation, ReservationModel>(
     amount: { type: Number, required: true },
     date: { type: Date, required: true },
     time: { type: String, required: true },
+    review: { type: Schema.Types.ObjectId, ref: 'Review' },
     status: {
       type: String,
       enum: [
@@ -28,6 +29,7 @@ const reservationSchema = new Schema<IReservation, ReservationModel>(
     },
     subSubCategory: { type: Schema.Types.ObjectId, ref: 'SubSubCategory' },
     travelFee: { type: Number },
+    serviceAddress: { type: String },
     serviceLocation: {
       type: { type: String, default: 'Point', enum: ['Point'] },
       coordinates: { type: [Number], default: [0, 0] },

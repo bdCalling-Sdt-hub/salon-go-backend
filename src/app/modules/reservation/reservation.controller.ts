@@ -76,10 +76,23 @@ const getSingleReservation = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+
+const startReservationTracking = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await ReservationServices.startReservationTracking(id);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Reservation tracking started successfully',
+    data: result,
+  });
+});
+
 export const ReservationController = {
   createReservation,
   getReservationsForUsers,
   getSingleReservation,
+  startReservationTracking,
 
   updateReservationStatus,
 };

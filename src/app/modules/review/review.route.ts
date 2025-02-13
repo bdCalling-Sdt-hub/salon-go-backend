@@ -15,7 +15,7 @@ router.post(
 );
 
 router.get(
-  '/:id',
+  '/',
   auth(USER_ROLES.USER, USER_ROLES.PROFESSIONAL, USER_ROLES.ADMIN),
   ReviewController.getReviewsByProfessionalId,
 );

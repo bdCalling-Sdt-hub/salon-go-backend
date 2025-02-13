@@ -57,6 +57,8 @@ const managePortfolio = catchAsync(async (req: Request, res: Response) => {
       link: link || undefined,
     };
   }
+
+
   // Handle Multiple Removed Images
   const removedImagesArray: string[] = Array.isArray(removedImages)
     ? removedImages
@@ -68,7 +70,6 @@ const managePortfolio = catchAsync(async (req: Request, res: Response) => {
   if (updatedImage) {
     (payload.url = updatedImage), (payload.link = link);
   }
-  console.log(removedImages);
   // Call the service
   const result = await ProfessionalService.managePortfolio(
     user,
@@ -127,7 +128,7 @@ const getProfessionalProfile = catchAsync(
 
     const result = await ProfessionalService.getProfessionalProfile(user);
 
-    sendResponse<IProfessional | null>(res, {
+    sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
       message: 'profile retrieved successfully',
@@ -139,7 +140,8 @@ const getProfessionalProfile = catchAsync(
 const getSingleProfessional = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const result = await ProfessionalService.getSingleProfessional(id);
+    const user = req.user;
+    const result = await ProfessionalService.getSingleProfessional(id, user);
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
@@ -154,6 +156,8 @@ const getAllProfessional = catchAsync(async (req: Request, res: Response) => {
   const filters = pick(req.query, professionalFilterableFields);
   const paginationOptions = pick(req.query, paginationFields);
   const user = req.user;
+  console.log(filters, 'FROM CONTROLLER');
+
   const result = await ProfessionalService.getAllProfessional(
     filters,
     paginationOptions,
@@ -168,44 +172,18 @@ const getAllProfessional = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-
-const getProfessionalRevenue = catchAsync(
+const getProfessionalMetrics = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
     const range = req.query.range as string;
-    const result = await ProfessionalService.getProfessionalRevenue(user, range);
+    const result = await ProfessionalService.getProfessionalMetrics(
+      user,
+      range,
+    );
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
-      message: 'Revenue retrieved successfully',
-      data: result,
-    });
-  },
-);
-
-const getProfessionalEngagementRate = catchAsync(
-  async (req: Request, res: Response) => {
-    const user = req.user;
-    const range = req.query.range as string;
-    const result = await ProfessionalService.getProfessionalEngagementRate(user, range);
-    sendResponse(res, {
-      success: true,
-      statusCode: StatusCodes.OK,
-      message: 'Engagement rate retrieved successfully',
-      data: result,
-    });
-  },
-);
-
-const  getProfessionalReservationRate = catchAsync(
-  async (req: Request, res: Response) => {
-    const user = req.user;
-    const range = req.query.range as string;
-    const result = await ProfessionalService.getProfessionalReservationCount(user, range);
-    sendResponse(res, {
-      success: true,
-      statusCode: StatusCodes.OK,
-      message: 'Reservation rate retrieved successfully',
+      message: 'Metrics retrieved successfully',
       data: result,
     });
   },
@@ -219,9 +197,5 @@ export const ProfessionalController = {
   getSingleProfessional,
   managePortfolio,
   getProfessionalPortfolio,
-  getProfessionalRevenue
-,
-  getProfessionalEngagementRate
-,
-  getProfessionalReservationRate
+  getProfessionalMetrics,
 };

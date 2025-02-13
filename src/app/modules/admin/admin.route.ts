@@ -13,6 +13,7 @@ router.patch(
   auth(USER_ROLES.ADMIN),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
+    console.log(req.body, 'body', req.files);
     if (req.body?.data) {
       req.body = AdminValidation.updateAdminZodSchema.parse(
         JSON.parse(req.body.data),
@@ -20,6 +21,12 @@ router.patch(
     }
     return AdminController.updateAdminProfile(req, res, next);
   },
+);
+
+router.patch(
+  '/recommend/:id',
+  auth(USER_ROLES.ADMIN),
+  AdminController.recommendProfessional,
 );
 
 export const AdminRoutes = router;

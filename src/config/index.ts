@@ -4,6 +4,7 @@ import path from 'path';
 dotenv.config({ path: path.join(process.cwd(), '.env') });
 
 export default {
+  firebase_service_account_base64: process.env.FIREBASE_SERVICE_ACCOUNT_BASE64,
   ip_address: process.env.IP_ADDRESS,
   database_url: process.env.DATABASE_URL,
   node_env: process.env.NODE_ENV,
@@ -27,6 +28,11 @@ export default {
     port: process.env.EMAIL_PORT,
     host: process.env.EMAIL_HOST,
     pass: process.env.EMAIL_PASS,
+  },
+  message_read_token: process.env.MESSAGE_READ_TOKEN,
+  super_admin: {
+    email: process.env.SUPER_ADMIN_EMAIL,
+    password: process.env.SUPER_ADMIN_PASSWORD,
   },
   twilio: {
     account_sid: process.env.TWILIO_ACCOUNT_SID,

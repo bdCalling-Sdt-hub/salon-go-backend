@@ -8,6 +8,7 @@ const reservationValidationZodSchema = z.object({
       required_error: 'Date is required',
     }),
     time: z.string().nonempty('Time is required'),
+    serviceAddress: z.string({ required_error: 'Service address is required' }),
     serviceLocation: z
       .object({
         // type: z.literal('Point'),

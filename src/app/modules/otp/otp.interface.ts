@@ -3,6 +3,7 @@ import { Model } from 'mongoose';
 export type IOtp = {
   phoneNumber: string;
   otp: string;
+  sid: string;
   createdAt: Date;
   expiresAt: Date; // OTP expiration timestamp
   requestCount: number; // Number of OTP requests within the timeframe

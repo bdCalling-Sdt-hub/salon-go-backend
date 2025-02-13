@@ -29,6 +29,8 @@ import { Reservation } from '../reservation/reservation.model';
 import { verifyOtp } from '../../../helpers/twilio.helper';
 import getNextOnboardingStep from '../professional/professional.utils';
 import twilio from 'twilio';
+import { createTokens } from './auth.utils';
+import mongoose, { Types } from 'mongoose';
 
 const accountSid = config.twilio.account_sid;
 const authToken = config.twilio.auth_token;
@@ -38,23 +40,14 @@ const client = twilio(accountSid, authToken);
 const loginUserFromDB = async (
   payload: ILoginData,
 ): Promise<ILoginResponse> => {
-  const { email, password } = payload;
+  const { email, password, deviceId } = payload;
+
   const isExistUser = await User.findOne({
     email,
     status: { $in: ['active', 'restricted'] },
-  }).select('+password');
+  }).select('+password +deviceId');
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
-  }
-
-  if (
-    isExistUser.role === USER_ROLES.PROFESSIONAL &&
-    !isExistUser.approvedByAdmin
-  ) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Your account is not approved by admin, please submit your documents and wait for approval. If you have any questions, please contact us at 8wW8J@example.com',
-    );
   }
 
   if (isExistUser.status === 'restricted') {
@@ -96,6 +89,9 @@ const loginUserFromDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'User details is not found!');
   }
 
+  //create a new password hash
+
+
   // Check verified and status
   if (!isExistUser.verified) {
     throw new ApiError(
@@ -125,34 +121,39 @@ const loginUserFromDB = async (
       { _id: isExistUser._id },
       {
         $set: {
-          wrongLoginAttempts: isExistUser.wrongLoginAttempts,
+          wrongLoginAttempts: isExistUser.wrongLoginAttempts + 1,
           status: isExistUser.status,
           restrictionLeftAt: isExistUser.restrictionLeftAt,
         },
       },
     );
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!');
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect.');
   }
+
+  //update device id
+  await User.findByIdAndUpdate(
+    { _id: isExistUser._id },
+    {
+      $set: {
+        deviceId: deviceId || isExistUser.deviceId,
+      },
+    },
+  );
 
   const accessToken = jwtHelper.createToken(
     {
       id: isExistUser._id,
       userId: user._id,
       role: isExistUser.role,
-      email: isExistUser.email,
     },
     config.jwt.jwt_secret as Secret,
     config.jwt.jwt_expire_in as string,
   );
-  console.log(accessToken);
-  console.log(config.jwt.jwt_expire_in as string);
-  console.log(config.jwt.jwt_refresh_expire_in as string);
   const refreshToken = jwtHelper.createToken(
     {
       id: isExistUser._id,
       userId: user._id,
       role: isExistUser.role,
-      email: isExistUser.email,
     },
     config.jwt.jwt_refresh_secret as Secret,
     config.jwt.jwt_refresh_expire_in as string,
@@ -176,7 +177,7 @@ const refreshToken = async (
   token: string,
 ): Promise<IRefreshTokenResponse | null> => {
   let verifiedToken = null;
-  console.log(token);
+
   try {
     // Verify the refresh token
     verifiedToken = jwtHelper.verifyToken(
@@ -216,7 +217,6 @@ const refreshToken = async (
     {
       id: isUserExist.auth._id,
       userId: isUserExist._id,
-      email: email,
       role: role,
     },
     config.jwt.jwt_secret as Secret,
@@ -359,15 +359,17 @@ const verifyEmailOrPhoneToDB = async (payload: IVerifyEmailOrPhone) => {
 
 //forget password
 const forgetPasswordToDB = async (email?: string, contact?: string) => {
-  const isExistUser = await User.findOne({ $or: [{ email }, { contact }] });
+
+  const isExistUser = await User.findOne({ $or: [{ email: email }, { contact: contact }] });
   if (!isExistUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+    throw new ApiError(StatusCodes.BAD_REQUEST, `No user found with this ${email ? 'email' : 'contact'}`);
   }
   const otp = generateOTP();
 
   //save to DB
   const authentication = {
     oneTimeCode: otp,
+    isResetPassword: true,
     expireAt: new Date(Date.now() + 5 * 60000),
   };
 
@@ -399,7 +401,8 @@ const resetPasswordToDB = async (
 ) => {
   const { newPassword, confirmPassword } = payload;
   //isExist token
-  const isExistToken = await ResetToken.isExistToken(token);
+
+  const isExistToken = await ResetToken.isExistToken(token.split(' ')[1]);
 
   if (!isExistToken) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'You are not authorized');
@@ -417,8 +420,9 @@ const resetPasswordToDB = async (
     );
   }
 
-  //validity check
-  const isValid = await ResetToken.isExpireToken(token);
+  // Validity check
+  const isValid = await ResetToken.isExpireToken(token.split(' ')[1]);
+
   if (!isValid) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -553,6 +557,42 @@ const deleteAccount = async (user: JwtPayload, password: string) => {
   return isUserExist;
 };
 
+
+const socialLogin = async (appId: string,deviceId: string) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const isUserExist = await User.findOne({ appid: appId, status: { $in: ['active', 'restricted'] } , role: USER_ROLES.USER}).select('+appId +deviceId').session(session);
+    const isCustomerExist = await Customer.findOne({auth: isUserExist?._id }).session(session);
+    if (isUserExist) {
+      const tokens = createTokens(isUserExist._id, isCustomerExist?._id as Types.ObjectId);
+      await session.commitTransaction();
+      return tokens;
+    } else {
+      
+      const newUser = await User.create([{ appid: appId, role: USER_ROLES.USER, password:"hello-world!", deviceId: deviceId }], { session });
+      const newCustomer = await Customer.create([{ auth: newUser[0]._id }], { session });
+      
+      if (!newUser || !newCustomer) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, 'User or Customer creation failed');
+      }
+
+      const tokens = createTokens(newUser[0]._id, newCustomer[0].id);
+      await session.commitTransaction();
+      return tokens;
+    }
+  } catch (error) {
+    await session.abortTransaction();
+  
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Social login failed');
+  } finally {
+    session.endSession();
+  }
+};
+
+
+
 export const AuthService = {
   verifyEmailOrPhoneToDB,
   loginUserFromDB,
@@ -562,4 +602,5 @@ export const AuthService = {
   verifyPhoneToDB,
   resetPasswordToDB,
   deleteAccount,
+  socialLogin
 };
