@@ -18,5 +18,5 @@ export const createTokens = (authId: Types.ObjectId, customerId: Types.ObjectId)
      
     );
   
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, role:USER_ROLES.USER };
   };

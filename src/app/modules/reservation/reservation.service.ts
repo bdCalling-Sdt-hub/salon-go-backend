@@ -26,6 +26,7 @@ import { IUser } from '../user/user.interface';
 import { IService } from '../service/service.interface';
 import { Service } from '../service/service.model';
 import { IProfessional } from '../professional/professional.interface';
+import { sendPushNotification } from '../../../helpers/pushNotificationHelper';
 
 const createReservationToDB = async (
   payload: IReservation,
@@ -44,6 +45,7 @@ const createReservationToDB = async (
         name: 1,
         status: 1,
         profile: 1,
+        deviceId: 1,
       }),
       Service.findById(payload.service, {
         title: 1,
@@ -188,7 +190,7 @@ const createReservationToDB = async (
     }
   }
   payload.duration = isServiceExist.duration;
-  console.log(payload)
+
   const result = await Reservation.create([payload]);
 
   if (!result.length) {
@@ -255,8 +257,23 @@ const createReservationToDB = async (
     message: `${isCustomerExist.auth.name} has requested a reservation for ${
       isServiceExist.title
     } on ${serviceStart.toDateString()}. Please check your dashboard for more details.`,
-    type: USER_ROLES.PROFESSIONAL,
-  });
+    type: USER_ROLES.PROFESSIONAL
+  },
+  {
+    title: `You have a new reservation request from ${isCustomerExist.auth.name}`,
+    message: `${isCustomerExist.auth.name} has requested a reservation for ${
+      isServiceExist.title
+    } on ${serviceStart.toDateString()}. Please check your dashboard for more details.`,
+    deviceId: isProfessionalExists.auth.deviceId || 'fa-JVHQxTXm24r6NBoI1uQ:APA91bFhG2FTjMA547cuirYKvIOSYEnLpS9gpMlQ84y7kiNaF71-Azn_e64GWMYrB3NzTWUDeKyAh37eWQTmNiOGpRfNr0W80xntui5i90Q9EgROCZZVVkI',
+    destination: 'professional',
+    role: 'professional',
+    id: isProfessionalExists._id as unknown as string,
+    icon: isCustomerExist.auth.profile ,
+  }
+ 
+);
+
+
 
   if (formattedReservation) {
     await sendDataWithSocket(
@@ -265,6 +282,7 @@ const createReservationToDB = async (
       formattedReservation,
     );
   }
+  //send push notification to professional
 
   return formattedReservation;
 };

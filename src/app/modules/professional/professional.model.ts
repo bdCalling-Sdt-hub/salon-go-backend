@@ -15,7 +15,6 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
       type: String,
       enum: ['men', 'woman'],
     },
-
     serviceType: {
       type: String,
       enum: ['home', 'in-place'],

@@ -21,7 +21,7 @@ async function main() {
     mongoose.connect(config.database_url as string)
     logger.info(colors.green('🚀 Database connected successfully'))
 // Super Admin creation
-    const existingAdmin = await User.findOne({ role: 'SUPER_ADMIN' })
+    const existingAdmin = await User.findOne({ role: 'ADMIN' })
 
     if (!existingAdmin) {
       try {
@@ -31,13 +31,14 @@ async function main() {
           password: config.super_admin.password as string,
           profile: 'https://res.cloudinary.com/dmvht7o8m/image/upload/v1737370875/zcd3awdjgvsenzewd4t0.png',
           contact: '+01889126591',
+          verified: true,
           role: 'ADMIN',
         }
 
               
         const newAdmin = await User.create(superAdmin)
         if (!newAdmin) {
-          logger.error(colors.red('Failed to create Super Admin'))
+          logger.info(colors.red('Failed to create Super Admin'))
         }
 
         await Admin.create([{ auth: newAdmin._id, address: 'Dhaka' }])

@@ -8,7 +8,14 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
 });
 
-export const sendPushNotification = async (deviceToken: string, title: string, body: string, data = {}) => {
+export const sendPushNotification = async (
+    deviceToken: string,
+    title: string,
+    body: string,
+    data = {},
+    icon?: string // Optional: Add an icon parameter
+  ) => {
+    console.log(deviceToken, title, body, data, icon)
     const message = {
       token: deviceToken,
       notification: {
@@ -16,6 +23,18 @@ export const sendPushNotification = async (deviceToken: string, title: string, b
         body: body,
       },
       data: data, // Optional data payload
+      android: {
+        notification: {
+          icon: icon || 'https://res.cloudinary.com/di2erk78w/image/upload/v1739447789/B694F238-61D7-490D-9F1B-3B88CD6DD094_1_1_kpjwlx.png',
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            'mutable-content': 1, // Enable mutable content for iOS (if needed)
+          },
+        },
+      },
     };
   
     try {

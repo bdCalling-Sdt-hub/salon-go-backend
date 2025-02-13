@@ -43,7 +43,6 @@ const userSchema = new Schema<IUser, UserModel>(
     },
     deviceId: {
       type: String,
-      select: 0,
     },
     approvedByAdmin: {
       type: Boolean,
