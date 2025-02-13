@@ -41,15 +41,14 @@ const loginUserFromDB = async (
   payload: ILoginData,
 ): Promise<ILoginResponse> => {
   const { email, password, deviceId } = payload;
+
   const isExistUser = await User.findOne({
     email,
     status: { $in: ['active', 'restricted'] },
-  }).select('+password deviceId');
+  }).select('+password +deviceId');
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
-
-
 
   if (isExistUser.status === 'restricted') {
     if (
@@ -90,6 +89,9 @@ const loginUserFromDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'User details is not found!');
   }
 
+  //create a new password hash
+
+
   // Check verified and status
   if (!isExistUser.verified) {
     throw new ApiError(
@@ -119,18 +121,24 @@ const loginUserFromDB = async (
       { _id: isExistUser._id },
       {
         $set: {
-          wrongLoginAttempts: isExistUser.wrongLoginAttempts,
+          wrongLoginAttempts: isExistUser.wrongLoginAttempts + 1,
           status: isExistUser.status,
           restrictionLeftAt: isExistUser.restrictionLeftAt,
         },
       },
     );
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!');
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect.');
   }
 
   //update device id
-  isExistUser.deviceId = deviceId || isExistUser.deviceId;
-  await isExistUser.save();
+  await User.findByIdAndUpdate(
+    { _id: isExistUser._id },
+    {
+      $set: {
+        deviceId: deviceId || isExistUser.deviceId,
+      },
+    },
+  );
 
   const accessToken = jwtHelper.createToken(
     {
@@ -351,7 +359,7 @@ const verifyEmailOrPhoneToDB = async (payload: IVerifyEmailOrPhone) => {
 
 //forget password
 const forgetPasswordToDB = async (email?: string, contact?: string) => {
-  console.log(email, contact)
+
   const isExistUser = await User.findOne({ $or: [{ email: email }, { contact: contact }] });
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, `No user found with this ${email ? 'email' : 'contact'}`);
@@ -361,6 +369,7 @@ const forgetPasswordToDB = async (email?: string, contact?: string) => {
   //save to DB
   const authentication = {
     oneTimeCode: otp,
+    isResetPassword: true,
     expireAt: new Date(Date.now() + 5 * 60000),
   };
 

@@ -4,6 +4,7 @@ import { logger } from '../shared/logger';
 import { stopTracking } from './reservationHelper';
 import config from '../config';
 import { Message } from '../app/modules/message/message.model';
+import { Types } from 'mongoose';
 
 const socket = (io: Server) => {
   io.on('connection', (socket) => {
@@ -35,11 +36,11 @@ const socket = (io: Server) => {
 
     socket.on(`messageRead::${config.message_read_token}`, async data => {
       //update all messages to read for given chatID
-      const { chatId } = data;
+      const { chatId, receiverId } = data;
       if (!chatId) {
         return;
       }
-      await Message.updateMany({ chatId, isRead: false }, { isRead: true });
+      await Message.updateMany({ chatId, isRead: false, receiverId: new Types.ObjectId(receiverId) }, { isRead: true });
     })
 
     //disconnect
