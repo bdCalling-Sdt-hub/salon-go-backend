@@ -1,3 +1,4 @@
+import { groupBy } from 'lodash';
 import { USER_ROLES } from './../../../enums/user';
 import { LocationHelper } from './../../../utils/locationHelper';
 import { StatusCodes } from 'http-status-codes';
@@ -13,7 +14,7 @@ import { ReservationHelper } from './reservation.utils';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { JwtPayload } from 'jsonwebtoken';
-import mongoose, { ClientSession, Types } from 'mongoose';
+import mongoose, {  Types } from 'mongoose';
 import { DateHelper } from '../../../utils/date.helper';
 import { format, isAfter, isBefore } from 'date-fns';
 import {
@@ -25,12 +26,15 @@ import { IUser } from '../user/user.interface';
 import { IService } from '../service/service.interface';
 import { Service } from '../service/service.model';
 import { IProfessional } from '../professional/professional.interface';
+import { sendPushNotification } from '../../../helpers/pushNotificationHelper';
 
 const createReservationToDB = async (
   payload: IReservation,
   user: JwtPayload,
 ) => {
-  const { professional, date, time, serviceLocation, amount } = payload;
+  const { professional, date, time, serviceLocation, amount, serviceAddress } =
+    payload;
+
 
   const [isProfessionalExists, isCustomerExist, isServiceExist] =
     await Promise.all([
@@ -41,11 +45,13 @@ const createReservationToDB = async (
         name: 1,
         status: 1,
         profile: 1,
+        deviceId: 1,
       }),
       Service.findById(payload.service, {
         title: 1,
         subSubCategory: 1,
         price: 1,
+        duration: 1,
       }),
     ]);
 
@@ -92,7 +98,7 @@ const createReservationToDB = async (
 
   const serviceStartDateTime = DateHelper.convertToISODate(time, date);
   const serviceEndDateTime = DateHelper.convertToISODate(
-    DateHelper.calculateEndTime(time, payload.duration),
+    DateHelper.calculateEndTime(time, isServiceExist.duration),
     date,
   );
 
@@ -106,6 +112,8 @@ const createReservationToDB = async (
   const serviceEnd = new Date(serviceEndDateTime);
   const operationStart = new Date(operationStartTime);
   const operationEnd = new Date(operationEndTime);
+
+
 
   if (
     isBefore(serviceStart, operationStart) ||
@@ -135,6 +143,12 @@ const createReservationToDB = async (
   }
   payload.serviceLocation =
     serviceLocation !== undefined ? serviceLocation : location;
+  payload.serviceAddress =
+    serviceAddress !== undefined
+      ? serviceAddress || ''
+      : serviceType === 'home'
+      ? isCustomerExist.address || ''
+      : isProfessionalExists.address || '';
 
   if (isFreelancer) {
     const isNotAvailable = await Reservation.exists({
@@ -175,6 +189,7 @@ const createReservationToDB = async (
       );
     }
   }
+  payload.duration = isServiceExist.duration;
 
   const result = await Reservation.create([payload]);
 
@@ -192,15 +207,28 @@ const createReservationToDB = async (
       travelFee: 1,
       serviceStartDateTime: 1,
       serviceEndDateTime: 1,
+      serviceType: 1,
+      isStarted: 1,
       duration: 1,
       serviceLocation: 1,
       address: 1,
+    })
+    .populate('review', {
+      _id: 0,
+      rating: 1,
     })
     .populate({
       path: 'service',
       select: {
         _id: 0,
         title: 1,
+      },
+      populate: {
+        path: 'category',
+        select: {
+          _id: 0,
+          name: 1,
+        },
       },
     })
     .populate('subSubCategory', {
@@ -210,25 +238,42 @@ const createReservationToDB = async (
     .populate('professional', {
       _id: 1,
       businessName: 1,
+      address: 1,
+      location: 1,
     })
     .populate({
       path: 'customer',
       select: { auth: 1 },
       populate: {
         path: 'auth',
-        select: { name: 1, address: 1 },
+        select: { name: 1, address: 1, profile: 1 },
       },
     })
     .lean();
 
-  await sendNotification('getNotification', professional, {
-    userId: professional,
+  await sendNotification('getNotification', isProfessionalExists._id, {
+    userId: isProfessionalExists.auth._id,
     title: `You have a new reservation request from ${isCustomerExist.auth.name}`,
     message: `${isCustomerExist.auth.name} has requested a reservation for ${
       isServiceExist.title
     } on ${serviceStart.toDateString()}. Please check your dashboard for more details.`,
-    type: USER_ROLES.PROFESSIONAL,
-  });
+    type: USER_ROLES.PROFESSIONAL
+  },
+  {
+    title: `You have a new reservation request from ${isCustomerExist.auth.name}`,
+    message: `${isCustomerExist.auth.name} has requested a reservation for ${
+      isServiceExist.title
+    } on ${serviceStart.toDateString()}. Please check your dashboard for more details.`,
+    deviceId: isProfessionalExists.auth.deviceId || 'fa-JVHQxTXm24r6NBoI1uQ:APA91bFhG2FTjMA547cuirYKvIOSYEnLpS9gpMlQ84y7kiNaF71-Azn_e64GWMYrB3NzTWUDeKyAh37eWQTmNiOGpRfNr0W80xntui5i90Q9EgROCZZVVkI',
+    destination: 'professional',
+    role: 'professional',
+    id: isProfessionalExists._id as unknown as string,
+    icon: isCustomerExist.auth.profile ,
+  }
+ 
+);
+
+
 
   if (formattedReservation) {
     await sendDataWithSocket(
@@ -237,6 +282,7 @@ const createReservationToDB = async (
       formattedReservation,
     );
   }
+  //send push notification to professional
 
   return formattedReservation;
 };
@@ -254,15 +300,28 @@ const getSingleReservationFromDB = async (
       travelFee: 1,
       serviceStartDateTime: 1,
       serviceEndDateTime: 1,
+      serviceType: 1,
+      isStarted: 1,
       duration: 1,
       serviceLocation: 1,
       address: 1,
+    })
+    .populate('review', {
+      _id: 0,
+      rating: 1,
     })
     .populate({
       path: 'service',
       select: {
         _id: 0,
         title: 1,
+      },
+      populate: {
+        path: 'category',
+        select: {
+          _id: 0,
+          name: 1,
+        },
       },
     })
     .populate('subSubCategory', {
@@ -272,15 +331,18 @@ const getSingleReservationFromDB = async (
     .populate('professional', {
       _id: 1,
       businessName: 1,
+      address: 1,
+      location: 1,
     })
     .populate({
       path: 'customer',
       select: { auth: 1 },
       populate: {
         path: 'auth',
-        select: { name: 1, address: 1 },
+        select: { name: 1, address: 1, profile: 1 },
       },
-    });
+    })
+    .lean();
 
   if (!isReservationExists) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Reservation not found');
@@ -296,31 +358,27 @@ const getReservationsForUsersFromDB = async (
 ) => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
-  const { searchTerm, status, subSubCategory, date } = filters;
+  const { status, subSubCategory, date } = filters;
 
-  const andCondition = [];
+  const andCondition: any[] = [];
 
   if (status) {
-    andCondition.push({
-      status: status,
-    });
+    if (status === 'all')
+      andCondition.push({ status: { $in: ['rejected', 'completed'] } });
+    else if (status === 'present') andCondition.push({ status: { $in: ['pending', 'confirmed'] } })
+    else andCondition.push({ status });
   }
   if (subSubCategory) {
-    andCondition.push({
-      subSubCategory: subSubCategory,
-    });
+    andCondition.push({ subSubCategory });
   }
-
   if (date) {
-    //add date filter to find reservation on that particular date [ date will be in this format 2025-01-01 ] but he service and professional will be in this format 2025-01-01T00:00:00.000Z
-    console.log(new Date(date));
+    const startOfDay = new Date(date);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setUTCHours(23, 59, 59, 999);
     andCondition.push({
-      date: new Date(date),
+      serviceStartDateTime: { $gte: startOfDay, $lte: endOfDay },
     });
-  } else {
-    // andCondition.push({
-    //   date: new Date(),
-    // });
   }
 
   const query =
@@ -328,7 +386,8 @@ const getReservationsForUsersFromDB = async (
       ? { professional: user.userId }
       : { customer: user.userId };
 
-  const result = await Reservation.find({
+  // Fetch filtered reservations with pagination
+  const reservations = await Reservation.find({
     $and: [query, ...andCondition],
   })
     .select({
@@ -339,15 +398,28 @@ const getReservationsForUsersFromDB = async (
       travelFee: 1,
       serviceStartDateTime: 1,
       serviceEndDateTime: 1,
+      serviceType: 1,
+      isStarted: 1,
       duration: 1,
       serviceLocation: 1,
       address: 1,
+    })
+    .populate('review', {
+      _id: 0,
+      rating: 1,
     })
     .populate({
       path: 'service',
       select: {
         _id: 0,
         title: 1,
+      },
+      populate: {
+        path: 'category',
+        select: {
+          _id: 0,
+          name: 1,
+        },
       },
     })
     .populate('subSubCategory', {
@@ -357,33 +429,116 @@ const getReservationsForUsersFromDB = async (
     .populate('professional', {
       _id: 1,
       businessName: 1,
+      address: 1,
+      location: 1,
     })
     .populate({
       path: 'customer',
       select: { auth: 1 },
       populate: {
         path: 'auth',
-        select: { name: 1, address: 1 },
+        select: { name: 1, address: 1, profile: 1, contact: 1 },
       },
     })
-    .sort({
-      [sortBy]: sortOrder,
-    })
+    .sort({ [sortBy]: sortOrder })
     .skip(skip)
     .limit(limit)
     .lean();
 
-  const totalEarning = result.reduce((total, reservation) => {
-    return total + (reservation.amount + (reservation.travelFee ?? 0));
-  }, 0);
+
+    if (user.role !== USER_ROLES.PROFESSIONAL) {
+      // Skip grouping for customers and return the raw filtered data
+      const total = await Reservation.countDocuments({
+        $and: [query, ...andCondition],
+      });
+      return {
+        meta: {
+          total,
+          page,
+          totalPage: Math.ceil(total / limit),
+          limit,
+        },
+        data: {
+          reservations,
+        },
+      };
+    }
+
+  // Group reservations by date and calculate totals
+  const formatDate = (date: Date): string => {
+    const today = new Date();
+    const isToday =
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear();
+
+    if (isToday) return 'Today';
+
+    const days = [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return `${days[date.getDay()]}, ${
+      months[date.getMonth()]
+    } ${date.getDate()}`;
+  };
+
+
+  const groupedData = groupBy(reservations, (res) =>
+    formatDate(new Date(res.serviceStartDateTime)),
+  );
+
+  const dailyReservations = Object.entries(groupedData).map(
+    ([date, reservations]) => {
+      const totalAmount = reservations.reduce(
+        (total, reservation) =>
+          total + reservation.amount + (reservation.travelFee ?? 0),
+        0,
+      );
+      return { date, totalAmount, reservations };
+    },
+  );
+
+  // Independent counts for confirmed and pending reservations (not affected by filters)
+  const baseQuery = {
+    $or: [{ customer: user.userId }, { professional: user.userId }],
+  };
+  const confirmedCount = await Reservation.countDocuments({
+    ...baseQuery,
+    status: 'confirmed',
+  });
+  const pendingCount = await Reservation.countDocuments({
+    ...baseQuery,
+    status: { $in: ['pending'] },
+  });
+
+  const allCount = await Reservation.countDocuments({
+    ...baseQuery,
+    status: { $in: ['rejected', 'completed'] },
+  });
 
   const total = await Reservation.countDocuments({
-    $and: [
-      {
-        $or: [{ customer: user.userId }, { professional: user.userId }],
-      },
-      ...andCondition,
-    ],
+    $and: [baseQuery, ...andCondition],
   });
 
   return {
@@ -393,7 +548,12 @@ const getReservationsForUsersFromDB = async (
       totalPage: Math.ceil(total / limit),
       limit,
     },
-    data: { totalEarning, result },
+    data: {
+      dailyReservations,
+      confirmedCount,
+      pendingCount,
+      allCount,
+    },
   };
 };
 
@@ -414,9 +574,15 @@ const updateReservationStatusToDB = async (
         travelFee: 1,
         serviceStartDateTime: 1,
         serviceEndDateTime: 1,
+        serviceType: 1,
+        isStarted: 1,
         duration: 1,
         serviceLocation: 1,
         address: 1,
+      })
+      .populate('review', {
+        _id: 0,
+        rating: 1,
       })
       .populate({
         path: 'service',
@@ -424,17 +590,31 @@ const updateReservationStatusToDB = async (
           _id: 0,
           title: 1,
         },
+        populate: {
+          path: 'category',
+          select: {
+            _id: 0,
+            name: 1,
+          },
+        },
       })
       .populate('subSubCategory', {
         _id: 0,
         name: 1,
+      })
+      .populate('professional', {
+        _id: 1,
+        businessName: 1,
+        address: 1,
+        location: 1,
+        contact: 1,
       })
       .populate({
         path: 'customer',
         select: { auth: 1 },
         populate: {
           path: 'auth',
-          select: { name: 1, address: 1 },
+          select: { name: 1, address: 1, profile: 1 },
         },
       })
       .session(session);
@@ -450,9 +630,6 @@ const updateReservationStatusToDB = async (
 
     if (status === 'confirmed') {
       const { amount } = payload;
-      if (!amount) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, 'Amount is required');
-      }
 
       if (!reservation.professional._id.equals(user.userId)) {
         throw new ApiError(
@@ -595,14 +772,26 @@ const updateReservationStatusToDB = async (
       );
     }
 
-    const isCustomerExist = await Customer.findById(result.customer)
-      .populate<{ auth: IUser }>({
-        path: 'auth',
-        select: { name: 1, email: 1, status: 1 },
-      })
-      .session(session);
-    if (!isCustomerExist?.auth.status) {
-      throw new ApiError(StatusCodes.NOT_FOUND, 'Customer not found');
+
+
+    const [isCustomerExist, isProfessionalExist] = await Promise.all([
+      Customer.findById(result.customer)
+        .populate<{ auth: IUser }>({
+          path: 'auth',
+          select: { name: 1, email: 1, status: 1 },
+        })
+        .session(session),
+      Professional.findById(result.professional)
+        .populate<{ auth: IUser }>({
+          path: 'auth',
+          select: { name: 1, email: 1, status: 1 },
+        })
+        .session(session),
+    ]);
+
+
+    if(!isCustomerExist || !isProfessionalExist){
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Customer or Professional not found');
     }
 
     reservation.status = result.status;
@@ -612,20 +801,20 @@ const updateReservationStatusToDB = async (
       `reservation${
         payload.status.charAt(0).toUpperCase() + status.substring(1)
       }`,
-      reservation._id,
+      reservation.customer._id, 
       {
         reservation,
       },
     );
     const { title } = reservation.service as Partial<IService>;
     const { businessName } = reservation.professional as Partial<IProfessional>;
-
+    //TODO: check if the bug fix works or not
     const notificationUserId =
       status === 'confirmed' || status === 'completed' || status === 'rejected'
-        ? reservation.customer._id
+        ? isCustomerExist?.auth._id
         : status === 'canceled' && user.role === USER_ROLES.USER
-        ? reservation.professional._id
-        : reservation.customer._id;
+        ? isProfessionalExist?.auth._id
+        : isCustomerExist?.auth._id;
 
     const notificationUserRole =
       status === 'confirmed' || status === 'completed' || status === 'rejected'
@@ -642,7 +831,7 @@ const updateReservationStatusToDB = async (
     });
 
     await session.commitTransaction();
-    return reservation;
+    return `Reservation ${status} successfully for ${title}`;
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -651,10 +840,72 @@ const updateReservationStatusToDB = async (
   }
 };
 
+
+
+const startReservationTracking = async (id: string) => {
+  const isReservationExist = await Reservation.findById({ _id: id, status: 'ongoing' });
+  if (!isReservationExist) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
+  }
+
+  //check if the vendor already has any other order as started
+  const professionalExist = await Reservation.findOne({
+    professional: isReservationExist.professional,
+    status: { $in: ['started'] },
+    _id: { $ne: id },
+  });
+
+  if (professionalExist) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'You already have an order in delivery process'
+    );
+  }
+
+  const result = await Reservation.findOneAndUpdate(
+    { _id: id, status: 'confirmed' },
+    { $set: { status: 'started' } },
+    { new: true }
+  ).populate<{service: IService}>({
+    path: 'service',
+    select: {
+      _id: 0,
+      title: 1,
+    },
+  });
+
+  if (!result) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to change the order status'
+    );
+  }
+
+  await sendNotification(
+    'getNotification',
+    result.customer as Types.ObjectId,
+    {
+      userId: result.customer as Types.ObjectId,
+      title: `Live tracking for ${result.service.title} has been started.`,
+      message: `You have a live tracking for ${result.service.title} on ${DateHelper.convertISOTo12HourFormat(
+        result.serviceStartDateTime.toString()
+      )}. Please be on time.`,
+      type: USER_ROLES.USER,
+    }
+  );
+  await sendDataWithSocket('startedReservation', result.customer as Types.ObjectId, {
+    ...result,
+  });
+
+  return result;
+};
+
 export const ReservationServices = {
   createReservationToDB,
   getReservationsForUsersFromDB,
   getSingleReservationFromDB,
 
   updateReservationStatusToDB,
+
+  startReservationTracking,
 };

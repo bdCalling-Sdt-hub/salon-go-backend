@@ -13,7 +13,7 @@ import { USER_ROLES } from '../../../enums/user';
 const createServiceToDB = async (user: JwtPayload, payload: IService) => {
   const isUserExist = await Professional.findById(user.userId).populate<{
     auth: IUser;
-  }>('auth', { status: 1, role: 1 });
+  }>('auth', { status: 1, role: 1, approvedByAdmin: 1 });
 
   if (!isUserExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional not found!');
@@ -21,6 +21,18 @@ const createServiceToDB = async (user: JwtPayload, payload: IService) => {
   if (isUserExist.auth.status === 'delete') {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Your account is not active');
   }
+
+
+  if (
+    isUserExist.auth.role === USER_ROLES.PROFESSIONAL &&
+    !isUserExist.auth.approvedByAdmin
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Your account is not approved by admin, please submit your documents and wait for approval. If you have any questions, please contact us at 8wW8J@example.com',
+    );
+  }
+
   payload.category = isUserExist!.categories![0];
   const serviceData = { ...payload, createdBy: user.userId };
   const result = await Service.create([serviceData]);
@@ -93,10 +105,12 @@ const getServicesByProfessionalIdFromDB = async (
 
   const andCondition = [];
 
-  if (filters.subSubCategory) {
-    andCondition.push({
-      subSubCategory: filters.subSubCategory,
-    });
+  if (filters.subSubCategory && (filters.subSubCategory !== '67a1eaa063af91b280b2bca2')) {
+
+      andCondition.push({
+        subSubCategory: filters.subSubCategory,
+      });
+    
   }
 
   andCondition.push({
@@ -106,7 +120,7 @@ const getServicesByProfessionalIdFromDB = async (
   const result = await Service.find({ $and: andCondition })
     .populate({
       path: 'createdBy',
-      select: { auth: 1 },
+      select: { auth: 1, businessName: 1 },
       populate: {
         path: 'auth',
         select: { name: 1 },

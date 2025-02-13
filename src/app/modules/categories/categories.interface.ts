@@ -6,6 +6,7 @@ export type ICategory = {
   image: string;
   description?: string;
   subCategories: Types.ObjectId[];
+  type: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -16,6 +17,7 @@ export type ISubCategory = {
   description?: string;
   image: string;
   subSubCategories: Types.ObjectId[];
+  type: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -24,6 +26,7 @@ export type ISubSubCategory = {
   name: string;
   image: string;
   description?: string;
+  type: string;
   createdAt: Date;
   updatedAt: Date;
   // subCategory: Types.ObjectId;

@@ -4,6 +4,7 @@ import { StatusCodes } from 'http-status-codes';
 import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
 import ApiError from '../../errors/ApiError';
+import mime from 'mime-types';
 
 const fileUploadHandler = () => {
   //create upload folder
@@ -46,7 +47,6 @@ const fileUploadHandler = () => {
       cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-
       const fileExt = path.extname(file.originalname);
       const fileName =
         file.originalname
@@ -62,41 +62,38 @@ const fileUploadHandler = () => {
 
   //file filter
   const filterFilter = (req: Request, file: any, cb: FileFilterCallback) => {
-    if (
-      file.fieldname === 'image' ||
-      file.fieldname === 'ID' ||
-      file.fieldname === 'KBIS'
-    ) {
-      if (
-        file.mimetype === 'image/jpeg' ||
-        file.mimetype === 'image/png' ||
-        file.mimetype === 'image/jpg'
-      ) {
+    const validImageMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    const mimeType = mime.lookup(file.originalname) || file.mimetype;
+    console.log(mimeType, file);
+    if (['image', 'ID', 'KBIS'].includes(file.fieldname)) {
+      if (validImageMimeTypes.includes(mimeType)) {
         cb(null, true);
       } else {
         cb(
           new ApiError(
             StatusCodes.BAD_REQUEST,
-            'Only .jpeg, .png, .jpg file supported',
+            'Only .jpeg, .png, .jpg files are supported',
           ),
         );
       }
     } else if (file.fieldname === 'media') {
-      if (file.mimetype === 'video/mp4' || file.mimetype === 'audio/mpeg') {
+      if (['video/mp4', 'audio/mpeg'].includes(mimeType)) {
         cb(null, true);
       } else {
         cb(
           new ApiError(
             StatusCodes.BAD_REQUEST,
-            'Only .mp4, .mp3, file supported',
+            'Only .mp4 and .mp3 files are supported',
           ),
         );
       }
     } else if (file.fieldname === 'doc') {
-      if (file.mimetype === 'application/pdf') {
+      if (mimeType === 'application/pdf') {
         cb(null, true);
       } else {
-        cb(new ApiError(StatusCodes.BAD_REQUEST, 'Only pdf supported'));
+        cb(
+          new ApiError(StatusCodes.BAD_REQUEST, 'Only PDF files are supported'),
+        );
       }
     } else {
       cb(new ApiError(StatusCodes.BAD_REQUEST, 'This file is not supported'));

@@ -12,14 +12,9 @@ const sendMessage = catchAsync(async (req: Request, res: Response) => {
 
   const { ...messageData } = req.body;
 
-  const images: string[] = [];
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    req.files.image.forEach((file) => {
-      images.push(file.path);
-    });
+    messageData.image = req.files.image[0].path;
   }
-
-  messageData.images = images;
 
   const result = await MessageService.sendMessage(messageData, chatId);
 

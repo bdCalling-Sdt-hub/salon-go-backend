@@ -2,6 +2,7 @@ import { model, Schema } from 'mongoose';
 import {
   BannerModel,
   FaQsModel,
+  IAbout,
   IBanner,
   IFaQs,
   IPrivacyPolicy,
@@ -59,6 +60,21 @@ const faqsSchema = new Schema<IFaQs, FaQsModel>(
   { timestamps: true },
 );
 
+const aboutSchema = new Schema<IAbout>(
+  {
+    content: {
+      type: String,
+      required: true,
+    },
+    type: {
+      type: String,
+      required: true,
+      default: 'ABOUT',
+    },
+  },
+  { timestamps: true },
+);
+
 const bannerSchema = new Schema<IBanner, BannerModel>(
   {
     title: {
@@ -105,3 +121,5 @@ export const TermsAndCondition = model<
 export const FaQs = model<IFaQs, FaQsModel>('FaQs', faqsSchema);
 
 export const Banner = model<IBanner, BannerModel>('Banner', bannerSchema);
+
+export const About = model<IAbout>('About', aboutSchema);

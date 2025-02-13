@@ -10,24 +10,19 @@ const userSchema = new Schema<IUser, UserModel>(
   {
     name: {
       type: String,
-      required: true,
     },
     email: {
       type: String,
-      required: true,
       lowercase: true,
     },
     contact: {
       type: String,
-
-      required: true,
     },
     profile: {
       type: String,
     },
     password: {
       type: String,
-      required: true,
       select: 0,
       minlength: 8,
     },
@@ -45,6 +40,9 @@ const userSchema = new Schema<IUser, UserModel>(
     appId: {
       type: String,
       select: 0,
+    },
+    deviceId: {
+      type: String,
     },
     approvedByAdmin: {
       type: Boolean,
@@ -115,14 +113,6 @@ userSchema.statics.isMatchPassword = async (
 
 //check user
 userSchema.pre('save', async function (next) {
-  //check user
-  const isExist = await User.findOne({
-    email: this.email,
-    status: { $in: ['active', 'restricted'] },
-  });
-  if (isExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Email already exist!');
-  }
 
   //password hash
   this.password = await bcrypt.hash(

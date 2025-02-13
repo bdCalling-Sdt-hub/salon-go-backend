@@ -9,7 +9,6 @@ import { Professional } from './professional.model';
 import { Service } from '../service/service.model';
 import getNextOnboardingStep, {
   getDateRangeAndIntervals,
-  handleObjectUpdate,
   uploadImageAndHandleRollback,
 } from './professional.utils';
 import { paginationHelper } from '../../../helpers/paginationHelper';
@@ -26,6 +25,7 @@ import { Types } from 'mongoose';
 import { Bookmark } from '../bookmark/bookmark.model';
 import { ICategory, ISubCategory } from '../categories/categories.interface';
 import { Reservation } from '../reservation/reservation.model';
+import { Review } from '../review/review.model';
 
 const updateProfessionalProfile = async (
   user: JwtPayload,
@@ -168,7 +168,6 @@ const getBusinessInformationForProfessional = async (
       'Failed to update business information',
     );
   }
-  console.log(result);
   const nextStep = getNextOnboardingStep(result);
   console.log(nextStep);
   return {
@@ -179,7 +178,7 @@ const getBusinessInformationForProfessional = async (
 
 const getProfessionalProfile = async (
   user: JwtPayload,
-): Promise<IProfessional | null> => {
+) => {
   const result = await Professional.findById({
     _id: user.userId,
   })
@@ -207,19 +206,37 @@ const getProfessionalProfile = async (
       'Requested professional profile has been deleted.',
     );
   }
-  return result as unknown as IProfessional;
+
+  const [totalReservations, totalCompletedReservations] = await Promise.all([
+    Reservation.countDocuments({
+      professional: result._id,
+    }),
+    Reservation.countDocuments({
+      professional: result._id,
+      status: 'completed',
+    }), 
+  ]);
+  
+
+ return{ ...result, totalReservations, totalCompletedReservations };
+
+  // return result as unknown as IProfessional;
 };
 
-const getSingleProfessional = async (id: string) => {
-  const result = await Professional.findById(id).populate<{
-    auth: Partial<IUser>;
-  }>('auth', {
-    name: 1,
-    email: 1,
-    role: 1,
-    profile: 1,
-    status: 1,
-  });
+const getSingleProfessional = async (id: string, user: JwtPayload) => {
+  const result = await Professional.findById(id)
+    .populate<{
+      auth: Partial<IUser>;
+    }>('auth', {
+      name: 1,
+      email: 1,
+      role: 1,
+      profile: 1,
+      status: 1,
+    })
+    .populate('categories', { name: 1 })
+    .populate('subCategories', { name: 1 });
+
   if (!result) {
     throw new ApiError(
       StatusCodes.NOT_FOUND,
@@ -233,7 +250,17 @@ const getSingleProfessional = async (id: string) => {
       'Requested professional profile has been deleted.',
     );
   }
-  return result;
+
+  const bookmarkedProfessionals = await Bookmark.findOne({
+    customer: user.userId,
+    professional: id,
+  });
+
+  if (bookmarkedProfessionals) {
+    result.isBookmarked = true;
+  }
+
+  return { isBookmarked: result.isBookmarked ?? false, result };
 };
 
 const getAllProfessional = async (
@@ -241,6 +268,8 @@ const getAllProfessional = async (
   paginationOptions: IPaginationOptions,
   user: JwtPayload,
 ) => {
+
+
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
 
@@ -293,23 +322,13 @@ const getAllProfessional = async (
     // Prepare the filter conditions
     const filterConditions = [];
 
-    if (category) {
-      filterConditions.push({ category: category });
-    }
-
-    if (subCategory) {
-      filterConditions.push({ subCategory: subCategory });
-    }
-
-    if (subSubCategory) {
-      filterConditions.push({ subSubCategory: subSubCategory });
-    }
+    if (category) filterConditions.push({ category });
+    if (subCategory) filterConditions.push({ subCategory });
+    if (subSubCategory) filterConditions.push({ subSubCategory });
 
     const servicesWithConditions = await Service.find(
       { $or: filterConditions },
-      {
-        createdBy: 1,
-      },
+      { createdBy: 1 },
     ).distinct('createdBy');
 
     anyCondition.push({ _id: { $in: servicesWithConditions } });
@@ -322,14 +341,13 @@ const getAllProfessional = async (
     }).distinct('professional');
 
     anyCondition.push({ _id: { $in: professionalsWithOffers } });
-    console.log(offers, professionalsWithOffers);
   }
 
   if (minPrice && maxPrice) {
-    const priceFilterCondition = QueryHelper.rangeQueryHelper(
+    const priceFilterCondition = await QueryHelper.rangeQueryHelper(
       'price',
-      minPrice,
-      maxPrice,
+      Number(minPrice),
+      Number(maxPrice),
     );
     const servicesWithBudget = await Service.find(
       priceFilterCondition,
@@ -341,7 +359,7 @@ const getAllProfessional = async (
   if (date) {
     const requestedDay = parse(
       date,
-      'dd-MM-yyyy',
+      'dd/MM/yyyy',
       new Date(),
     ).toLocaleDateString('en-US', { weekday: 'long' });
 
@@ -355,6 +373,7 @@ const getAllProfessional = async (
   const activeProfessionals = await User.find(
     {
       status: 'active',
+      approvedByAdmin: true,
     },
     '_id',
   ).distinct('_id');
@@ -380,26 +399,28 @@ const getAllProfessional = async (
     })
     .skip(skip)
     .limit(limit)
-    .sort({ [sortBy || 'createdAt']: sortOrder === 'desc' ? -1 : 1 })
     .lean();
 
   const total = await Professional.countDocuments({
     $and: anyCondition,
   });
-  console.log(professionals);
-  const bookmarkedProfessionals = await Bookmark.find({
-    customer: user.userId,
-    professional: { $in: activeProfessionals },
-  }).distinct('professional');
+
+  const [bookmarkedProfessionals, schedules] = await Promise.all([
+    Bookmark.find({ customer: user.userId, professional: { $in: activeProfessionals } }).distinct('professional'),
+    Schedule.find({ professional: { $in: professionals.map((p) => p._id) } }).lean(),
+  ]);
+
+  // Create a map for quick lookup
+  const schedulesMap = new Map(
+    schedules.map((schedule) => [schedule.professional.toString(), schedule]),
+  );
 
   const enrichProfessional = await Promise.all(
     professionals.map(async (professional) => {
-      // Find the schedule for the current professional
-      const schedule = await Schedule.findOne({
-        professional: professional._id,
-      });
+      // Get the schedule from the map
+      const schedule = schedulesMap.get(professional._id.toString());
 
-      // Get the maximum discount from the available time slots
+      // Calculate maximum discount
       let maxDiscount = 0;
       if (schedule) {
         schedule.days.forEach((day) => {
@@ -416,10 +437,22 @@ const getAllProfessional = async (
         isBookmarked: bookmarkedProfessionals
           .map((_id) => _id.toString())
           .includes(professional._id.toString()),
-        discount: maxDiscount, // Add the discount field
+        discount: maxDiscount,
+        rating: professional.rating || 0,
+        totalReviews: professional.totalReviews || 0,
       };
     }),
   );
+
+  // Sort the enriched professionals by rating (primary) and discount (secondary)
+  const sortedProfessionals = enrichProfessional.sort((a, b) => {
+    // First, compare by rating
+    if (b.rating !== a.rating) {
+      return b.rating - a.rating;
+    }
+    // If ratings are equal, compare by discount
+    return b.discount - a.discount;
+  });
 
   return {
     meta: {
@@ -428,7 +461,7 @@ const getAllProfessional = async (
       total,
       totalPage: Math.ceil(total / limit),
     },
-    data: enrichProfessional,
+    data: sortedProfessionals,
   };
 };
 
@@ -443,7 +476,6 @@ const managePortfolio = async (
   removedImages: string[] | [],
   updatedImage?: { url: string; link: string },
 ) => {
-  console.log(portfolioImage, removedImages, updatedImage);
   const session = await Professional.startSession();
   session.startTransaction();
   try {
@@ -453,7 +485,7 @@ const managePortfolio = async (
         { _id: user.userId, 'portfolio.path': updatedImage.url },
         { 'portfolio.$.link': updatedImage.link || undefined },
       );
-      console.log(removedImages);
+ 
     } else {
       // 🖼️ Upload New Portfolio Image
       let uploadedImage: { path: string; link?: string } | null = null;
@@ -478,7 +510,6 @@ const managePortfolio = async (
       }
 
       // 🗑️ Delete Removed Images
-      console.log(removedImages);
       if (removedImages.length > 0) {
         await deleteResourcesFromCloudinary(removedImages, 'image', true);
       }
@@ -533,14 +564,29 @@ const managePortfolio = async (
     session.endSession();
   }
 };
-
-const getProfessionalRevenue = async (user: JwtPayload, range: string) => {
-  const { startDate, endDate, intervalMilliseconds } =
-    getDateRangeAndIntervals(range);
+const getProfessionalMetrics = async (user: JwtPayload, range: string) => {
+  const { startDate, endDate } = getDateRangeAndIntervals(range);
   const totalRangeMilliseconds = endDate.getTime() - startDate.getTime();
-  const segmentCount = 10;
+  const segmentCount = 7; // Divide into 7 data points
   const segmentMilliseconds = totalRangeMilliseconds / segmentCount;
 
+  // Function to generate keys based on range
+  const getKeyForRange = (index: number) => {
+    if (range === 'weekly') {
+      const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+      return days[index % 7];
+    } else if (range === 'monthly') {
+      const dayRanges = ['1-4', '5-8', '9-12', '13-16', '17-20', '21-24', '25-30'];
+      return dayRanges[index];
+    } else if (range === 'yearly') {
+      const dayRanges = ['Jan-Feb', 'Mar-Apr', 'May-Jun', 'Jul-Aug', 'Sep-Oct', 'Nov','Dec'];
+      return dayRanges[index];
+    } else {
+      return `S-${index + 1}`; // Default key for "all"
+    }
+  };
+
+  // Perform the aggregation query for reservations
   const reservations = await Reservation.aggregate([
     {
       $match: {
@@ -559,57 +605,6 @@ const getProfessionalRevenue = async (user: JwtPayload, range: string) => {
           },
         },
         totalRevenue: { $sum: '$amount' },
-      },
-    },
-    { $sort: { _id: 1 } },
-  ]);
-
-  const revenueData = Array.from({ length: segmentCount }, (_, index) => {
-    const segmentStartDate = new Date(
-      startDate.getTime() + index * segmentMilliseconds,
-    );
-    const segmentEndDate = new Date(
-      segmentStartDate.getTime() + segmentMilliseconds,
-    );
-    const matchingReservation = reservations.find((r) => r._id === index);
-
-    return {
-      startDate: segmentStartDate.toISOString(),
-      endDate: segmentEndDate.toISOString(),
-      totalRevenue: matchingReservation ? matchingReservation.totalRevenue : 0,
-    };
-  });
-
-  return revenueData;
-};
-
-const getProfessionalEngagementRate = async (
-  user: JwtPayload,
-  range: string,
-) => {
-  const { startDate, endDate, intervalMilliseconds } =
-    getDateRangeAndIntervals(range);
-  const totalRangeMilliseconds = endDate.getTime() - startDate.getTime();
-  const segmentCount = 10;
-  const segmentMilliseconds = totalRangeMilliseconds / segmentCount;
-
-  const reservations = await Reservation.aggregate([
-    {
-      $match: {
-        professional: new Types.ObjectId(user.userId),
-        createdAt: { $gte: startDate, $lte: endDate },
-      },
-    },
-    {
-      $group: {
-        _id: {
-          $floor: {
-            $divide: [
-              { $subtract: ['$createdAt', startDate] },
-              segmentMilliseconds,
-            ],
-          },
-        },
         totalReservations: { $sum: 1 },
         completedReservations: {
           $sum: {
@@ -621,91 +616,76 @@ const getProfessionalEngagementRate = async (
     { $sort: { _id: 1 } },
   ]);
 
-  const engagementData = Array.from({ length: segmentCount }, (_, index) => {
-    const segmentStartDate = new Date(
-      startDate.getTime() + index * segmentMilliseconds,
-    );
-    const segmentEndDate = new Date(
-      segmentStartDate.getTime() + segmentMilliseconds,
-    );
-    const matchingReservation = reservations.find((r) => r._id === index);
+  // Helper to create segments
+  const createSegments = (callback: { (index: any, matchingReservation: any): { key: string; value: any; }; (index: any, matchingReservation: any): { key: string; value: number; }; (index: any, matchingReservation: any): { key: string; value: any; }; (arg0: number, arg1: any, arg2: Date, arg3: Date): any; }) => {
+    return Array.from({ length: segmentCount }, (_, index) => {
+      const segmentStartDate = new Date(startDate.getTime() + index * segmentMilliseconds);
+      const segmentEndDate = new Date(segmentStartDate.getTime() + segmentMilliseconds);
+      const matchingReservation = reservations.find((r) => r._id === index);
 
-    const totalReservations = matchingReservation
-      ? matchingReservation.totalReservations
-      : 0;
-    const completedReservations = matchingReservation
-      ? matchingReservation.completedReservations
-      : 0;
-    const engagementRate =
-      totalReservations > 0
-        ? (completedReservations / totalReservations) * 100
-        : 0;
+      return callback(index, matchingReservation, segmentStartDate, segmentEndDate);
+    });
+  };
 
+  // Process revenue data
+  const revenueData = createSegments((index: any, matchingReservation: { totalRevenue: any; }) => {
+    const totalRevenue = matchingReservation ? matchingReservation.totalRevenue : 0;
     return {
-      startDate: segmentStartDate.toISOString(),
-      endDate: segmentEndDate.toISOString(),
-      engagementRate: Number(engagementRate.toFixed(2)),
-      totalReservations,
-      completedReservations,
+      key: getKeyForRange(index),
+      value: totalRevenue,
     };
   });
 
-  return engagementData;
-};
-
-const getProfessionalReservationCount = async (
-  user: JwtPayload,
-  range: string,
-) => {
-  const { startDate, endDate, intervalMilliseconds } =
-    getDateRangeAndIntervals(range);
-  const totalRangeMilliseconds = endDate.getTime() - startDate.getTime();
-  const segmentCount = 10;
-  const segmentMilliseconds = totalRangeMilliseconds / segmentCount;
-
-  const reservations = await Reservation.aggregate([
-    {
-      $match: {
-        professional: new Types.ObjectId(user.userId),
-        createdAt: { $gte: startDate, $lte: endDate },
-      },
-    },
-    {
-      $group: {
-        _id: {
-          $floor: {
-            $divide: [
-              { $subtract: ['$createdAt', startDate] },
-              segmentMilliseconds,
-            ],
-          },
-        },
-        reservationCount: { $sum: 1 },
-      },
-    },
-    { $sort: { _id: 1 } },
-  ]);
-
-  const reservationData = Array.from({ length: segmentCount }, (_, index) => {
-    const segmentStartDate = new Date(
-      startDate.getTime() + index * segmentMilliseconds,
-    );
-    const segmentEndDate = new Date(
-      segmentStartDate.getTime() + segmentMilliseconds,
-    );
-    const matchingReservation = reservations.find((r) => r._id === index);
+  // Process engagement data
+  const engagementData = createSegments((index: any, matchingReservation: { totalReservations: any; completedReservations: any; }) => {
+    const totalReservations = matchingReservation ? matchingReservation.totalReservations : 0;
+    const completedReservations = matchingReservation ? matchingReservation.completedReservations : 0;
+    const engagementRate = totalReservations > 0 ? (completedReservations / totalReservations) * 100 : 0;
 
     return {
-      startDate: segmentStartDate.toISOString(),
-      endDate: segmentEndDate.toISOString(),
-      reservationCount: matchingReservation
-        ? matchingReservation.reservationCount
-        : 0,
+      key: getKeyForRange(index),
+      value: Number(engagementRate.toFixed(2)),
     };
   });
 
-  return reservationData;
+  // Process reservation count data
+  const reservationData = createSegments((index: any, matchingReservation: { totalReservations: any; }) => {
+    const reservationCount = matchingReservation ? matchingReservation.totalReservations : 0;
+    return {
+      key: getKeyForRange(index),
+      value: reservationCount,
+    };
+  });
+
+  // Calculate totals
+  const totalRevenueSum = revenueData.reduce((sum, item) => sum + item.value, 0);
+  const totalEngagement = engagementData.reduce((sum, item) => sum + item.value, 0);
+  const totalReservationCount = reservationData.reduce((sum, item) => sum + item.value, 0);
+
+  // Return formatted results
+  return {
+    statusCode: 200,
+    success: true,
+    message: 'Metrics retrieved successfully',
+    data: [
+      {
+        total: totalRevenueSum,
+        data: revenueData,
+      },
+      {
+        total: totalEngagement,
+        data: engagementData,
+      },
+      {
+        total: totalReservationCount,
+        data: reservationData,
+      },
+    ],
+  };
 };
+
+
+
 
 export const ProfessionalService = {
   updateProfessionalProfile,
@@ -715,7 +695,7 @@ export const ProfessionalService = {
   getSingleProfessional,
   managePortfolio,
   getProfessionalPortfolio,
-  getProfessionalRevenue,
-  getProfessionalEngagementRate,
-  getProfessionalReservationCount,
+  getProfessionalMetrics
 };
+
+    

@@ -64,10 +64,6 @@ const subSubCategorySchema = new Schema<ISubSubCategory, SubSubCategoriesModel>(
       required: true,
       unique: true,
     },
-    image: {
-      type: String,
-      required: true,
-    },
     description: {
       type: String,
     },

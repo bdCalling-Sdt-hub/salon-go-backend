@@ -19,25 +19,28 @@ import { Customer } from '../customer/customer.model';
 import { Professional } from '../professional/professional.model';
 import { JwtPayload } from 'jsonwebtoken';
 import { sendOtp } from '../../../helpers/twilio.helper';
+import { Reservation } from '../reservation/reservation.model';
 
-type IPayload = Pick<IUser, 'email' | 'password' | 'name' | 'role' | 'contact'>;
+type IPayload = Pick<IUser & { businessName: string }, 'email' | 'password' | 'name' | 'role' | 'contact' | 'businessName'>;
 
 const createUserToDB = async (payload: IPayload): Promise<IUser> => {
   const { ...user } = payload;
 
   let newUserData = null;
   let createdUser;
-
+console.log(user)
   //check if the user email exist with any active account
   const isExistUser = await User.findOne({
-    email: user.email,
-    // contact: user.contact,
+    $or: [
+      { email: user.email },
+      { contact: user.contact },
+    ],
     status: { $in: ['active', 'restricted'] },
   });
   if (isExistUser) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'An account with this email already exist. Please login',
+      'An account with this email or contact already exist. Please login',
     );
   }
 
@@ -54,7 +57,7 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
     if (user.role === USER_ROLES.ADMIN) {
       createdUser = await Admin.create([{ auth: newUser[0]._id }], { session });
     } else if (user.role === USER_ROLES.PROFESSIONAL) {
-      createdUser = await Professional.create([{ auth: newUser[0]._id }], {
+      createdUser = await Professional.create([{ auth: newUser[0]._id, businessName: user.businessName }], {
         session,
       });
     } else {
@@ -83,19 +86,26 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
     newUserData = await User.findOne({ _id: newUserData._id });
   }
 
-  // Send OTP via Twilio
-  await sendOtp(newUserData!.contact, newUserData!._id);
-
-  // Save OTP metadata to authentication
-  const authentication = {
-    oneTimeCode: null, // OTP is saved in Otp model, not directly in User model
-    expireAt: new Date(Date.now() + 5 * 60000),
+  let authentication: { oneTimeCode: null; expireAt: Date | null } = {
+    oneTimeCode: null,
+    expireAt: null,
   };
+
+  if (user.role !== USER_ROLES.ADMIN) {
+    // Send OTP via Twilio
+    await sendOtp(newUserData!.contact, newUserData!._id);
+
+    // Save OTP metadata to authentication
+    authentication = {
+      oneTimeCode: null, // OTP is saved in Otp model, not directly in User model
+      expireAt: new Date(Date.now() + 5 * 60000),
+    };
+  }
   await User.findOneAndUpdate(
     { _id: newUserData!._id },
     { $set: { authentication } },
   );
-
+  console.log(user, newUserData);
   return newUserData!;
 };
 
@@ -125,6 +135,19 @@ const getUserProfileFromDB = async (user: JwtPayload) => {
       path: 'auth',
       select: { name: 1, email: 1, role: 1, status: 1, needInformation: 1 },
     });
+
+    const [totalReservations, totalCompletedReservations] = await Promise.all([
+      Reservation.countDocuments({
+        professional: user.userId,
+      }),
+      Reservation.countDocuments({
+        professional: user.userId,
+        status: 'completed',
+      }), 
+    ]);
+    
+    userData = { ...userData, totalReservations, totalCompletedReservations };
+
     if (!userData) {
       throw new ApiError(StatusCodes.NOT_FOUND, "Professional doesn't exist!");
     }
@@ -197,6 +220,21 @@ const getAllUser = async (
 };
 
 const restrictOrUnrestrictUser = async (id: Types.ObjectId) => {
+
+  const user = await User.findById(id);
+  if (!user) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found');
+  }
+  if (user.status === 'restricted') {
+    await User.findByIdAndUpdate(
+      id,
+      { $set: { status: 'active' } },
+      {
+        new: true,
+      },
+    )
+    return `${user?.name} is un-restricted`;
+  }
   const result = await User.findByIdAndUpdate(
     id,
     { $set: { status: 'restricted' } },
@@ -204,6 +242,7 @@ const restrictOrUnrestrictUser = async (id: Types.ObjectId) => {
       new: true,
     },
   );
+
 
   return `${result?.name} is restricted`;
 };

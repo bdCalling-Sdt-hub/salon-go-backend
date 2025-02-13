@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import catchAsync from '../../../shared/catchAsync';
 import { OthersService } from './others.service';
 import {
+  IAbout,
   IBanner,
   IFaQs,
   IPrivacyPolicy,
@@ -15,8 +16,10 @@ const addBanner = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
 
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    payload.imgUrl = `/images/${req.files.image[0].path}`;
+    payload.imgUrl = req.files.image[0].path;
   }
+
+
 
   const result = await OthersService.addBanner(payload, user);
   sendResponse<IBanner | null>(res, {
@@ -181,6 +184,26 @@ const deleteBanner = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const createAbout = catchAsync(async (req: Request, res: Response) => {
+  const payload = req.body;
+  const result = await OthersService.createAbout(payload);
+  sendResponse<IAbout | null>(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'About created successfully',
+    data: result,
+  });
+});
+
+const getAbout = catchAsync(async (req: Request, res: Response) => {
+  const result = await OthersService.getAbout(req.params.type);
+  sendResponse<IAbout | null>(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'About retrieved successfully',
+    data: result,
+  });
+});
 export const OthersController = {
   createPrivacyPolicy,
   createTermsAndConditions,
@@ -196,4 +219,6 @@ export const OthersController = {
   updateBanner,
   getSingleBanner,
   deleteBanner,
+  createAbout,
+  getAbout,
 };
