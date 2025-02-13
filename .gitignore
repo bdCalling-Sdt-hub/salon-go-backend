@@ -6,3 +6,5 @@ node_modules
 /logs/winston
 /logs
 sparkpress.config.cjs
+
+/utils/firebase.service.json

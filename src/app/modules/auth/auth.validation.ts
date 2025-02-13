@@ -19,6 +19,7 @@ const createLoginZodSchema = z.object({
   body: z.object({
     email: z.string({ required_error: 'Email is required' }),
     password: z.string({ required_error: 'Password is required' }),
+    // deviceId: z.string({ required_error: 'Device ID is required' }),
   }),
 });
 
@@ -50,6 +51,13 @@ const createChangePasswordZodSchema = z.object({
   }),
 });
 
+const createSocialLoginZodSchema = z.object({
+  body: z.object({
+    appId: z.string({ required_error: 'App ID is required' }),
+    deviceId: z.string({ required_error: 'Device ID is required' }),
+  }),
+});
+
 const deleteAccountZodSchema = z.object({
   body: z.object({
     password: z.string({ required_error: 'Password is required' }),
@@ -64,4 +72,5 @@ export const AuthValidation = {
   createChangePasswordZodSchema,
   deleteAccountZodSchema,
   createVerifyPhoneZodSchema,
+  createSocialLoginZodSchema,
 };

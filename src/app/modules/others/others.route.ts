@@ -13,6 +13,7 @@ router.post(
   auth(USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
+    console.log(req.files, 'files')
     if (req.body.data) {
       req.body = othersValidation.createBannerSchema.parse(
         JSON.parse(req.body.data),
@@ -47,19 +48,19 @@ router.patch(
 );
 router.post(
   '/privacy-policy',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(othersValidation.createPrivacyPolicyZodSchema),
   OthersController.createPrivacyPolicy,
 );
 router.post(
   '/terms-and-condition',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(othersValidation.createTermsAndConditionsZodSchema),
   OthersController.createTermsAndConditions,
 );
 router.post(
   '/faq',
-  auth(USER_ROLES.ADMIN),
+  // auth(USER_ROLES.ADMIN),
   validateRequest(othersValidation.createFaqsZodSchema),
   OthersController.createFaQs,
 );
@@ -96,6 +97,18 @@ router.get(
   '/faq/:type',
   auth(USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
   OthersController.getFaQs,
+);
+
+router.post(
+  '/about-us',
+  validateRequest(othersValidation.createdAboutZodSchema),
+  OthersController.createAbout,
+);
+
+router.get(
+  '/about-us/:type',
+  // auth(USER_ROLES.ADMIN, USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+  OthersController.getAbout,
 );
 
 export const OthersRoutes = router;

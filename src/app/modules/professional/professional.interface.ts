@@ -33,6 +33,7 @@ export type IProfessional = {
   scheduleId?: Types.ObjectId;
   description?: string;
   license?: string;
+  recommended?: boolean;
   ID?: string;
   KBIS?: string;
   experience?: string;
@@ -47,6 +48,7 @@ export type IProfessional = {
   previouslyUsedTools?: boolean;
   portfolio?: [{ path: string; link?: string }];
   helpingTags?: string[];
+  isBookmarked?: boolean;
   createdAt: Date;
   updatedAt: Date;
 };

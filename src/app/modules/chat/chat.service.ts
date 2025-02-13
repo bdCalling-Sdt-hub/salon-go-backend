@@ -10,6 +10,7 @@ import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IMessage } from '../message/message.interface';
 import { IChat } from './chat.interface';
+import { Message } from '../message/message.model';
 
 const accessChat = async (
   user: JwtPayload,
@@ -62,6 +63,12 @@ const accessChat = async (
       })
       .lean();
 
+    
+    //send newly created chat to the user
+    //@ts-ignore
+    const socket = global.io;
+    socket.emit(`accessChat::${user.userId}`, chat);
+
     if (!chat) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create chat.');
     }
@@ -71,13 +78,20 @@ const accessChat = async (
     (participant: any) => participant._id.toString() !== user.id,
   );
 
-  const { message } = chat.latestMessage as Partial<IMessage>;
+  const latestMessageData = (chat.latestMessage as Partial<IMessage>) || {};
+  const message = latestMessageData.message || ''; // Default to an empty string
   const { latestMessageTime } = chat;
+
+  //mark as read
+  await Message.updateMany(
+    { chatId: chat._id, isRead: false, receiverId: new Types.ObjectId(user.id) },
+    { isRead: true },
+  );
 
   return {
     chatId: chat._id,
     ...participantData,
-    latestMessage: message,
+    latestMessage: message ?? null,
     latestMessageTime: latestMessageTime,
   };
 };
@@ -97,9 +111,9 @@ const getChatListByUserId = async (
 
   // Fetch chats with base query and pagination
   const chats = await Chat.find(baseQuery)
-    .populate('participants', {
-      name: 1,
-      profile: 1,
+    .populate({
+      path: 'participants',
+      select: { name: 1, profile: 1 },
     })
     .populate({
       path: 'latestMessage',
@@ -112,8 +126,17 @@ const getChatListByUserId = async (
     .limit(limit)
     .lean();
 
+
   if (!chats || chats.length === 0) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get chat list.');
+    return {
+      meta: {
+        page,
+        limit,
+        total: 0,
+        totalPage: 0,
+      },
+      data: [],
+    };
   }
 
   // Filter chats based on the search term
@@ -133,35 +156,67 @@ const getChatListByUserId = async (
       (participant) => participant._id.toString() !== user.id,
     );
 
-    const { message } = chat.latestMessage as Partial<IMessage>;
+    const latestMessageData = (chat.latestMessage as Partial<IMessage>) || {};
+    const message = latestMessageData.message || ''; // Default to an empty string
     const { latestMessageTime } = chat;
 
     return {
       chatId: chat._id,
       ...otherParticipant,
-      latestMessage: message,
+      latestMessage: message ?? null,
       latestMessageTime: latestMessageTime,
     };
   });
 
-  // Recalculate the total based on the search filter
-  const total = await Chat.find(baseQuery)
-    .populate('participants', { name: 1 })
-    .lean()
-    .then(
-      (allChats) =>
-        allChats.filter((chat) =>
-          searchTerm
-            ? chat.participants.some(
-                (participant) =>
-                  'name' in participant &&
-                  participant.name
-                    .toLowerCase()
-                    .includes(searchTerm.toLowerCase()),
-              )
-            : true,
-        ).length,
-    );
+   // Recalculate the total based on the search filter
+   const total = await Chat.find(baseQuery)
+   .populate('participants', { name: 1, profile: 1 })
+   .lean()
+   .then(
+     (allChats) =>
+       allChats.filter((chat) =>
+         searchTerm
+           ? chat.participants.some(
+               (participant) =>
+                 'name' in participant &&
+                 participant.name
+                   .toLowerCase()
+                   .includes(searchTerm.toLowerCase()),
+             )
+           : true,
+       ).length,
+   );
+
+ // Count unread messages for each chat and add the count to each chat
+ const chatIds = result.map((chat) => chat.chatId);
+
+ const unreadCounts = await Message.aggregate([
+   {
+     $match: {
+       chatId: { $in: chatIds },
+       receiverId: new Types.ObjectId(user.id),
+       isRead: false,
+     },
+   },
+   {
+     $group: {
+       _id: '$chatId',
+       count: { $sum: 1 },
+     },
+   },
+ ]);
+
+
+ // Create a map of chatId to unread message count
+ const unreadCountMap = new Map(
+   unreadCounts.map((item) => [item._id.toString(), item.count]),
+ );
+
+ // Append unread message count to each chat
+ const resultWithUnreadCount = result.map((chat) => ({
+   ...chat,
+   unreadCount: unreadCountMap.get(chat.chatId.toString()) || 0,
+ }));
 
   return {
     meta: {
@@ -170,10 +225,9 @@ const getChatListByUserId = async (
       total: total,
       totalPage: Math.ceil(total / limit),
     },
-    data: result,
-  };
+    data: resultWithUnreadCount,
 };
-
+}
 export const ChatService = {
   accessChat,
   getChatListByUserId,

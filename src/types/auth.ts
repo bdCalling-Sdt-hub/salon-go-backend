@@ -11,6 +11,7 @@ export type IPhoneVerify = {
 export type ILoginData = {
   email: string;
   password: string;
+  deviceId?: string;
 };
 
 export type IAuthResetPassword = {

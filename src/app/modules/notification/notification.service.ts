@@ -23,17 +23,18 @@ const storeNotificationToDB = async (
 const getNotifications = async (
   user: JwtPayload,
   paginationOptions: IPaginationOptions,
-): Promise<IGenericResponse<INotification[]>> => {
+): Promise<IGenericResponse<{result:INotification[]} & {count:number}>> => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
   const result = await Notification.find({ userId: user.id })
     .sort({ [sortBy]: sortOrder })
-    .skip(skip)
-    .limit(limit);
+;
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get notifications');
   }
   const total = await Notification.countDocuments({ userId: user.id });
+  const count = await Notification.countDocuments({ userId: user.id, isRead: false });
+  console.log(total, count);
   return {
     meta: {
       page,
@@ -41,14 +42,15 @@ const getNotifications = async (
       total: total,
       totalPage: Math.ceil(total / limit),
     },
-    data: result,
+    data: {
+      result,
+      count:count,
+    },
   };
 };
 
 const getSingleNotification = async (id: string) => {
-  await Notification.findByIdAndUpdate(id, { isRead: true }, { new: true });
-
-  const result = await Notification.findById(id);
+  const result = await Notification.findByIdAndUpdate(id, { isRead: true }, { new: true });
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get notification');
@@ -56,20 +58,6 @@ const getSingleNotification = async (id: string) => {
   return result;
 };
 
-const changeNotificationStatus = async (id: string) => {
-  const result = await Notification.findByIdAndUpdate(
-    id,
-    { isRead: true },
-    { new: true },
-  );
-  if (!result) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Failed to update notification status',
-    );
-  }
-  return result;
-};
 
 const makeCountTrueToDB = async () => {
   const result = await Notification.updateMany(
@@ -89,6 +77,6 @@ export const NotificationService = {
   storeNotificationToDB,
   getNotifications,
   getSingleNotification,
-  changeNotificationStatus,
+
   makeCountTrueToDB,
 };

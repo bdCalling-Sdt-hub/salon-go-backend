@@ -6,6 +6,7 @@ import router from './routes';
 import { Morgan } from './shared/morgan';
 import globalErrorHandler from './app/middlewares/globalErrorHandler';
 import cookieParser from 'cookie-parser';
+import { twilioStatusCallback } from './helpers/twilio.helper';
 const app = express();
 
 //morgan
@@ -14,7 +15,7 @@ app.use(Morgan.errorHandler);
 //body parser
 app.use(
   cors({
-    origin: '*',
+    origin: 'http://localhost:3004',
     credentials: true,
   }),
 );
@@ -25,6 +26,9 @@ app.use(cookieParser());
 app.use(express.static('uploads'));
 
 //router
+app.post('/twilio-status-callback',(req: Request, res: Response) => {
+  twilioStatusCallback(req.body)
+});
 app.use('/api/v1', router);
 
 //live response

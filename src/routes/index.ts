@@ -1,3 +1,4 @@
+
 import { ProfessionalRoutes } from './../app/modules/professional/professional.route';
 import express from 'express';
 import { UserRoutes } from '../app/modules/user/user.route';
@@ -15,6 +16,7 @@ import { ReportRoutes } from '../app/modules/report/report.route';
 import { DashboardRoutes } from '../app/modules/dashboard/dashboard.route';
 import { AdminRoutes } from '../app/modules/admin/admin.route';
 import { OthersRoutes } from '../app/modules/others/others.route';
+import { NotificationRoutes } from '../app/modules/notification/notification.route';
 
 const router = express.Router();
 
@@ -69,6 +71,10 @@ export const apiRoutes: { path: string; route: any }[] = [
     route: ReportRoutes,
   },
   {
+    path: '/notification',
+    route: NotificationRoutes,
+  },
+  {
     path: '/dashboard',
     route: DashboardRoutes,
   },
@@ -80,6 +86,7 @@ export const apiRoutes: { path: string; route: any }[] = [
     path: '/admin',
     route: AdminRoutes,
   },
+
 ];
 
 apiRoutes.forEach((route) => router.use(route.path, route.route));

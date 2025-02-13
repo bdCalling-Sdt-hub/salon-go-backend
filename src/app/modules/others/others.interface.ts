@@ -16,6 +16,11 @@ export type IFaQs = {
   userType: USER_ROLES.USER | USER_ROLES.PROFESSIONAL;
 };
 
+export type IAbout = {
+  content: string;
+  type: 'ABOUT';
+};
+
 export type IBanner = {
   title: string;
   description: string;
@@ -30,3 +35,4 @@ export type PrivacyPolicyModel = Model<IPrivacyPolicy>;
 export type TermsAndConditionsModel = Model<ITermsAndConditions>;
 export type FaQsModel = Model<IFaQs>;
 export type BannerModel = Model<IBanner>;
+export type AboutModel = Model<IAbout>;

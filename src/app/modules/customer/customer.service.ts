@@ -41,9 +41,7 @@ const updateCustomerProfile = async (
   const session = await User.startSession();
   session.startTransaction();
 
-  const { name, profile, ...restData } = payload;
-
-  const { path } = profile as any;
+  const { name, profile,email, ...restData } = payload;
 
   const userExist = await Customer.findById(user.userId).populate<{
     auth: IUser;
@@ -58,11 +56,14 @@ const updateCustomerProfile = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "Customer doesn't exist!");
   }
 
+
   try {
-    // 🖼️ Handle image upload if profile exists
     let uploadedImageUrl: string | null = null;
-    if (path) {
-      const uploadedImage = await uploadToCloudinary(path, 'customer', 'image');
+
+    // Check if profile image is provided
+    if (profile) {
+
+      const uploadedImage = await uploadToCloudinary(profile, 'customer', 'image');
 
       if (!uploadedImage || uploadedImage.length === 0) {
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to upload image.');
@@ -73,19 +74,34 @@ const updateCustomerProfile = async (
 
     // 📝 Update User Profile
     if (name || uploadedImageUrl) {
+
+      const userUpdatedData: Partial<IUser>  = {
+        ...(name && { name }),
+        ...(uploadedImageUrl && { profile: uploadedImageUrl }),
+      };
+
+      if (email) {
+        //check if email already exist in database
+        const isEmailExist = await User.findOne({
+          email,
+          _id: { $ne: user.id },
+        });
+        if (isEmailExist) {
+          throw new ApiError(StatusCodes.BAD_REQUEST, 'An account with this email already exist.');
+        }
+        userUpdatedData.email = email;
+      }
+
       const userUpdateResult = await User.findByIdAndUpdate(
-        { _id: user.id },
+        user.id,
         {
-          $set: {
-            ...(name && { name }),
-            ...(uploadedImageUrl && { profile: uploadedImageUrl }),
-          },
+          $set: userUpdatedData,
         },
         { new: true, session },
       );
 
-      // Rollback uploaded image if User update fails
-      if (!userUpdateResult || userUpdateResult.profile !== uploadedImageUrl) {
+      if (!userUpdateResult || (profile && userUpdateResult.profile !== uploadedImageUrl)) {
+        // If image update fails, delete the uploaded image
         if (uploadedImageUrl) {
           await deleteResourcesFromCloudinary(uploadedImageUrl, 'image', true);
         }
@@ -95,18 +111,13 @@ const updateCustomerProfile = async (
         );
       }
 
-      //delete the previous image from cloudinary
       const { profile: oldProfile } = userExist.auth;
       if (oldProfile) {
-        await deleteResourcesFromCloudinary(
-          userExist.auth.profile,
-          'image',
-          true,
-        );
+        await deleteResourcesFromCloudinary(userExist.auth.profile, 'image', true);
       }
     }
 
-    // 📝 Update Customer Profile
+    // 📝 Update customer data, excluding profile if not provided
     const customerUpdateResult = await Customer.findByIdAndUpdate(
       { _id: user.userId },
       restData,
@@ -120,19 +131,18 @@ const updateCustomerProfile = async (
       );
     }
 
-    // ✅ Commit the transaction if everything is successful
     await session.commitTransaction();
     session.endSession();
 
     return customerUpdateResult;
   } catch (error) {
-    // ❌ Rollback the transaction on failure
     await session.abortTransaction();
     throw error;
   } finally {
     session.endSession();
   }
 };
+
 
 const getSingleCustomer = async (id: string) => {
   const customer = await Customer.findById(id).populate<{ auth: IUser }>({
