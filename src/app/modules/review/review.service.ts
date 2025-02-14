@@ -10,8 +10,6 @@ import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { sendNotification } from '../../../helpers/sendNotificationHelper';
 import { USER_ROLES } from '../../../enums/user';
-import { Customer } from '../customer/customer.model';
-import { ICustomer } from '../customer/customer.interface';
 import { Reservation } from '../reservation/reservation.model';
 import { IUser } from '../user/user.interface';
 import { IService } from '../service/service.interface';
