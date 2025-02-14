@@ -280,7 +280,7 @@ const deleteReviewFromDB = async (id: string) => {
     await session.abortTransaction();
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete review');
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };
 

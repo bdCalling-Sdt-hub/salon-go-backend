@@ -73,13 +73,13 @@ console.log(user)
     newUserData = newUser[0];
 
     await session.commitTransaction();
-    session.endSession();
+    await session.endSession();
   } catch (error) {
     await session.abortTransaction();
 
     throw error;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 
   if (newUserData) {

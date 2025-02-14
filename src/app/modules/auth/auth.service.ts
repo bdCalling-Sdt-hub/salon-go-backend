@@ -587,7 +587,7 @@ const socialLogin = async (appId: string,deviceId: string) => {
   
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Social login failed');
   } finally {
-    session.endSession();
+   await session.endSession();
   }
 };
 
