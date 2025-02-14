@@ -4,7 +4,6 @@ import ApiError from '../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
 
 import { INotification } from '../app/modules/notification/notification.interface';
-import { IReservation } from '../app/modules/reservation/reservation.interface';
 import { sendPushNotification } from './pushNotificationHelper';
 
 type IBulkNotification = {
@@ -24,13 +23,13 @@ export const sendNotification = async (
   recipient: Types.ObjectId,
   data: INotification,
   pushNotificationData?: {
-    title: string;
-    message: string;
     deviceId: string;
     destination: string;
     role: string;
     id?: string;
     icon?: string;
+    title?: string;
+    message?: string;
   },
 ) => {
   const result = await Notification.create(data);
@@ -45,16 +44,17 @@ export const sendNotification = async (
   const socket = global.io;
 
   if(pushNotificationData){
-    sendPushNotification(
-      pushNotificationData.deviceId || 'fa-JVHQxTXm24r6NBoI1uQ:APA91bFhG2FTjMA547cuirYKvIOSYEnLpS9gpMlQ84y7kiNaF71-Azn_e64GWMYrB3NzTWUDeKyAh37eWQTmNiOGpRfNr0W80xntui5i90Q9EgROCZZVVkI',
-      data.title,
-      data.message,
+    const {title, message, role, destination, id, icon, deviceId} = pushNotificationData;
+    await sendPushNotification(
+      deviceId || 'fa-JVHQxTXm24r6NBoI1uQ:APA91bFhG2FTjMA547cuirYKvIOSYEnLpS9gpMlQ84y7kiNaF71-Azn_e64GWMYrB3NzTWUDeKyAh37eWQTmNiOGpRfNr0W80xntui5i90Q9EgROCZZVVkI',
+      title ? title : data.title ,
+     message ? message : data.message,
       {
-        role: pushNotificationData.role,
-        destination: pushNotificationData.destination,
-        id: new Types.ObjectId(pushNotificationData.id).toString(),
+        role: role,
+        destination: destination,
+        id: new Types.ObjectId(id).toString(),
       },
-      pushNotificationData.icon
+      icon
     );
   }
   

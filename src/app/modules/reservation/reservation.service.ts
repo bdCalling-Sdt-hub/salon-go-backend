@@ -1,6 +1,6 @@
 import { groupBy } from 'lodash';
-import { USER_ROLES } from './../../../enums/user';
-import { LocationHelper } from './../../../utils/locationHelper';
+import { USER_ROLES } from '../../../enums/user';
+import { LocationHelper } from '../../../utils/locationHelper';
 import { StatusCodes } from 'http-status-codes';
 import { Professional } from '../professional/professional.model';
 import {
@@ -26,7 +26,7 @@ import { IUser } from '../user/user.interface';
 import { IService } from '../service/service.interface';
 import { Service } from '../service/service.model';
 import { IProfessional } from '../professional/professional.interface';
-import { sendPushNotification } from '../../../helpers/pushNotificationHelper';
+
 
 const createReservationToDB = async (
   payload: IReservation,
@@ -251,22 +251,21 @@ const createReservationToDB = async (
     })
     .lean();
 
+  const notificationTitle = `You have a new reservation request from ${isCustomerExist.auth.name}`;
+  const notificationMessage =`${isCustomerExist.auth.name} has requested a reservation for ${
+      isServiceExist.title
+    } on ${serviceStart.toDateString()}. Please check your dashboard for more details.`;
+
   await sendNotification('getNotification', isProfessionalExists._id, {
     userId: isProfessionalExists.auth._id,
-    title: `You have a new reservation request from ${isCustomerExist.auth.name}`,
-    message: `${isCustomerExist.auth.name} has requested a reservation for ${
-      isServiceExist.title
-    } on ${serviceStart.toDateString()}. Please check your dashboard for more details.`,
+    title: notificationTitle,
+    message: notificationMessage,
     type: USER_ROLES.PROFESSIONAL
   },
   {
-    title: `You have a new reservation request from ${isCustomerExist.auth.name}`,
-    message: `${isCustomerExist.auth.name} has requested a reservation for ${
-      isServiceExist.title
-    } on ${serviceStart.toDateString()}. Please check your dashboard for more details.`,
     deviceId: isProfessionalExists.auth.deviceId || 'fa-JVHQxTXm24r6NBoI1uQ:APA91bFhG2FTjMA547cuirYKvIOSYEnLpS9gpMlQ84y7kiNaF71-Azn_e64GWMYrB3NzTWUDeKyAh37eWQTmNiOGpRfNr0W80xntui5i90Q9EgROCZZVVkI',
-    destination: 'professional',
-    role: 'professional',
+    destination: 'reservations',
+    role: USER_ROLES.PROFESSIONAL,
     id: isProfessionalExists._id as unknown as string,
     icon: isCustomerExist.auth.profile ,
   }
@@ -282,7 +281,7 @@ const createReservationToDB = async (
       formattedReservation,
     );
   }
-  //send push notification to professional
+
 
   return formattedReservation;
 };
@@ -316,6 +315,7 @@ const getSingleReservationFromDB = async (
         _id: 0,
         title: 1,
       },
+
       populate: {
         path: 'category',
         select: {
@@ -565,7 +565,7 @@ const updateReservationStatusToDB = async (
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
-    const reservation = await Reservation.findById(id)
+    const [reservation] = await Promise.all([Reservation.findById(id)
       .select({
         _id: 1,
         amount: 1,
@@ -609,15 +609,15 @@ const updateReservationStatusToDB = async (
         location: 1,
         contact: 1,
       })
-      .populate({
+      .populate<{ customer: {_id:Types.ObjectId, auth: { name: string; address: string; profile: string; deviceId: string } } }>({
         path: 'customer',
         select: { auth: 1 },
         populate: {
           path: 'auth',
-          select: { name: 1, address: 1, profile: 1 },
+          select: { name: 1, address: 1, profile: 1, deviceId: 1 },
         },
       })
-      .session(session);
+      .session(session)]);
 
     if (!reservation) {
       throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
@@ -653,7 +653,7 @@ const updateReservationStatusToDB = async (
         throw new ApiError(StatusCodes.NOT_FOUND, 'Professional not found');
       }
 
-      const isFreelancer = professionalData?.isFreelancer ? true : false;
+      const isFreelancer = !!professionalData?.isFreelancer;
       const maxTeamSize = professionalData?.teamSize?.max || 0;
 
       // Handle freelancer or team-based reservation logic
@@ -823,12 +823,25 @@ const updateReservationStatusToDB = async (
         ? USER_ROLES.PROFESSIONAL
         : USER_ROLES.USER;
 
+
+    const notificationTitle = `Your reservation for ${title} has been confirmed by ${businessName}.`;
+    const notificationMessage =`You have a confirmed reservation for ${title} on ${date.toDateString()}. Please be on time.`;
+
+    //TODO: check if the bug fix works or not
     await sendNotification('getNotification', reservation.customer._id, {
-      userId: notificationUserId,
-      title: `Your reservation for ${title} has been confirmed by ${businessName}.`,
-      message: `You have a confirmed reservation for ${title} on ${date.toDateString()}. Please be on time.`,
-      type: notificationUserRole,
-    });
+        userId: notificationUserId,
+        title: notificationTitle,
+        message: notificationMessage,
+        type: notificationUserRole
+      },
+      {
+        deviceId: reservation.customer.auth.deviceId || 'fa-JVHQxTXm24r6NBoI1uQ:APA91bFhG2FTjMA547cuirYKvIOSYEnLpS9gpMlQ84y7kiNaF71-Azn_e64GWMYrB3NzTWUDeKyAh37eWQTmNiOGpRfNr0W80xntui5i90Q9EgROCZZVVkI',
+        destination: 'reservations',
+        role: USER_ROLES.PROFESSIONAL,
+        id: reservation.professional._id as unknown as string,
+        icon: isCustomerExist.auth.profile ,
+      }
+    );
 
     await session.commitTransaction();
     return `Reservation ${status} successfully for ${title}`;
@@ -836,14 +849,28 @@ const updateReservationStatusToDB = async (
     await session.abortTransaction();
     throw error;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };
 
 
 
 const startReservationTracking = async (id: string) => {
-  const isReservationExist = await Reservation.findById({ _id: id, status: 'ongoing' });
+  const isReservationExist = await Reservation.findById({ _id: id, status: 'ongoing' }).populate<{customer: {_id:Types.ObjectId,auth: {_id: Types.ObjectId, profile: string, deviceId: string }}, professional: Types.ObjectId}>({
+    path: 'customer',
+    select: {
+      _id: 0,
+      auth: 1,
+    },
+    populate: {
+      path: 'auth',
+      select: {
+        profile: 1,
+        deviceId: 1,
+      },
+    },
+  });
+
   if (!isReservationExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
   }
@@ -881,18 +908,29 @@ const startReservationTracking = async (id: string) => {
     );
   }
 
-  await sendNotification(
-    'getNotification',
-    result.customer as Types.ObjectId,
-    {
+
+
+  const notificationTitle = `Live tracking for ${result.service.title} has been started.`;
+  const notificationMessage =`The professional is on the way to your location for ${result.service.title} on ${DateHelper.convertISOTo12HourFormat(
+    result.serviceStartDateTime.toString())}. Please be on time.`;
+
+  //TODO: check if the bug fix works or not
+  await sendNotification('getNotification', result.customer as Types.ObjectId, {
       userId: result.customer as Types.ObjectId,
-      title: `Live tracking for ${result.service.title} has been started.`,
-      message: `You have a live tracking for ${result.service.title} on ${DateHelper.convertISOTo12HourFormat(
-        result.serviceStartDateTime.toString()
-      )}. Please be on time.`,
-      type: USER_ROLES.USER,
-    }
+      title: notificationTitle,
+      message: notificationMessage,
+      type: USER_ROLES.USER
+    },
+    {
+      deviceId: isReservationExist.customer.auth.deviceId || 'fa-JVHQxTXm24r6NBoI1uQ:APA91bFhG2FTjMA547cuirYKvIOSYEnLpS9gpMlQ84y7kiNaF71-Azn_e64GWMYrB3NzTWUDeKyAh37eWQTmNiOGpRfNr0W80xntui5i90Q9EgROCZZVVkI',
+      destination: 'reservations',
+      role: USER_ROLES.PROFESSIONAL,
+      id: isReservationExist.professional as unknown as string,
+        icon: isReservationExist.customer.auth.profile ,
+      }
   );
+
+
   await sendDataWithSocket('startedReservation', result.customer as Types.ObjectId, {
     ...result,
   });

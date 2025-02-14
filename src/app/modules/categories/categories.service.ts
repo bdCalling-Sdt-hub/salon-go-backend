@@ -252,7 +252,7 @@ export const deleteSubCategoryToDB = async (id: string): Promise<string> => {
     await session.abortTransaction();
     throw error;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };
 
@@ -318,7 +318,7 @@ export const deleteSubSubCategoryToDB = async (id: string): Promise<string> => {
     await session.abortTransaction();
     throw error;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };
 

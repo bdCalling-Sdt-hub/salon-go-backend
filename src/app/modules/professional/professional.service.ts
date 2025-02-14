@@ -131,13 +131,13 @@ const updateProfessionalProfile = async (
 
     // ✅ Commit the transaction if everything is successful
     await session.commitTransaction();
-    session.endSession();
+    await session.endSession();
 
     return result as IProfessional;
   } catch (error) {
     // ❌ Rollback the transaction on failure
     await session.abortTransaction();
-    session.endSession();
+    await session.endSession();
     throw error;
   }
 };
@@ -561,7 +561,7 @@ const managePortfolio = async (
 
     throw error;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };
 const getProfessionalMetrics = async (user: JwtPayload, range: string) => {

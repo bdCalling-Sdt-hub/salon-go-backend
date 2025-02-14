@@ -93,7 +93,7 @@ export const sendOtp = async (
         'Failed to send OTP and user data could not be deleted. Please try again later.',
       );
     } finally {
-      session.endSession();
+      await session.endSession();
     }
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -179,7 +179,7 @@ console.log(payload.Level, payload.Payload.error_code)
         'Failed to process Twilio status callback.',
       );
     } finally {
-      session.endSession();
+      await session.endSession();
     }
   }
 };
