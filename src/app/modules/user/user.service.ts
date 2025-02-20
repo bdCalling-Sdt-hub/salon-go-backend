@@ -257,6 +257,8 @@ const approveUser = async (id: Types.ObjectId) => {
   );
   return `${result?.name} is approved`;
 };
+
+
 export const UserService = {
   createUserToDB,
   getUserProfileFromDB,

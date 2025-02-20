@@ -329,6 +329,7 @@ const getAllProfessional = async (
     const servicesWithConditions = await Service.find(
       { $or: filterConditions },
       { createdBy: 1 },
+
     ).distinct('createdBy');
 
     anyCondition.push({ _id: { $in: servicesWithConditions } });
