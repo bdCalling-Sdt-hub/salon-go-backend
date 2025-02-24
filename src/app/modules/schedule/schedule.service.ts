@@ -331,6 +331,7 @@ const getTimeScheduleForCustomer = async (
       };
     });
 
+    
     daysMap.set(day.day, {
       ...day,
       check: true,
