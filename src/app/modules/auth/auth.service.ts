@@ -593,6 +593,16 @@ const socialLogin = async (appId: string,deviceId: string) => {
 
 
 
+const verifyTheUserAfterOtp = async (contact: string) => {
+  const result = await User.findOneAndUpdate(
+    { contact },
+    { $set: { verified: true } },
+    { new: true },
+  );
+  return `User with contact ${contact} verified successfully`;
+};
+
+
 export const AuthService = {
   verifyEmailOrPhoneToDB,
   loginUserFromDB,
@@ -602,5 +612,6 @@ export const AuthService = {
   verifyPhoneToDB,
   resetPasswordToDB,
   deleteAccount,
-  socialLogin
+  socialLogin,
+  verifyTheUserAfterOtp,
 };

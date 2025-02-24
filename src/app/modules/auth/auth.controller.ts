@@ -127,6 +127,18 @@ const socialLogin = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const verifyTheUserAfterOtp = catchAsync(async (req: Request, res: Response) => {
+  const { contact } = req.body;
+  const result = await AuthService.verifyTheUserAfterOtp(contact);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: result,
+    data: result,
+  });
+});
+
 export const AuthController = {
   verifyEmailOrPhone,
   loginUser,
@@ -136,5 +148,6 @@ export const AuthController = {
   changePassword,
   deleteAccount,
   verifyPhone,
-  socialLogin
+  socialLogin,
+  verifyTheUserAfterOtp,
 };

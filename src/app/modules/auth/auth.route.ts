@@ -62,5 +62,11 @@ router.post(
 );
 
 
+router.post(
+  '/verify-the-user-after-otp',
+  validateRequest(AuthValidation.createVerifyTheUserAfterOtpZodSchema),
+  AuthController.verifyTheUserAfterOtp,
+);
+
 
 export const AuthRoutes = router;
