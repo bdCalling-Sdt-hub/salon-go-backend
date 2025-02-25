@@ -159,7 +159,6 @@ console.log(payload.Level, payload.Payload.error_code)
       if (!otp) {
         throw new ApiError(StatusCodes.NOT_FOUND, 'OTP not found.');
       }
-      console.log(otp)
       const user = await User.findOneAndDelete({ contact: otp.phoneNumber }, { session });
 
       if (user) {
