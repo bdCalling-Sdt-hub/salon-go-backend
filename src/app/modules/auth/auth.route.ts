@@ -69,4 +69,9 @@ router.post(
 );
 
 
+router.delete(
+  '/delete-user-if-failure-occurred/:id',
+  AuthController.deleteUserIfFailureOccurred,
+);
+
 export const AuthRoutes = router;

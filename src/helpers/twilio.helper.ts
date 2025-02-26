@@ -142,15 +142,12 @@ export const verifyOtp = async (
 
 
 export const twilioStatusCallback = async (payload: any) => {
-  console.log('twilioStatusCallback');
-  console.log(payload);
-console.log(payload.Level, payload.Payload.error_code)
+
   if (payload.Level === 'ERROR' || payload.Payload.error_code === '30008') {
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-      console.log(payload.Payload.service_sid)
       const parsedData = JSON.parse(payload.Payload)
       console.log(parsedData)
       // Find and delete the OTP, user, and professional in a single transaction

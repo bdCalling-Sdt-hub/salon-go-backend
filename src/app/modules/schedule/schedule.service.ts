@@ -157,7 +157,7 @@ const updateScheduleForDaysInDB = async (
 
     // Save the updated schedule
     const updatedSchedule = await schedule.save();
-    console.log(updatedSchedule);
+
     return updatedSchedule;
   } catch (error) {
     console.error('Error updating schedule for days:', error);

@@ -68,7 +68,7 @@ export const uploadImageAndHandleRollback = async (
 };
 
 export function getNextOnboardingStep(professional: IProfessional): string {
-  console.log(professional);
+
   if (!professional.serviceType) {
     return 'service-type';
   }
