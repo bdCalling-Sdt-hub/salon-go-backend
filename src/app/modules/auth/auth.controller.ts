@@ -4,6 +4,7 @@ import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { AuthService } from './auth.service';
 import config from '../../../config';
+import { Types } from 'mongoose';
 
 const verifyEmailOrPhone = catchAsync(async (req: Request, res: Response) => {
   const { ...verifyData } = req.body;
@@ -134,7 +135,19 @@ const verifyTheUserAfterOtp = catchAsync(async (req: Request, res: Response) => 
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
-    message: result,
+    message: result.message,
+    data: result,
+  });
+});
+
+const deleteUserIfFailureOccurred = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await AuthService.deleteUserIfFailureOccurred(new Types.ObjectId(id));
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'User deleted successfully',
     data: result,
   });
 });
@@ -150,4 +163,5 @@ export const AuthController = {
   verifyPhone,
   socialLogin,
   verifyTheUserAfterOtp,
+  deleteUserIfFailureOccurred,
 };

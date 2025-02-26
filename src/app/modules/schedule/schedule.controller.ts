@@ -7,7 +7,8 @@ import { USER_ROLES } from '../../../enums/user';
 import { Types, get } from 'mongoose';
 
 const createSchedule = catchAsync(async (req: Request, res: Response) => {
-  console.log(req.body);
+  console.log(req.body.days.TimeSlots);
+
   const user = req.user;
   const result = await ScheduleServices.createScheduleToDB(user, req.body);
   sendResponse(res, {

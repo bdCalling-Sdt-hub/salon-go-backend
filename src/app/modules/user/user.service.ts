@@ -28,7 +28,7 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
 
   let newUserData = null;
   let createdUser;
-console.log(user)
+
   //check if the user email exist with any active account
   const isExistUser = await User.findOne({
     $or: [
@@ -105,7 +105,7 @@ console.log(user)
     { _id: newUserData!._id },
     { $set: { authentication } },
   );
-
+  
   return newUserData!;
 };
 
