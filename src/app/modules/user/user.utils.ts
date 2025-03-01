@@ -23,7 +23,7 @@ export const generateCustomIdBasedOnRole = async (role: string) => {
 const generateCustomVendorId = async () => {
   const currentId =
     (await getLastIdBasedOnRole('VENDOR')) || (0).toString().padStart(5, '0')
-  console.log(currentId)
+
 
   let incrementedId = (parseInt(currentId) + 1).toString().padStart(5, '0')
   incrementedId = `VD${incrementedId}`
@@ -33,7 +33,7 @@ const generateCustomVendorId = async () => {
 const generateCustomCustomerId = async () => {
   const currentId =
     (await getLastIdBasedOnRole('CUSTOMER')) || (0).toString().padStart(5, '0')
-  console.log(currentId)
+
 
   let incrementedId = (parseInt(currentId) + 1).toString().padStart(5, '0')
   incrementedId = `CS${incrementedId}`
@@ -43,7 +43,7 @@ const generateCustomCustomerId = async () => {
 const generateCustomAdminId = async () => {
   const currentId =
     (await getLastIdBasedOnRole('ADMIN')) || (0).toString().padStart(5, '0')
-  console.log(currentId)
+
 
   let incrementedId = (parseInt(currentId) + 1).toString().padStart(5, '0')
   incrementedId = `AD${incrementedId}`

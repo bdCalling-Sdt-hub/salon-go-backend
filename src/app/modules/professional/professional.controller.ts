@@ -156,7 +156,7 @@ const getAllProfessional = catchAsync(async (req: Request, res: Response) => {
   const filters = pick(req.query, professionalFilterableFields);
   const paginationOptions = pick(req.query, paginationFields);
   const user = req.user;
-  console.log(filters, 'FROM CONTROLLER');
+
 
   const result = await ProfessionalService.getAllProfessional(
     filters,

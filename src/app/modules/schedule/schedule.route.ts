@@ -39,4 +39,11 @@ router.get(
   auth(USER_ROLES.USER),
   ScheduleController.getScheduleForCustomer,
 );
+
+
+router.patch(
+  '/discount',
+  auth(USER_ROLES.PROFESSIONAL),
+  ScheduleController.setDiscount,
+);
 export const ScheduleRoutes = router;

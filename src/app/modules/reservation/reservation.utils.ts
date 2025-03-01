@@ -52,8 +52,8 @@ const updateTimeSlotAvailability = async (
   date: Date,
   startTime: number,
   endTime: number,
-  session: ClientSession,
-  status: boolean,
+  session?: ClientSession,
+  status?: boolean,
 ) => {
   await Schedule.findOneAndUpdate(
     {
@@ -67,7 +67,7 @@ const updateTimeSlotAvailability = async (
     },
     {
       new: true,
-      session,
+      ...(session && { session }),
       arrayFilters: [
         { 'day.day': format(date, 'EEEE') },
         {
@@ -81,7 +81,71 @@ const updateTimeSlotAvailability = async (
   );
 };
 
+
+const getReservationFormattedData = async (reservation:Types.ObjectId) => {
+  const formattedReservation = await Reservation.findById(reservation._id)
+  .select({
+    _id: 1,
+    amount: 1,
+    date: 1,
+    status: 1,
+    travelFee: 1,
+    serviceStartDateTime: 1,
+    serviceEndDateTime: 1,
+    serviceType: 1,
+    isStarted: 1,
+    duration: 1,
+    serviceLocation: 1,
+    address: 1,
+  })
+  .populate('review', {
+    _id: 0,
+    rating: 1,
+  })
+  .populate({
+    path: 'service',
+    select: {
+      _id: 0,
+      title: 1,
+    },
+    populate: {
+      path: 'category',
+      select: {
+        _id: 0,
+        name: 1,
+      },
+    },
+  })
+  .populate('subSubCategory', {
+    _id: 0,
+    name: 1,
+  })
+  .populate<{ professional: {_id:Types.ObjectId, businessName: string, address: string, location: string,  auth: { _id: Types.ObjectId, deviceId: string } }}>('professional', {
+    _id: 1,
+    businessName: 1,
+    address: 1,
+    location: 1,
+    auth:1,
+    populate: {
+      path: 'auth',
+      select: { _id:1,deviceId: 1 },
+    },
+  })
+  .populate<{ customer: {_id:Types.ObjectId, auth: {_id:Types.ObjectId, name: string; address: string; profile: string; contact: string; deviceId: string } } }>({
+    path: 'customer',
+    select: { auth: 1 },
+    populate: {
+      path: 'auth',
+      select: { _id:1, name: 1, address: 1, profile: 1, contact: 1, deviceId: 1 },
+    },
+  })
+  .lean();
+
+  return formattedReservation;
+}
+
 export const ReservationHelper = {
   validateReservationConflicts,
   updateTimeSlotAvailability,
+  getReservationFormattedData
 };

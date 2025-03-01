@@ -15,7 +15,7 @@ export const sendPushNotification = async (
     data = {},
     icon?: string // Optional: Add an icon parameter
   ) => {
-    console.log(deviceToken, title, body, data, icon)
+
     const message = {
       token: deviceToken,
       notification: {

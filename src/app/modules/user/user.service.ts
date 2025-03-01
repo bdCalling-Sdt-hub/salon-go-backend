@@ -91,14 +91,14 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
     expireAt: null,
   };
 
-  if (user.role !== USER_ROLES.ADMIN) {
-
+  if (user.role === USER_ROLES.PROFESSIONAL) {
     //send onboarding email to professional
     const emailValue = {
       email: newUserData!.email,
       name: newUserData!.name,
+      role: user.role,
     };
-    const onboarding = emailTemplate.welcomeNewVerifiedProfessional(emailValue);
+    const onboarding = emailTemplate.onboardingNewProfessional(emailValue);
     emailHelper.sendEmail(onboarding);
   }
   await User.findOneAndUpdate(
