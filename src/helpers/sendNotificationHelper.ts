@@ -42,24 +42,28 @@ export const sendNotification = async (
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   //@ts-ignore
   const socket = global.io;
+  socket.emit(`${namespace}::${recipient}`, result);
 
   if(pushNotificationData){
-    const {title, message, role, destination, id, icon, deviceId} = pushNotificationData;
-    await sendPushNotification(
-      deviceId || 'fa-JVHQxTXm24r6NBoI1uQ:APA91bFhG2FTjMA547cuirYKvIOSYEnLpS9gpMlQ84y7kiNaF71-Azn_e64GWMYrB3NzTWUDeKyAh37eWQTmNiOGpRfNr0W80xntui5i90Q9EgROCZZVVkI',
-      title ? title : data.title ,
-     message ? message : data.message,
-      {
-        role: role,
-        destination: destination,
-        id: new Types.ObjectId(id).toString(),
-      },
-      icon
-    );
+    const { title, message, role, destination, id, icon, deviceId } = pushNotificationData;
+    try {
+      await sendPushNotification(
+        deviceId,
+        title ? title : data.title,
+        message !== undefined ? message : data.message,
+        {
+          role: role,
+          destination: destination,
+          id: new Types.ObjectId(id).toString(),
+        },
+        icon
+      );
+    } catch (error) {
+      console.error('Error sending push notification:', error);
+    }
   }
   
 
-  socket.emit(`${namespace}::${recipient}`, result);
 };
 
 export const sendNotificationToMultipleRecipients = async (

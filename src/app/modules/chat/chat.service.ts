@@ -64,10 +64,7 @@ const accessChat = async (
       .lean();
 
     
-    //send newly created chat to the user
-    //@ts-ignore
-    const socket = global.io;
-    socket.emit(`accessChat::${user.userId}`, chat);
+ 
 
     if (!chat) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create chat.');
@@ -88,12 +85,20 @@ const accessChat = async (
     { isRead: true },
   );
 
-  return {
+  const returnData ={
     chatId: chat._id,
     ...participantData,
     latestMessage: message ?? null,
     latestMessageTime: latestMessageTime,
-  };
+    unreadCount:0
+  }
+   //send newly created chat to the user
+    //@ts-ignore
+    const socket = global.io;
+  socket.emit(`accessChat::${user.userId}`, returnData);
+
+
+  return returnData;
 };
 
 const getChatListByUserId = async (

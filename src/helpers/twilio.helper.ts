@@ -76,7 +76,7 @@ export const sendOtp = async (
 
     newOtp.sid = twilioResponse.sid || '';
     await newOtp.save();
-    console.log(twilioResponse)
+   
   } catch (error) {
     const session = await mongoose.startSession();
     try {
@@ -149,7 +149,7 @@ export const twilioStatusCallback = async (payload: any) => {
 
     try {
       const parsedData = JSON.parse(payload.Payload)
-      console.log(parsedData)
+      
       // Find and delete the OTP, user, and professional in a single transaction
       const otp = await Otp.findOneAndDelete({ sid: parsedData.service_sid  }, { session });
 

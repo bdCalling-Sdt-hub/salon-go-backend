@@ -9,11 +9,11 @@ const createOrRemoveBookmark = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
     const { id } = req.params;
-    console.log(id);
+  
     const result = await BookmarkService.createOrRemoveBookmark(user, {
       professional: new Types.ObjectId(id),
     });
-    sendResponse<IBookmark>(res, {
+    sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
       message: 'Bookmark created successfully',

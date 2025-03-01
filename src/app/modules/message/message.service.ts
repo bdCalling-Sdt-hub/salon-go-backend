@@ -12,10 +12,19 @@ import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { uploadToCloudinary } from '../../../utils/cloudinary';
 
-const sendMessage = async (payload: IMessage, chatId: string) => {
+const sendMessage = async (user:JwtPayload,payload: IMessage, chatId: string) => {
   // Find chat and receiver in parallel
   const [chat, receiver] = await Promise.all([
-    Chat.findById(chatId),
+    Chat.findById(chatId).populate<{ participants: [{ name: string; profile: string }] }>({
+      path: 'participants',
+      select: { name: 1, profile: 1 },
+    })
+    .populate<{ latestMessage: { message: string } }>({
+      path: 'latestMessage',
+      select: {
+        message: 1,
+      },
+    }),
     User.findById(payload.receiverId),
   ]);
 
@@ -81,8 +90,24 @@ const sendMessage = async (payload: IMessage, chatId: string) => {
 
   //emit the unread count to the client
   //eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  const unreadCount = await Message.countDocuments({ chatId, isRead: false });
+
+  const otherParticipant = chat.participants.find(
+    (participant: any) => participant._id.toString() !== user.id,
+  );
+
+  //customize chat list data
+  const customizedChat = {
+    chatId: chat._id,
+    name: otherParticipant?.name,
+    profile: otherParticipant?.profile,
+    latestMessage: payload.messageType === 'image' ? 'image' : payload.message,
+    latestMessageTime: new Date(),
+    unreadCount,
+  };
+
   // @ts-ignore
-  global.io?.emit(`getUnreadChat::${chatId}`, updatedChat);
+  global.io?.emit(`getUnreadChat::${otherParticipant?._id}`, customizedChat);
 
   await Chat.findByIdAndUpdate(
     payload.chatId,
@@ -94,6 +119,7 @@ const sendMessage = async (payload: IMessage, chatId: string) => {
 };
 
 const getMessagesByChatId = async (
+  user: JwtPayload,
   chatId: string,
   paginationOptions: IPaginationOptions,
 ) => {
@@ -101,7 +127,7 @@ const getMessagesByChatId = async (
     paginationHelper.calculatePagination(paginationOptions);
 
   const result = await Message.find({ chatId })
-    .populate({
+    .populate<{ receiverId: { name: string; profile: string } }>({
       path: 'receiverId',
       select: {
         name: 1,
@@ -115,16 +141,25 @@ const getMessagesByChatId = async (
 
   const total = await Message.countDocuments({ chatId });
 
+
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get messages.');
   }
 
 
-  //update isRead to true for each message
-  await Message.updateMany(
-    { chatId },
-    { isRead: true },
-  );
+  const receiver = result[0].receiverId;
+  //@ts-ignore
+  const socket = global.io;
+  socket.emit(`unreadCount::${receiver}`, {
+    unreadCount: 0,
+    chatId,
+    
+  });
+  
+    await Message.updateMany(
+      { chatId, receiverId: user.id, isRead: false },
+      { isRead: true },
+    );
 
   return {
     meta: {
