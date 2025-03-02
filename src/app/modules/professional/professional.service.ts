@@ -497,14 +497,13 @@ const managePortfolio = async (
   session.startTransaction();
   try {
     if (updatedImage && removedImages.length === 0 && !portfolioImage) {
-      //find the updatedImage and update that particular image link
       await Professional.updateOne(
         { _id: user.userId, 'portfolio.path': updatedImage.url },
         { 'portfolio.$.link': updatedImage.link || undefined },
       );
  
     } else {
-      // 🖼️ Upload New Portfolio Image
+
       let uploadedImage: { path: string; link?: string } | null = null;
       if (portfolioImage?.path) {
         const uploadedImages = await uploadToCloudinary(
@@ -526,7 +525,6 @@ const managePortfolio = async (
         }
       }
 
-      // 🗑️ Delete Removed Images
       if (removedImages.length > 0) {
         await deleteResourcesFromCloudinary(removedImages, 'image', true);
       }
@@ -549,7 +547,6 @@ const managePortfolio = async (
       }
 
       if (!result) {
-        // Rollback uploaded image if the database update fails
         if (uploadedImage) {
           await deleteResourcesFromCloudinary(
             [uploadedImage.path],
@@ -564,14 +561,11 @@ const managePortfolio = async (
       }
     }
 
-    // ✅ Commit Transaction
     await session.commitTransaction();
     return 'Portfolio updated successfully';
   } catch (error) {
-    // ❌ Rollback Transaction
-    await session.abortTransaction();
 
-    // Rollback uploaded image if an error occurs
+    await session.abortTransaction();
     if (portfolioImage) {
       await deleteResourcesFromCloudinary(portfolioImage.path, 'image', true);
     }
