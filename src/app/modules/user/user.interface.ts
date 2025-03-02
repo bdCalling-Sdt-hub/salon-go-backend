@@ -4,6 +4,7 @@ import { USER_ROLES } from '../../../enums/user';
 
 export type IUser = {
   _id: Types.ObjectId;
+  id?: string;
   name: string;
   email: string;
   contact: string;

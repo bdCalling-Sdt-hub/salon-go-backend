@@ -335,6 +335,7 @@ const getTimeScheduleForCustomer = async (
     daysMap.set(day.day, {
       ...day,
       check: true,
+      //@ts-ignore
       timeSlots: timeSlots,
     });
   }
