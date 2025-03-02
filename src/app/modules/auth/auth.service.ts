@@ -587,7 +587,90 @@ const socialLogin = async (appId: string,deviceId: string) => {
   
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Social login failed');
   } finally {
-    session.endSession();
+   await session.endSession();
+  }
+};
+
+
+
+const verifyTheUserAfterOtp = async (contact: string) => {
+
+  const result = await User.findOneAndUpdate(
+    { contact:contact },
+    { $set: { verified: true } },
+    { new: true },
+  );
+
+  if(!result){
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found!');
+  }
+
+  let accessToken = "";
+  if(result.role === USER_ROLES.PROFESSIONAL){
+
+    const professional = await Professional.findOne({ auth: result._id });
+    if(!professional){
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional not found!');
+    }
+    accessToken = jwtHelper.createToken(
+      {
+        id: result._id,
+        userId: professional._id,
+        contact: result.contact,
+        role: result.role,
+      },
+      config.jwt.jwt_secret as Secret,
+      config.jwt.jwt_expire_in as string,
+    );
+  
+  }
+
+  return { accessToken, message: 'Account verification is successful.' };
+};
+
+
+const deleteUserIfFailureOccurred = async (id:Types.ObjectId) => {
+
+ 
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  const isUserExist = await User.findById(id).session(session);
+  if (!isUserExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found');
+  }
+
+  if(isUserExist.verified){
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Verified user cannot be deleted');
+  }
+
+  try {
+
+    const result = await User.findByIdAndDelete(id, { session });
+    if (!result) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Delete user failed');
+    }
+
+    if(result.role === USER_ROLES.PROFESSIONAL) {
+      const professionalDeleteResult = await Professional.findOneAndDelete({auth:isUserExist._id}, { session });
+      if (!professionalDeleteResult) {  
+        throw new ApiError(StatusCodes.BAD_REQUEST, 'Delete user failed');
+      }
+    }
+
+    if(result.role === USER_ROLES.USER) {
+      const customerDeleteResult = await Customer.findOneAndDelete({auth:isUserExist._id}, { session });
+      if (!customerDeleteResult) {  
+        throw new ApiError(StatusCodes.BAD_REQUEST, 'Delete user failed');
+      }
+    }
+
+    return `User with id ${id} deleted successfully`;
+  } catch (error) {
+    await session.abortTransaction();
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Delete user failed');
+  } finally {
+    await session.endSession();
   }
 };
 
@@ -602,5 +685,7 @@ export const AuthService = {
   verifyPhoneToDB,
   resetPasswordToDB,
   deleteAccount,
-  socialLogin
+  socialLogin,
+  verifyTheUserAfterOtp,
+  deleteUserIfFailureOccurred
 };

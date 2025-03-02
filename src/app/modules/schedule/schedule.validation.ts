@@ -53,7 +53,28 @@ const updateScheduleZodSchema = z.object({
   }),
 });
 
+
+const setDiscountZodSchema = z.object({
+  body: z.object({
+    timeCode: z.number({ required_error: 'Time code is required' }),
+    discount: z.number({ required_error: 'Discount is required' }),
+    day: z.enum(
+      [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ],
+      { required_error: 'Day is required' },
+    ),
+  }),
+})
+
 export const ScheduleValidations = {
   createScheduleZodSchema,
   updateScheduleZodSchema,
+  setDiscountZodSchema
 };

@@ -64,6 +64,12 @@ const deleteAccountZodSchema = z.object({
   }),
 });
 
+const createVerifyTheUserAfterOtpZodSchema = z.object({
+  body: z.object({
+    contact: z.string({ required_error: 'Contact is required' })
+  }),
+});
+
 export const AuthValidation = {
   createVerifyEmailOrPhoneZodSchema,
   createForgetPasswordZodSchema,
@@ -73,4 +79,5 @@ export const AuthValidation = {
   deleteAccountZodSchema,
   createVerifyPhoneZodSchema,
   createSocialLoginZodSchema,
+  createVerifyTheUserAfterOtpZodSchema,
 };
