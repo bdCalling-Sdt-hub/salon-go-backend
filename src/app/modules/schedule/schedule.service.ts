@@ -86,7 +86,7 @@ const updateScheduleForDaysInDB = async (
   user: JwtPayload,
   updates: Partial<ISchedule>,
 ) => {
-  console.log(updates);
+
   try {
     // Validate the input
     if (!Array.isArray(updates.days)) {
@@ -157,7 +157,7 @@ const updateScheduleForDaysInDB = async (
 
     // Save the updated schedule
     const updatedSchedule = await schedule.save();
-    console.log(updatedSchedule);
+
     return updatedSchedule;
   } catch (error) {
     console.error('Error updating schedule for days:', error);
@@ -331,6 +331,7 @@ const getTimeScheduleForCustomer = async (
       };
     });
 
+    
     daysMap.set(day.day, {
       ...day,
       check: true,
@@ -355,7 +356,40 @@ const deleteScheduleFromDB = async (id: string) => {
   return schedule;
 };
 
+const setDiscount = async (user: JwtPayload, payload: { timeCode: number, discount: number, day: string }) => {
 
+  // Validate the discount value
+  if (payload.discount < 0 || payload.discount > 100) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Discount must be between 0 and 100.');
+  }
+
+  // Find the schedule for the professional
+  const schedule = await Schedule.findOne({ professional: user.userId });
+  if (!schedule) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
+  }
+
+  // Find the day in the schedule
+  const dayIndex = schedule.days.findIndex(day => day?.day === payload.day);
+  if (dayIndex === -1) {
+    throw new ApiError(StatusCodes.NOT_FOUND, `Schedule for ${payload.day} not found!`);
+  }
+
+
+  // Find the time slot in the day
+  const timeSlotIndex = schedule.days[dayIndex].timeSlots.findIndex(timeSlot => timeSlot.timeCode === payload.timeCode);
+  if (timeSlotIndex === -1) {
+    throw new ApiError(StatusCodes.NOT_FOUND, `Time slot ${payload.timeCode} not found!`);
+  }
+
+  // Update the discount for the time slot
+  schedule.days[dayIndex].timeSlots[timeSlotIndex].discount = payload.discount;
+
+  // Save the updated schedule
+  await schedule.save();
+
+  return `Discount for ${payload.day} at ${payload.timeCode} has been set to ${payload.discount}%`;
+};
 
 export const ScheduleServices = {
   createScheduleToDB,
@@ -363,4 +397,5 @@ export const ScheduleServices = {
   getTimeScheduleFromDBForProfessional,
   deleteScheduleFromDB,
   getTimeScheduleForCustomer,
+  setDiscount
 };

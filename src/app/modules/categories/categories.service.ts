@@ -63,14 +63,14 @@ const getAllSubSubCategories = async () => {
   }));
 };
 const createCategoryToDB = async (payload: ICategory): Promise<ICategory> => {
-  console.log(payload);
+
   if (payload.image) {
     const uploadedImage = await uploadToCloudinary(
       payload.image,
       'categories',
       'image',
     );
-    console.log(uploadedImage);
+   
     if (!uploadedImage) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
@@ -111,7 +111,7 @@ const updateCategoryToDB = async (
 
     payload.image = uploadedImage[0];
   }
-  console.log(payload);
+  
   const result = await Category.findOneAndUpdate(
     { _id: id },
     { $set: { ...payload } },
@@ -193,7 +193,7 @@ const updateSubCategoryToDB = async (
 
     payload.image = uploadedImage[0];
   }
-  console.log(payload);
+
   const result = await SubCategory.findByIdAndUpdate(
     id,
     { ...payload },
@@ -252,7 +252,7 @@ export const deleteSubCategoryToDB = async (id: string): Promise<string> => {
     await session.abortTransaction();
     throw error;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };
 
@@ -318,7 +318,7 @@ export const deleteSubSubCategoryToDB = async (id: string): Promise<string> => {
     await session.abortTransaction();
     throw error;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };
 

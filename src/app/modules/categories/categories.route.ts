@@ -38,7 +38,7 @@ router.patch(
   auth(USER_ROLES.ADMIN),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
-    console.log(req.body, 'body', req.files);
+    
     if (req.body.data) {
       req.body = CategoriesValidations.updateCategorySchema.parse(
         JSON.parse(req.body.data),

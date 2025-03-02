@@ -16,7 +16,7 @@ const sendMessage = catchAsync(async (req: Request, res: Response) => {
     messageData.image = req.files.image[0].path;
   }
 
-  const result = await MessageService.sendMessage(messageData, chatId);
+  const result = await MessageService.sendMessage(req.user,messageData, chatId);
 
   sendResponse(res, {
     success: true,
@@ -30,6 +30,7 @@ const getMessagesByChatId = catchAsync(async (req: Request, res: Response) => {
   const { chatId } = req.params;
   const paginationOptions = pick(req.query, paginationFields);
   const result = await MessageService.getMessagesByChatId(
+    req.user,
     chatId,
     paginationOptions,
   );

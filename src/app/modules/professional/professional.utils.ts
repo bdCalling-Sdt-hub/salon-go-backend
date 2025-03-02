@@ -68,7 +68,7 @@ export const uploadImageAndHandleRollback = async (
 };
 
 export function getNextOnboardingStep(professional: IProfessional): string {
-  console.log(professional);
+
   if (!professional.serviceType) {
     return 'service-type';
   }
@@ -78,11 +78,7 @@ export function getNextOnboardingStep(professional: IProfessional): string {
       return 'service-team-size';
     }
   } else if (professional.serviceType === 'home') {
-    console.log(
-      professional.serviceType,
-      professional.travelFee?.fee,
-      professional.travelFee?.distance,
-    );
+
     if (
       professional.travelFee?.fee == null ||
       professional.travelFee?.distance == null
@@ -109,7 +105,7 @@ export function getNextOnboardingStep(professional: IProfessional): string {
   if (!professional.address) {
     return 'address';
   }
-  console.log(professional);
+
   if (!professional.scheduleId) {
     return 'schedule';
   }

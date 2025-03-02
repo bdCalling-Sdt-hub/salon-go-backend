@@ -132,14 +132,14 @@ const updateCustomerProfile = async (
     }
 
     await session.commitTransaction();
-    session.endSession();
+    await session.endSession();
 
     return customerUpdateResult;
   } catch (error) {
     await session.abortTransaction();
     throw error;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };
 

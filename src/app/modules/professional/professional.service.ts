@@ -91,7 +91,7 @@ const updateProfessionalProfile = async (
         'professional/kbis',
         'image',
       );
-      console.log(updatedData, 'KBIS');
+
     }
     if (ID) {
       updatedData.ID = await uploadImageAndHandleRollback(
@@ -131,13 +131,13 @@ const updateProfessionalProfile = async (
 
     // ✅ Commit the transaction if everything is successful
     await session.commitTransaction();
-    session.endSession();
+    await session.endSession();
 
     return result as IProfessional;
   } catch (error) {
     // ❌ Rollback the transaction on failure
     await session.abortTransaction();
-    session.endSession();
+    await session.endSession();
     throw error;
   }
 };
@@ -169,7 +169,7 @@ const getBusinessInformationForProfessional = async (
     );
   }
   const nextStep = getNextOnboardingStep(result);
-  console.log(nextStep);
+
   return {
     nextStep,
     result,
@@ -268,7 +268,7 @@ const getAllProfessional = async (
   paginationOptions: IPaginationOptions,
   user: JwtPayload,
 ) => {
-
+console.log(filterOptions,"🦥🦥🦥🦥🦥🦥🦥🦥🦥🦥")
 
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
@@ -285,7 +285,17 @@ const getAllProfessional = async (
     city,
   } = filterOptions;
 
-  const anyCondition: any[] = [];
+  const anyCondition: any[] = []; 
+
+
+
+  if (city) {
+    console.log(city);
+    // Ensure the regex matches the city as a whole word (surrounded by word boundaries)
+    anyCondition.push({ $and: [{ address: { $regex: `\\b${city}\\b`, $options: 'i' } }] });
+  }
+  
+
   if (searchTerm) {
     const regex = new RegExp(searchTerm, 'i');
 
@@ -326,10 +336,15 @@ const getAllProfessional = async (
     if (subCategory) filterConditions.push({ subCategory });
     if (subSubCategory) filterConditions.push({ subSubCategory });
 
+    
+
+
     const servicesWithConditions = await Service.find(
-      { $or: filterConditions },
+      { $and: filterConditions },
       { createdBy: 1 },
+
     ).distinct('createdBy');
+
 
     anyCondition.push({ _id: { $in: servicesWithConditions } });
   }
@@ -356,7 +371,9 @@ const getAllProfessional = async (
     anyCondition.push({ _id: { $in: servicesWithBudget } });
   }
 
-  if (date) {
+  //check whether the date is valid or not
+
+  if (date && !(isNaN(new Date(date).getTime()))) {
     const requestedDay = parse(
       date,
       'dd/MM/yyyy',
@@ -366,7 +383,7 @@ const getAllProfessional = async (
     const availableProfessionals = await Schedule.find({
       days: { day: requestedDay },
     }).distinct('professional');
-
+    console.log(requestedDay, availableProfessionals)
     anyCondition.push({ _id: { $in: availableProfessionals } });
   }
 
@@ -480,14 +497,13 @@ const managePortfolio = async (
   session.startTransaction();
   try {
     if (updatedImage && removedImages.length === 0 && !portfolioImage) {
-      //find the updatedImage and update that particular image link
       await Professional.updateOne(
         { _id: user.userId, 'portfolio.path': updatedImage.url },
         { 'portfolio.$.link': updatedImage.link || undefined },
       );
  
     } else {
-      // 🖼️ Upload New Portfolio Image
+
       let uploadedImage: { path: string; link?: string } | null = null;
       if (portfolioImage?.path) {
         const uploadedImages = await uploadToCloudinary(
@@ -509,7 +525,6 @@ const managePortfolio = async (
         }
       }
 
-      // 🗑️ Delete Removed Images
       if (removedImages.length > 0) {
         await deleteResourcesFromCloudinary(removedImages, 'image', true);
       }
@@ -532,7 +547,6 @@ const managePortfolio = async (
       }
 
       if (!result) {
-        // Rollback uploaded image if the database update fails
         if (uploadedImage) {
           await deleteResourcesFromCloudinary(
             [uploadedImage.path],
@@ -547,21 +561,18 @@ const managePortfolio = async (
       }
     }
 
-    // ✅ Commit Transaction
     await session.commitTransaction();
     return 'Portfolio updated successfully';
   } catch (error) {
-    // ❌ Rollback Transaction
-    await session.abortTransaction();
 
-    // Rollback uploaded image if an error occurs
+    await session.abortTransaction();
     if (portfolioImage) {
       await deleteResourcesFromCloudinary(portfolioImage.path, 'image', true);
     }
 
     throw error;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };
 const getProfessionalMetrics = async (user: JwtPayload, range: string) => {

@@ -271,7 +271,7 @@ const getFreelancerVsProfessional = async () => {
       },
     },
   ]);
-  console.log(completedReservations);
+    
   // Map data for freelancer and professional completion rates
   const freelancerData = completedReservations.find(
     (data) => data._id === true,
@@ -279,7 +279,6 @@ const getFreelancerVsProfessional = async () => {
   const professionalData = completedReservations.find(
     (data) => data._id === false,
   ) || { totalCompleted: 0 };
-  console.log(freelancerData, professionalData);
   const totalFreelancerReservations = totalReservations.find(
     (data) => data._id === true,
   ) || { totalReservations: 0 };
@@ -341,8 +340,7 @@ const getAllProfessionalForAdmin = async (
 
   const whereConditions =
     andConditions.length > 0 ? { $and: andConditions } : {};
-  console.log(andConditions);
-  console.log(whereConditions);
+
   const result = await Professional.find(whereConditions)
     .populate('auth')
     .skip(skip)
@@ -503,7 +501,7 @@ const getUserWiseReservationsFromDB = async (
   // Combine all conditions
   const whereConditions =
     andConditions.length > 0 ? { $and: andConditions } : {};
-  console.log(whereConditions);
+
   // Fetch reservations
   const result = await Reservation.find(whereConditions)
     .sort({ [sortBy || 'createdAt']: sortOrder === 'desc' ? -1 : 1 })
@@ -531,7 +529,7 @@ const generateTimeSlots = async (
   endTime: string,
   interval: number,
 ) => {
-  console.log(startTime, endTime, interval);
+
 
   // Helper function to convert time string (e.g., '9:30 am') to minutes from midnight
   const timeToMinutes = (time: string): number => {
@@ -570,10 +568,9 @@ const generateTimeSlots = async (
 };
 
 const getUserEngagement = async (year?: string) => {
-  console.log(year);
+
   const startOfYear = new Date(`${year}-01-01T00:00:00.000Z`);
   const endOfYear = new Date(`${year}-12-31T23:59:59.999Z`);
-  console.log(startOfYear, endOfYear);
   try {
     const [professionalEngagement, reservationEngagement] = await Promise.all([
       Professional.aggregate([

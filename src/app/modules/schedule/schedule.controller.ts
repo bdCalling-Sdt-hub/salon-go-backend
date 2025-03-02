@@ -7,7 +7,7 @@ import { USER_ROLES } from '../../../enums/user';
 import { Types, get } from 'mongoose';
 
 const createSchedule = catchAsync(async (req: Request, res: Response) => {
-  console.log(req.body);
+
   const user = req.user;
   const result = await ScheduleServices.createScheduleToDB(user, req.body);
   sendResponse(res, {
@@ -80,10 +80,24 @@ const deleteSchedule = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const setDiscount = catchAsync(async (req: Request, res: Response) => {
+
+
+  const user = req.user;
+  const result = await ScheduleServices.setDiscount(user,req.body);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Discount set successfully',
+    data: result,
+  });
+})  
+
 export const ScheduleController = {
   createSchedule,
   updateSchedule,
   getScheduleForProfessional,
   getScheduleForCustomer,
   deleteSchedule,
+  setDiscount
 };
