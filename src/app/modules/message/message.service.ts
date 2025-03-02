@@ -6,7 +6,6 @@ import { User } from '../user/user.model';
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
 import { Chat } from '../chat/chat.model';
-import { Types } from 'mongoose';
 import { Message } from './message.model';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
