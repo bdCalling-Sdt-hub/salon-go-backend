@@ -27,11 +27,11 @@ router.patch(
   ReservationController.updateReservationStatus,
 );
 
-router.patch(
-  '/start-tracking/:id',
-  auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
-  ReservationController.startReservationTracking
-);
+// router.patch(
+//   '/start-tracking/:id',
+//   auth(USER_ROLES.PROFESSIONAL, USER_ROLES.USER),
+//   ReservationController.startReservationTracking
+// );
 
 router.get(
   '/',

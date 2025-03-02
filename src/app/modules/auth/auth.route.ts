@@ -62,5 +62,16 @@ router.post(
 );
 
 
+router.post(
+  '/verify-the-user-after-otp',
+  validateRequest(AuthValidation.createVerifyTheUserAfterOtpZodSchema),
+  AuthController.verifyTheUserAfterOtp,
+);
+
+
+router.delete(
+  '/delete-user-if-failure-occurred/:id',
+  AuthController.deleteUserIfFailureOccurred,
+);
 
 export const AuthRoutes = router;

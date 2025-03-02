@@ -5,6 +5,7 @@ dotenv.config({ path: path.join(process.cwd(), '.env') });
 
 export default {
   firebase_service_account_base64: process.env.FIREBASE_SERVICE_ACCOUNT_BASE64,
+  firebase_web_api_key: process.env.FIREBASE_WEB_API_KEY,
   ip_address: process.env.IP_ADDRESS,
   database_url: process.env.DATABASE_URL,
   node_env: process.env.NODE_ENV,

@@ -28,7 +28,7 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
 
   let newUserData = null;
   let createdUser;
-console.log(user)
+
   //check if the user email exist with any active account
   const isExistUser = await User.findOne({
     $or: [
@@ -73,13 +73,13 @@ console.log(user)
     newUserData = newUser[0];
 
     await session.commitTransaction();
-    session.endSession();
+    await session.endSession();
   } catch (error) {
     await session.abortTransaction();
 
     throw error;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 
   if (newUserData) {
@@ -91,21 +91,21 @@ console.log(user)
     expireAt: null,
   };
 
-  if (user.role !== USER_ROLES.ADMIN) {
-    // Send OTP via Twilio
-    await sendOtp(newUserData!.contact, newUserData!._id);
-
-    // Save OTP metadata to authentication
-    authentication = {
-      oneTimeCode: null, // OTP is saved in Otp model, not directly in User model
-      expireAt: new Date(Date.now() + 5 * 60000),
+  if (user.role === USER_ROLES.PROFESSIONAL) {
+    //send onboarding email to professional
+    const emailValue = {
+      email: newUserData!.email,
+      name: newUserData!.name,
+      role: user.role,
     };
+    const onboarding = emailTemplate.onboardingNewProfessional(emailValue);
+    emailHelper.sendEmail(onboarding);
   }
   await User.findOneAndUpdate(
     { _id: newUserData!._id },
     { $set: { authentication } },
   );
-  console.log(user, newUserData);
+  
   return newUserData!;
 };
 
@@ -255,8 +255,18 @@ const approveUser = async (id: Types.ObjectId) => {
       new: true,
     },
   );
+
+  const emailValue = {
+    email: result!.email,
+    name: result!.name,
+  };
+  const onboarding = emailTemplate.welcomeNewVerifiedProfessional(emailValue);
+  emailHelper.sendEmail(onboarding);
+
   return `${result?.name} is approved`;
 };
+
+
 export const UserService = {
   createUserToDB,
   getUserProfileFromDB,

@@ -34,7 +34,7 @@ const getNotifications = async (
   }
   const total = await Notification.countDocuments({ userId: user.id });
   const count = await Notification.countDocuments({ userId: user.id, isRead: false });
-  console.log(total, count);
+
   return {
     meta: {
       page,

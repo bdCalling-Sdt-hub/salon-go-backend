@@ -1,3 +1,5 @@
+import cron from 'node-cron'
+
 import colors from 'colors'
 import mongoose from 'mongoose'
 import { Server } from 'socket.io'
@@ -8,6 +10,7 @@ import { errorLogger, logger } from './shared/logger'
 import { socketHelper } from './helpers/socketHelper'
 import { User } from './app/modules/user/user.model'
 import { Admin } from './app/modules/admin/admin.model'
+import { cronScheduler } from './app/modules/reservation/cron-scheduler';
 
 //uncaught exception
 process.on('uncaughtException', error => {
@@ -20,6 +23,14 @@ async function main() {
   try {
     mongoose.connect(config.database_url as string)
     logger.info(colors.green('🚀 Database connected successfully'))
+
+
+    // Cron job to run every minute (or adjust interval as needed)
+    cron.schedule('* * * * *', async () => {
+      await cronScheduler();
+    });
+
+    
 // Super Admin creation
     const existingAdmin = await User.findOne({ role: 'ADMIN' })
 

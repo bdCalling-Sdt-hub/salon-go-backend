@@ -116,7 +116,7 @@ const getServicesByProfessionalIdFromDB = async (
   andCondition.push({
     createdBy: id,
   });
-  console.log(andCondition, 'andCondition');
+
   const result = await Service.find({ $and: andCondition })
     .populate({
       path: 'createdBy',

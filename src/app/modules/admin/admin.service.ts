@@ -106,7 +106,7 @@ const updateAdminProfile = async (
 
     // ✅ Commit the transaction if everything is successful
     await session.commitTransaction();
-    session.endSession();
+    await session.endSession();
 
     return customerUpdateResult;
   } catch (error) {
@@ -114,7 +114,7 @@ const updateAdminProfile = async (
     await session.abortTransaction();
     throw error;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };
 
@@ -129,7 +129,7 @@ const recommendProfessional = async (id: string) => {
   if (!professional) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional not found');
   }
-  const status = professional.recommended ? false : true;
+  const status = !professional.recommended;
   await Professional.findByIdAndUpdate(id, { $set: { recommended: status } });
   return professional.auth.name;
 }

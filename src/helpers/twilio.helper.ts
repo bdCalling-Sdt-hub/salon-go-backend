@@ -76,7 +76,7 @@ export const sendOtp = async (
 
     newOtp.sid = twilioResponse.sid || '';
     await newOtp.save();
-    console.log(twilioResponse)
+   
   } catch (error) {
     const session = await mongoose.startSession();
     try {
@@ -93,7 +93,7 @@ export const sendOtp = async (
         'Failed to send OTP and user data could not be deleted. Please try again later.',
       );
     } finally {
-      session.endSession();
+      await session.endSession();
     }
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -142,24 +142,20 @@ export const verifyOtp = async (
 
 
 export const twilioStatusCallback = async (payload: any) => {
-  console.log('twilioStatusCallback');
-  console.log(payload);
-console.log(payload.Level, payload.Payload.error_code)
+
   if (payload.Level === 'ERROR' || payload.Payload.error_code === '30008') {
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-      console.log(payload.Payload.service_sid)
       const parsedData = JSON.parse(payload.Payload)
-      console.log(parsedData)
+      
       // Find and delete the OTP, user, and professional in a single transaction
       const otp = await Otp.findOneAndDelete({ sid: parsedData.service_sid  }, { session });
 
       if (!otp) {
         throw new ApiError(StatusCodes.NOT_FOUND, 'OTP not found.');
       }
-      console.log(otp)
       const user = await User.findOneAndDelete({ contact: otp.phoneNumber }, { session });
 
       if (user) {
@@ -179,7 +175,7 @@ console.log(payload.Level, payload.Payload.error_code)
         'Failed to process Twilio status callback.',
       );
     } finally {
-      session.endSession();
+      await session.endSession();
     }
   }
 };
