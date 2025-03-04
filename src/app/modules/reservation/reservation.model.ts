@@ -38,6 +38,7 @@ const reservationSchema = new Schema<IReservation, ReservationModel>(
     serviceEndDateTime: { type: Date },
     duration: { type: Number, required: true },
     isStarted: { type: Boolean, default: false },
+    notified: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
