@@ -8,18 +8,30 @@ import { ReservationHelper } from './reservation.utils';
 import { logger } from '../../../shared/logger';
 import { sendDataWithSocket, sendNotification } from '../../../helpers/sendNotificationHelper';
 import { USER_ROLES } from '../../../enums/user';
+import { populate } from 'dotenv';
 
 export const cronScheduler = async () => {
   console.log(`Hey I am cron job updating the reservations every minute 🕧`);
   const session = await Reservation.startSession();  // Start a session for transaction
   session.startTransaction();  // Begin transaction
+  const localDate = new Date();
+  // Get the time zone offset in minutes
+  const offset = localDate.getTimezoneOffset();
+  
+  // Adjust the date to the local time by subtracting the offset
+  localDate.setMinutes(localDate.getMinutes() - offset);
+
+  localDate.setHours(localDate.getHours() - 1);
+  
+console.log(localDate)
+  
 
   try {
     // Get all reservations that are not yet marked as 'completed' and are in-progress
     const reservations = await Reservation.find({
       status: { $in: ['confirmed', 'started'] },
-      serviceStartDateTime: { $lte: new Date() },
-      serviceEndDateTime: { $gte: new Date() },
+      serviceStartDateTime: { $lte: localDate },
+      serviceEndDateTime: { $gte: localDate },
     }).select({
       _id: 1,
       amount: 1,
@@ -33,12 +45,14 @@ export const cronScheduler = async () => {
       duration: 1,
       serviceLocation: 1,
       address: 1,
+      notified: 1,
+ 
     })
       .populate('review', {
         _id: 0,
         rating: 1,
       })
-      .populate({
+      .populate<{service: {_id: Types.ObjectId, title: string, category: {_id: Types.ObjectId, name: string} }}>({
         path: 'service',
         select: {
           _id: 0,
@@ -56,12 +70,15 @@ export const cronScheduler = async () => {
         _id: 0,
         name: 1,
       })
-      .populate<{ professional: {_id: Types.ObjectId, businessName: string, address: string, location: string, auth: { _id: Types.ObjectId, deviceId: string } }}>('professional', {
-        _id: 1,
-        businessName: 1,
-        address: 1,
-        location: 1,
-        auth: 1,
+      .populate<{ professional: {_id: Types.ObjectId, businessName: string, address: string, location: string, auth: { _id: Types.ObjectId, deviceId: string } }}>({
+        path: 'professional',
+        select: {
+          _id: 1,
+          businessName: 1,
+          address: 1,
+          location: 1,
+          auth: 1,
+        },
         populate: {
           path: 'auth',
           select: { _id: 1, deviceId: 1 },
@@ -69,7 +86,10 @@ export const cronScheduler = async () => {
       })
       .populate<{ customer: {_id: Types.ObjectId, auth: {_id: Types.ObjectId, name: string; address: string; profile: string; contact: string; deviceId: string } } }>({
         path: 'customer',
-        select: { auth: 1 },
+        select: {
+          _id: 1,
+          auth: 1,
+        },
         populate: {
           path: 'auth',
           select: { _id: 1, name: 1, address: 1, profile: 1, contact: 1, deviceId: 1 },
@@ -78,61 +98,33 @@ export const cronScheduler = async () => {
 
     const notificationPayloads = []; // Array to store notification payloads
 
-    for (const reservation of reservations) {
-      const currentTime = new Date();
-      const reservationStartTime = new Date(reservation.serviceStartDateTime);
-      const reservationEndTime = new Date(reservation.serviceEndDateTime);
-      const timeDifference = (reservationStartTime.getTime() - currentTime.getTime()) / (1000 * 60); // Difference in minutes
 
-      // Update reservation status to 'started' if it's confirmed and the start time has passed
-      if (reservation.status === 'confirmed' && reservationStartTime <= currentTime) {
-        reservation.status = 'started';
-        await reservation.save({ session });
+    
+if(reservations.length > 0){
+        
+  for (const reservation of reservations) {
 
-        // Notify both customer and professional
-        await sendDataWithSocket(`reservationStarted`, reservation.professional._id, reservation);
-        await sendDataWithSocket(`reservationStarted`, reservation.customer._id, reservation);
-      }
+    const reservationStartTime = reservation.serviceStartDateTime;
+    const reservationEndTime = reservation.serviceEndDateTime;
+    const timeDifference = reservationStartTime.getMinutes() - localDate.getMinutes(); // Difference in minutes
+    localDate.setHours(localDate.getHours() + 1);
 
-      // Update reservation status to 'completed' if it's started and the end time has passed
-      else if (reservation.status === 'started' && reservationEndTime <= currentTime) {
-        const startTime = DateHelper.parseTimeTo24Hour(DateHelper.convertISOTo12HourFormat(reservation.serviceStartDateTime.toString()));
-        const endTime = DateHelper.parseTimeTo24Hour(DateHelper.convertISOTo12HourFormat(reservation.serviceEndDateTime.toString()));
-
-        await ReservationHelper.updateTimeSlotAvailability(
-          reservation.professional._id,
-          reservation.serviceStartDateTime,
-          startTime,
-          endTime,
-          session,
-          true
-        );
-
-        reservation.status = 'completed';
-        await reservation.save({ session });
-        logger.info(`Reservation ${reservation._id} marked as completed`);
-
-        // Notify both customer and professional
-        await sendDataWithSocket(`reservationCompleted`, reservation.professional._id, reservation);
-        await sendDataWithSocket(`reservationCompleted`, reservation.customer._id, reservation);
-      }
-
-      // Send notifications if the reservation is starting in 30 minutes
-      if (timeDifference <= 30 && timeDifference > 0) {
+      if (timeDifference <= 30 && timeDifference > 0 && !reservation.notified) {
         const customerDeviceId = reservation.customer?.auth?.deviceId;
         const professionalDeviceId = reservation.professional?.auth?.deviceId;
 
         const customerNotification = {
           userId: reservation.customer._id,
-          title: 'Upcoming Reservation',
-          message: 'Your reservation is starting in 30 minutes. Please be ready.',
-          type: 'USER',
-        };
+        title: 'Upcoming Reservation',
+        message: `Hey ${reservation.customer.auth.name},\nYour reservation for ${reservation.service.title} is starting in 30 minutes. Please be ready.`,
+        type: 'USER',
+
+        }
 
         const professionalNotification = {
           userId: reservation.professional._id,
           title: 'Upcoming Reservation',
-          message: 'Your reservation is starting in 30 minutes. Please be ready.',
+          message: `Hey ${reservation.professional.businessName},\nYour reservation for ${reservation.service.title} is starting in 30 minutes. Please be ready.`,
           type: 'PROFESSIONAL',
         };
 
@@ -145,7 +137,43 @@ export const cronScheduler = async () => {
           professionalNotification,
         });
       }
+
+    // Update reservation status to 'started' if it's confirmed and the start time has passed
+   else if (reservation.status === 'confirmed' && reservationStartTime <= localDate && !reservation.isStarted) {
+      reservation.status = 'started';
+      reservation.isStarted = true;
+      await reservation.save({ session });
+      await sendDataWithSocket(`reservationStarted`, reservation.professional._id, reservation);
+      await sendDataWithSocket(`reservationStarted`, reservation.customer._id, reservation);
     }
+
+    // Update reservation status to 'completed' if it's started and the end time has passed
+    else if (reservation.status === 'started' && reservationEndTime <= localDate) {
+      const startTime = DateHelper.parseTimeTo24Hour(DateHelper.convertISOTo12HourFormat(reservation.serviceStartDateTime.toString()));
+      const endTime = DateHelper.parseTimeTo24Hour(DateHelper.convertISOTo12HourFormat(reservation.serviceEndDateTime.toString()));
+
+      await ReservationHelper.updateTimeSlotAvailability(
+        reservation.professional._id,
+        reservation.serviceStartDateTime,
+        startTime,
+        endTime,
+        session,
+        true
+      );
+
+      reservation.status = 'completed';
+      await reservation.save({ session });
+      logger.info(`Reservation ${reservation._id} marked as completed`);
+
+      // Notify both customer and professional
+      await sendDataWithSocket(`reservationCompleted`, reservation.professional._id, reservation);
+      await sendDataWithSocket(`reservationCompleted`, reservation.customer._id, reservation);
+    }
+
+  
+  }
+}
+    
 
     // Phase 1: Commit transaction FIRST before sending notifications
     await session.commitTransaction();
@@ -153,6 +181,7 @@ export const cronScheduler = async () => {
 
     // Phase 2: Send notifications (non-transactional)
     const notificationPromises = notificationPayloads.map(({ reservation, customerDeviceId, professionalDeviceId, customerNotification, professionalNotification }) => {
+      console.log(customerDeviceId,professionalDeviceId)
       return Promise.all([
         sendNotification('getNotification', reservation.customer._id, customerNotification, {
           deviceId: customerDeviceId,
@@ -171,7 +200,7 @@ export const cronScheduler = async () => {
 
     // Wait for all notification promises to complete
     await Promise.all(notificationPromises);
-    logger.info('All notifications processed (successfully or with errors)');
+
 
   } catch (error) {
     // Abort the transaction in case of an error

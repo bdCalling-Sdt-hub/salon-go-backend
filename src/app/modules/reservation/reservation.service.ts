@@ -25,7 +25,7 @@ import { Customer } from '../customer/customer.model';
 import { IUser } from '../user/user.interface';
 import { IService } from '../service/service.interface';
 import { Service } from '../service/service.model';
-import { IProfessional } from '../professional/professional.interface';
+
 
 
 const createReservationToDB = async (
@@ -107,8 +107,11 @@ const createReservationToDB = async (
   );
   const operationEndTime = DateHelper.convertToISODate(days[0].endTime, date);
 
+
   const serviceStart = new Date(serviceStartDateTime);
   const serviceEnd = new Date(serviceEndDateTime);
+ 
+
   const operationStart = new Date(operationStartTime);
   const operationEnd = new Date(operationEndTime);
 
@@ -464,7 +467,7 @@ const updateReservationStatusToDB = async (
   user: JwtPayload,
 ) => {
 
-  console.log(payload, '❤️❤️❤️');
+
   const session = await mongoose.startSession();
   try {
     session.startTransaction();

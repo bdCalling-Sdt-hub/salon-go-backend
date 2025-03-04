@@ -184,6 +184,9 @@ const refreshToken = async (
       token,
       config.jwt.jwt_refresh_secret as Secret,
     );
+
+
+
   } catch (error) {
     if (error instanceof Error && error.name === 'TokenExpiredError') {
       throw new ApiError(StatusCodes.UNAUTHORIZED, 'Refresh Token has expired');
