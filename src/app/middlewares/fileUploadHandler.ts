@@ -64,7 +64,7 @@ const fileUploadHandler = () => {
   const filterFilter = (req: Request, file: any, cb: FileFilterCallback) => {
     const validImageMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
     const mimeType = mime.lookup(file.originalname) || file.mimetype;
-    console.log(mimeType, file);
+
     if (['image', 'ID', 'KBIS'].includes(file.fieldname)) {
       if (validImageMimeTypes.includes(mimeType)) {
         cb(null, true);

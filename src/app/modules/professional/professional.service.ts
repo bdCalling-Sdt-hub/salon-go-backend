@@ -268,7 +268,7 @@ const getAllProfessional = async (
   paginationOptions: IPaginationOptions,
   user: JwtPayload,
 ) => {
-console.log(filterOptions,"🦥🦥🦥🦥🦥🦥🦥🦥🦥🦥")
+
 
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
@@ -290,7 +290,7 @@ console.log(filterOptions,"🦥🦥🦥🦥🦥🦥🦥🦥🦥🦥")
 
 
   if (city) {
-    console.log(city);
+
     // Ensure the regex matches the city as a whole word (surrounded by word boundaries)
     anyCondition.push({ $and: [{ address: { $regex: `\\b${city}\\b`, $options: 'i' } }] });
   }
@@ -383,7 +383,6 @@ console.log(filterOptions,"🦥🦥🦥🦥🦥🦥🦥🦥🦥🦥")
     const availableProfessionals = await Schedule.find({
       days: { day: requestedDay },
     }).distinct('professional');
-    console.log(requestedDay, availableProfessionals)
     anyCondition.push({ _id: { $in: availableProfessionals } });
   }
 

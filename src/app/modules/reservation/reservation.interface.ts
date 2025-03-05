@@ -32,6 +32,7 @@ export type IReservation = {
   serviceEndDateTime: Date;
   duration: number;
   isStarted: boolean;
+  notified: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
