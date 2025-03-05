@@ -27,8 +27,23 @@ const socket = (io: Server) => {
           logger.error('Error in reservationTracking: unknown error');
         }
       }
-
     });
+
+    
+    socket.on(`readingMessage`, 
+    async data => {
+
+      if(!data.chatId){
+        return;
+      }
+
+      await Message.updateMany(
+        { chatId: data.chatId, receiverId: data.data._id, isRead: false },
+          { isRead: true },
+        );
+      }
+    );
+
 
 
     socket.on(`messageRead::${config.message_read_token}`, async data => {
@@ -39,6 +54,8 @@ const socket = (io: Server) => {
       }
       await Message.updateMany({ chatId, isRead: false, receiverId: new Types.ObjectId(receiverId) }, { isRead: true });
     })
+
+    socket.setMaxListeners(12); // Increase the limit to 20
 
     //disconnect
     socket.on('disconnect', () => {

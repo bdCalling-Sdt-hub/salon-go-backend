@@ -10,11 +10,12 @@ import { Message } from './message.model';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { uploadToCloudinary } from '../../../utils/cloudinary';
+import sendMessageRelatedInfo from '../../../helpers/socketMessageHelper';
 
 const sendMessage = async (user:JwtPayload,payload: IMessage, chatId: string) => {
   // Find chat and receiver in parallel
   const [chat, receiver] = await Promise.all([
-    Chat.findById(chatId).populate<{ participants: [{ name: string; profile: string }] }>({
+    Chat.findById(chatId).populate<{ participants: [{ _id: string; name: string; profile: string }] }>({
       path: 'participants',
       select: { name: 1, profile: 1 },
     })
@@ -83,9 +84,12 @@ const sendMessage = async (user:JwtPayload,payload: IMessage, chatId: string) =>
   const populatedResult = await (
     await result
   ).populate('receiverId', { name: 1, profile: 1 });
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  global.io?.emit(`getMessage::${chatId}`, populatedResult);
+
+  sendMessageRelatedInfo(
+    'getMessage',
+    chatId,
+    populatedResult
+    );
 
   //emit the unread count to the client
   //eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -105,8 +109,14 @@ const sendMessage = async (user:JwtPayload,payload: IMessage, chatId: string) =>
     unreadCount,
   };
 
-  // @ts-ignore
-  global.io?.emit(`getUnreadChat::${otherParticipant?._id}`, customizedChat);
+
+
+
+  sendMessageRelatedInfo(
+    'getUnreadChat',
+    otherParticipant?._id as string,
+    customizedChat
+  );
 
   await Chat.findByIdAndUpdate(
     payload.chatId,
@@ -126,7 +136,7 @@ const getMessagesByChatId = async (
     paginationHelper.calculatePagination(paginationOptions);
 
   const result = await Message.find({ chatId })
-    .populate<{ receiverId: { name: string; profile: string } }>({
+    .populate<{ receiverId: { _id: string; name: string; profile: string } }>({
       path: 'receiverId',
       select: {
         name: 1,
@@ -145,20 +155,23 @@ const getMessagesByChatId = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get messages.');
   }
 
-
   const receiver = result[0].receiverId;
-  //@ts-ignore
-  const socket = global.io;
-  socket.emit(`unreadCount::${receiver}`, {
-    unreadCount: 0,
-    chatId,
-    
-  });
+
+  await Message.updateMany(
+    { chatId: chatId, receiverId: user.id, isRead: false },
+    { isRead: true },
+  );
+
+  sendMessageRelatedInfo(
+    'unreadCount',
+    receiver?._id,
+    {
+      unreadCount: 0,
+      chatId,
+    },
+  );
   
-    await Message.updateMany(
-      { chatId, receiverId: user.id, isRead: false },
-      { isRead: true },
-    );
+
 
   return {
     meta: {
