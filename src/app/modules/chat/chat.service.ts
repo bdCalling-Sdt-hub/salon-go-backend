@@ -4,25 +4,32 @@ import { Chat } from './chat.model';
 import ApiError from '../../../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
 
-import { get, Types } from 'mongoose';
+import { Types } from 'mongoose';
 import { User } from '../user/user.model';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IMessage } from '../message/message.interface';
-import { IChat } from './chat.interface';
+
 import { Message } from '../message/message.model';
 
 const accessChat = async (
   user: JwtPayload,
   payload: { participantId: string },
 ) => {
+
   const participantAuthId = new Types.ObjectId(payload.participantId);
   const requestUserAuthId = new Types.ObjectId(user.id);
 
+  if(requestUserAuthId.equals(requestUserAuthId)){
+    throw new ApiError(StatusCodes.BAD_REQUEST, "participant id can not be same to the requested id.")
+  }
+
+
+
   const [isRequestedUserExists, isParticipantExists] = await Promise.all([
-    User.findOne({ _id: requestUserAuthId, status: 'active' }),
-    User.findOne({ _id: participantAuthId, status: 'active' }),
-  ]);
+    User.findOne({ _id: requestUserAuthId, status: {$in:['active', 'restricted']} }),
+    User.findOne({ _id: participantAuthId, status:     {$in:['active', 'restricted']}   }),
+  ]); 
 
   if (!isRequestedUserExists) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'You are not a valid user!');
@@ -35,7 +42,7 @@ const accessChat = async (
   let chat = await Chat.findOne({
     participants: { $all: [requestUserAuthId, participantAuthId] },
   })
-    .populate({
+    .populate<{participants:[{_id:Types.ObjectId, name:string, profile:string}]}>({
       path: 'participants',
       select: { name: 1, profile: 1 },
     })
@@ -53,7 +60,7 @@ const accessChat = async (
     chat = await Chat.findOne({
       participants: { $all: [requestUserAuthId, participantAuthId] },
     })
-      .populate({
+      .populate<{participants:[{_id:Types.ObjectId, name:string, profile:string}]}>({
         path: 'participants',
         select: { name: 1, profile: 1 },
       })
@@ -64,7 +71,10 @@ const accessChat = async (
       .lean();
 
     
- 
+    //send newly created chat to the user
+    //@ts-ignore
+    const socket = global.io;
+    socket.emit(`accessChat::${user.userId}`, chat);
 
     if (!chat) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create chat.');
@@ -74,6 +84,10 @@ const accessChat = async (
   const participantData = chat.participants.find(
     (participant: any) => participant._id.toString() !== user.id,
   );
+
+
+
+  // const processedParticipantData
 
   const latestMessageData = (chat.latestMessage as Partial<IMessage>) || {};
   const message = latestMessageData.message || ''; // Default to an empty string
@@ -85,20 +99,12 @@ const accessChat = async (
     { isRead: true },
   );
 
-  const returnData ={
+  return {
     chatId: chat._id,
     ...participantData,
     latestMessage: message ?? null,
     latestMessageTime: latestMessageTime,
-    unreadCount:0
-  }
-   //send newly created chat to the user
-    //@ts-ignore
-    const socket = global.io;
-  socket.emit(`accessChat::${user.userId}`, returnData);
-
-
-  return returnData;
+  };
 };
 
 const getChatListByUserId = async (

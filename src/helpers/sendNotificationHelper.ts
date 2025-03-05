@@ -44,7 +44,7 @@ export const sendNotification = async (
   const socket = global.io;
   socket.emit(`${namespace}::${recipient}`, result);
 
-  if(pushNotificationData){
+  if(pushNotificationData && pushNotificationData?.deviceId){
     const { title, message, role, destination, id, icon, deviceId } = pushNotificationData;
     try {
       await sendPushNotification(

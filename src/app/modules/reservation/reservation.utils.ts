@@ -120,12 +120,15 @@ const getReservationFormattedData = async (reservation:Types.ObjectId) => {
     _id: 0,
     name: 1,
   })
-  .populate<{ professional: {_id:Types.ObjectId, businessName: string, address: string, location: string,  auth: { _id: Types.ObjectId, deviceId: string } }}>('professional', {
-    _id: 1,
-    businessName: 1,
-    address: 1,
-    location: 1,
-    auth:1,
+  .populate<{ professional: {_id:Types.ObjectId, businessName: string, address: string, location: string,  auth: { _id: Types.ObjectId, deviceId: string } }}>({
+    path:"professional",
+    select: {
+      _id: 1,
+      businessName: 1,
+      address: 1,
+      location: 1,
+      auth:1,
+    },
     populate: {
       path: 'auth',
       select: { _id:1,deviceId: 1 },
