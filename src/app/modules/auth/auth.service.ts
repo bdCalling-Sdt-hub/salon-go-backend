@@ -50,31 +50,31 @@ const loginUserFromDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  if (isExistUser.status === 'restricted') {
-    if (
-      isExistUser.restrictionLeftAt &&
-      new Date() < isExistUser.restrictionLeftAt
-    ) {
-      const remainingMinutes = Math.ceil(
-        (isExistUser.restrictionLeftAt.getTime() - Date.now()) / 60000,
-      );
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        `You are restricted to login for ${remainingMinutes} minutes`,
-      );
-    }
+  // if (isExistUser.status === 'restricted') {
+  //   if (
+  //     isExistUser.restrictionLeftAt &&
+  //     new Date() < isExistUser.restrictionLeftAt
+  //   ) {
+  //     const remainingMinutes = Math.ceil(
+  //       (isExistUser.restrictionLeftAt.getTime() - Date.now()) / 60000,
+  //     );
+  //     throw new ApiError(
+  //       StatusCodes.BAD_REQUEST,
+  //       `You are restricted to login for ${remainingMinutes} minutes`,
+  //     );
+  //   }
 
-    await User.findByIdAndUpdate(
-      { _id: isExistUser._id },
-      {
-        $set: {
-          status: 'active',
-          wrongLoginAttempts: 0,
-          restrictionLeftAt: null,
-        },
-      },
-    );
-  }
+  //   await User.findByIdAndUpdate(
+  //     { _id: isExistUser._id },
+  //     {
+  //       $set: {
+  //         status: 'active',
+  //         wrongLoginAttempts: 0,
+  //         restrictionLeftAt: null,
+  //       },
+  //     },
+  //   );
+  // }
 
   let user;
   if (isExistUser.role === USER_ROLES.ADMIN) {
@@ -108,10 +108,7 @@ const loginUserFromDB = async (
   }
 
   // Match the password
-  if (
-    password &&
-    !(await User.isMatchPassword(password, isExistUser.password))
-  ) {
+  if (!await bcrypt.compare(password, isExistUser.password)) {
     if (isExistUser.wrongLoginAttempts >= 5) {
       isExistUser.status = 'restricted';
       isExistUser.restrictionLeftAt = new Date(Date.now() + 10 * 60 * 1000); // Restrict for 1 day

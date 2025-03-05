@@ -35,7 +35,7 @@ const accessChat = async (
   let chat = await Chat.findOne({
     participants: { $all: [requestUserAuthId, participantAuthId] },
   })
-    .populate({
+    .populate<{participants:[{_id:Types.ObjectId, name:string, profile:string}]}>({
       path: 'participants',
       select: { name: 1, profile: 1 },
     })
@@ -53,7 +53,7 @@ const accessChat = async (
     chat = await Chat.findOne({
       participants: { $all: [requestUserAuthId, participantAuthId] },
     })
-      .populate({
+      .populate<{participants:[{_id:Types.ObjectId, name:string, profile:string}]}>({
         path: 'participants',
         select: { name: 1, profile: 1 },
       })
@@ -75,6 +75,13 @@ const accessChat = async (
     (participant: any) => participant._id.toString() !== user.id,
   );
 
+
+  const processedData = {
+    _id: participantData?._id,
+    name: participantData?.name || "NA",
+    profile: participantData?.profile || ""
+  }
+
   const latestMessageData = (chat.latestMessage as Partial<IMessage>) || {};
   const message = latestMessageData.message || ''; // Default to an empty string
   const { latestMessageTime } = chat;
@@ -87,7 +94,7 @@ const accessChat = async (
 
   const returnData ={
     chatId: chat._id,
-    ...participantData,
+    ...processedData,
     latestMessage: message ?? null,
     latestMessageTime: latestMessageTime,
     unreadCount:0
@@ -116,7 +123,7 @@ const getChatListByUserId = async (
 
   // Fetch chats with base query and pagination
   const chats = await Chat.find(baseQuery)
-    .populate({
+    .populate<{participants:[{_id:Types.ObjectId, name:string, profile:string}]}>({
       path: 'participants',
       select: { name: 1, profile: 1 },
     })
@@ -165,9 +172,17 @@ const getChatListByUserId = async (
     const message = latestMessageData.message || ''; // Default to an empty string
     const { latestMessageTime } = chat;
 
+
+    const processedData = {
+      _id: otherParticipant?._id,
+      name: otherParticipant?.name || "NA",
+      profile: otherParticipant?.profile || ""
+    }
+  
+
     return {
       chatId: chat._id,
-      ...otherParticipant,
+      ...processedData,
       latestMessage: message ?? null,
       latestMessageTime: latestMessageTime,
     };
