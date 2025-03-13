@@ -665,6 +665,10 @@ const deleteUserIfFailureOccurred = async (id:Types.ObjectId) => {
       }
     }
 
+    console.log('User deleted successfully');
+    await session.commitTransaction();
+    await session.endSession();
+
     return `User with id ${id} deleted successfully`;
   } catch (error) {
     await session.abortTransaction();
