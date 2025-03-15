@@ -13,7 +13,7 @@ const professionalSchema = new Schema<IProfessional, ProfessionalModel>(
     },
     targetAudience: {
       type: String,
-      enum: ['men', 'woman'],
+      enum: ['men', 'woman', 'women'],
     },
     serviceType: {
       type: String,
