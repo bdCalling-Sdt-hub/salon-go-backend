@@ -154,6 +154,9 @@ const getBusinessInformationForProfessional = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional not found!');
   }
 
+  if(payload.targetAudience) {
+    payload.targetAudience = payload?.targetAudience.toLowerCase() as 'men' | 'woman' | 'women' ;
+  }
   const result = await Professional.findByIdAndUpdate(
     { _id: user.userId },
     { $set: { ...payload } },
