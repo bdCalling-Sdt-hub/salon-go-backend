@@ -395,15 +395,16 @@ const getCategoryForProfessionalUpdateFromDB = async (categoryId?: string) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get categories');
   }
 
+  
   // Filter the categories for 'Men' and 'Woman'
   const filteredResult = result.filter(
-    (item) => item.name === 'Men' || item.name === 'Woman',
+    (item) => (item.name as string).toLowerCase() === 'men'  || (item.name as string).toLowerCase() === 'woman',
   );
 
   // Sort the filtered result to ensure 'Men' comes first, then 'Woman'
   const sortedResult = filteredResult.sort((a, b) => {
-    if (a.name === 'Men') return -1; // 'Men' should come first
-    if (b.name === 'Men') return 1;
+    if ((a.name).toLowerCase() === 'men') return -1; // 'Men' should come first
+    if ((b.name).toLowerCase() === 'men') return 1;
     return 0; // Keep 'Woman' in place if it's the only other option
   });
 
