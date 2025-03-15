@@ -41,7 +41,7 @@ const baseProfessionalBusinessSchema = z.object({
   body: z.object({
     name: z.string().optional(),
     businessName: z.string().optional(),
-    targetAudience: z.enum(['men', 'woman']).optional(),
+    targetAudience: z.enum(['men', 'woman', 'women', 'Woman', 'Men', 'Women']).optional(),
     serviceType: z.enum(['home', 'in-place']).optional(),
     travelFee: travelFeeSchema.optional(),
     description: z.string().optional(),
