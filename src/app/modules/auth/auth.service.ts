@@ -563,7 +563,7 @@ const socialLogin = async (appId: string,deviceId: string) => {
   session.startTransaction();
 
   try {
-    const isUserExist = await User.findOne({ appid: appId, status: { $in: ['active', 'restricted'] } , role: USER_ROLES.USER}).select('+appId +deviceId').session(session);
+    const isUserExist = await User.findOne({ appId: appId, status: { $in: ['active', 'restricted'] } , role: USER_ROLES.USER}).select('+appId +deviceId').session(session);
     const isCustomerExist = await Customer.findOne({auth: isUserExist?._id }).session(session);
     if (isUserExist) {
       const tokens = createTokens(isUserExist._id, isCustomerExist?._id as Types.ObjectId);
@@ -571,7 +571,7 @@ const socialLogin = async (appId: string,deviceId: string) => {
       return tokens;
     } else {
       
-      const newUser = await User.create([{ appid: appId, role: USER_ROLES.USER, password:"hello-world!", deviceId: deviceId }], { session });
+      const newUser = await User.create([{ appId: appId, role: USER_ROLES.USER, password:"hello-world!", deviceId: deviceId }], { session });
       const newCustomer = await Customer.create([{ auth: newUser[0]._id }], { session });
       
       if (!newUser || !newCustomer) {
