@@ -273,7 +273,7 @@ const updateSubSubCategoryToDB = async (
   id: string,
   payload: Partial<ISubSubCategory>,
 ): Promise<ISubSubCategory> => {
-  const result = await SubSubCategory.findOneAndUpdate({ _id: id }, payload, {
+  const result = await SubSubCategory.findOneAndUpdate({ _id: id }, {$set: payload}, {
     new: true,
   });
   if (!result) {
