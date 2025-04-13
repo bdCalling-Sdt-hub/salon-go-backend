@@ -158,9 +158,6 @@ const getPrivacyPolicy = async (
   type: string,
 ): Promise<IPrivacyPolicy | null> => {
   const result = await PrivacyPolicy.findOne({ userType: type });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get privacy policy');
-  }
   return result;
 };
 
@@ -168,20 +165,12 @@ const getTermsAndConditions = async (
   type: string,
 ): Promise<ITermsAndConditions | null> => {
   const result = await TermsAndCondition.findOne({ userType: type });
-  if (!result) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Failed to get terms and conditions',
-    );
-  }
+
   return result;
 };
 
 const getFaQs = async (type: string): Promise<IFaQs | null> => {
   const result = await FaQs.findOne({ userType: type });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get FaQs');
-  }
   return result;
 };
 
@@ -225,9 +214,6 @@ const deleteBanner = async (id: string) => {
 
 const getAbout = async (type: string): Promise<IAbout | null> => {
   const result = await About.findOne({ type: type });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get About us');
-  }
   return result;
 };
 
