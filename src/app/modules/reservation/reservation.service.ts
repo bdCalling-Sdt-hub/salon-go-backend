@@ -72,7 +72,7 @@ const createReservationToDB = async (
   if (auth.status !== 'active') {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'The requested professional cannot be booked right now!',
+      'The requested professional account is not active, please contact the professional.',
     );
   }
 
