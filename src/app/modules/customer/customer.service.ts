@@ -20,6 +20,7 @@ const getCustomerProfile = async (user: JwtPayload) => {
     select: {
       name: 1,
       email: 1,
+      phone:1,
       role: 1,
       contact: 1,
       status: 1,
