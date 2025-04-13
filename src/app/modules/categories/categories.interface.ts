@@ -24,7 +24,7 @@ export type ISubCategory = {
 
 export type ISubSubCategory = {
   name: string;
-  image: string;
+  image?: string;
   description?: string;
   type: string;
   createdAt: Date;

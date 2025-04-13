@@ -24,7 +24,7 @@ const createOrRemoveBookmark = catchAsync(
 const getAllBookmarks = catchAsync(async (req: Request, res: Response) => {
   const { userId } = req.user;
   const result = await BookmarkService.getAllBookmarks(userId);
-  sendResponse<IBookmark[] | null>(res, {
+  sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'All bookmarks retrieved successfully',
