@@ -28,7 +28,7 @@ const createOrRemoveBookmark = async (
   return `Bookmark created successfully`;
 };
 
-const getAllBookmarks = async (id: string): Promise<IBookmark[] | null> => {
+const getAllBookmarks = async (id: string) => {
   const isCustomerExist = await Customer.findById({ _id: id }, { _id: 1 });
   if (!isCustomerExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Customer doesn't exist!");
@@ -36,7 +36,7 @@ const getAllBookmarks = async (id: string): Promise<IBookmark[] | null> => {
 
   const result = await Bookmark.find({
     customer: isCustomerExist._id,
-  }).populate({
+  },{rating:1, totalReviews:1, auth:1}).populate<{professional:{_id:Types.ObjectId,auth:{_id:Types.ObjectId,status:string, name:string, profile:string, email:string}}}>({
     path: 'professional',
     populate: {
       path: 'auth',
@@ -44,13 +44,29 @@ const getAllBookmarks = async (id: string): Promise<IBookmark[] | null> => {
         name: 1,
         email: 1,
         profile: 1,
+        status:1
       },
     },
+  }).lean();
+
+
+  //return only the actives professionals
+  const activeProfessionals = result.filter((bookmark) => {
+    const professional = bookmark.professional;
+    return professional.auth.status === 'active';
   });
+
+
+
+
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get bookmarks');
   }
-  return result;
+
+
+ 
+
+  return activeProfessionals;
 };
 
 export const BookmarkService = {
