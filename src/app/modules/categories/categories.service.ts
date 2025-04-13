@@ -229,10 +229,11 @@ export const deleteSubCategoryToDB = async (id: string): Promise<string> => {
     }
 
     const category = await Category.findOneAndUpdate(
-      { subCategories: id },
-      { $pull: { subCategories: id } },
+      { subCategories: new Types.ObjectId(id) },
+      { $pull: { subCategories: new Types.ObjectId(id) } },
       { new: true, session },
     );
+    console.log(category,"🦥👍")
 
     const subCategory = await SubCategory.findOneAndDelete(
       { _id: id },
@@ -295,10 +296,12 @@ export const deleteSubSubCategoryToDB = async (id: string): Promise<string> => {
     }
 
     const subCategory = await SubCategory.findOneAndUpdate(
-      { subSubCategories: id },
-      { $pull: { subSubCategories: id } },
+      { subSubCategories: new Types.ObjectId(id) },
+      { $pull: { subSubCategories: new Types.ObjectId(id) } },
       { new: true, session },
     );
+
+    console.log(subCategory,"🦥")
 
     const subSubCategory = await SubSubCategory.findOneAndDelete(
       { _id: id },
