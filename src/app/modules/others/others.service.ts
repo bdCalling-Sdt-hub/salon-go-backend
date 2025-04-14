@@ -206,6 +206,8 @@ const getAbout = async (type: string): Promise<IAbout | null> => {
   return result;
 };
 
+
+
 export const OthersService = {
   createPrivacyPolicy,
   getPrivacyPolicy,
