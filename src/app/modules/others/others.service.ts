@@ -52,19 +52,8 @@ const addBanner = async (payload: IBanner, user: JwtPayload) => {
 
 const getBanners = async (user: JwtPayload) => {
   const result = await Banner.find().sort({ createdAt: -1 });
-  if (user.role === USER_ROLES.ADMIN) {
-    return result;
-  }
-  const groupedImages = result.reduce<string[][]>((acc, banner, index) => {
-    const groupIndex = Math.floor(index / 2);
-    if (!acc[groupIndex]) {
-      acc[groupIndex] = [];
-    }
-    acc[groupIndex].push(banner.imgUrl);
-    return acc;
-  }, []);
-
-  return groupedImages;
+ 
+  return result;
 };
 
 const getSingleBanner = async (id: string): Promise<IBanner | null> => {
