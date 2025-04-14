@@ -273,10 +273,16 @@ const createSubSubCategoryToDB = async (
 const updateSubSubCategoryToDB = async (
   id: string,
   payload: Partial<ISubSubCategory>,
-): Promise<ISubSubCategory> => {
-  const result = await SubSubCategory.findOneAndUpdate({ _id: id }, {$set: payload}, {
+): Promise<ISubSubCategory | null> => {
+  
+  console.log(payload, id)
+  
+  const result = await SubSubCategory.findOneAndUpdate({ _id: new Types.ObjectId(id) }, {$set: payload}, {
     new: true,
   });
+
+  console.log(result)
+
   if (!result) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
