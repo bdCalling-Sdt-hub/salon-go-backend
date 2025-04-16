@@ -58,19 +58,24 @@ const sendMessage = async (
   // Handle image upload if the message type is 'image' or 'both'
   if (payload.messageType === 'both' || payload.messageType === 'image') {
     if (payload.image && payload.image.length > 0) {
-      // Reduce image size by 30% before uploading
-      const resizedImageBuffer = await sharp(
-        Buffer.from(payload.image, 'base64'),
-      )
-        .resize({
-          fit: sharp.fit.inside,
-          withoutEnlargement: true,
-        })
-        .jpeg({
-          quality: 60, // Reduces quality to 60% (40% quality reduction)
-          mozjpeg: true, // Better compression
-        })
-        .toBuffer();
+      let resizedImageBuffer;
+      try {
+        resizedImageBuffer = await sharp(Buffer.from(payload.image, 'base64'))
+          .toFormat('jpeg')
+          .resize({
+            fit: sharp.fit.inside,
+            withoutEnlargement: true,
+          })
+          .jpeg({
+            quality: 60,
+            mozjpeg: true,
+            force: false,
+          })
+          .withMetadata()
+          .toBuffer();
+      } catch (error) {
+        resizedImageBuffer = Buffer.from(payload.image, 'base64');
+      }
 
       payload.image = resizedImageBuffer.toString('base64');
       const uploadedImage = await uploadToCloudinary(
