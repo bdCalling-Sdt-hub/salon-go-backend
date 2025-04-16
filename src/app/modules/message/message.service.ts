@@ -9,7 +9,6 @@ import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { uploadToCloudinary } from '../../../utils/cloudinary';
 import sendMessageRelatedInfo from '../../../helpers/socketMessageHelper';
-import sharp from 'sharp';
 
 const sendMessage = async (
   user: JwtPayload,
@@ -58,26 +57,6 @@ const sendMessage = async (
   // Handle image upload if the message type is 'image' or 'both'
   if (payload.messageType === 'both' || payload.messageType === 'image') {
     if (payload.image && payload.image.length > 0) {
-      let resizedImageBuffer;
-      try {
-        resizedImageBuffer = await sharp(Buffer.from(payload.image, 'base64'))
-          .toFormat('jpeg')
-          .resize({
-            fit: sharp.fit.inside,
-            withoutEnlargement: true,
-          })
-          .jpeg({
-            quality: 60,
-            mozjpeg: true,
-            force: false,
-          })
-          .withMetadata()
-          .toBuffer();
-      } catch (error) {
-        resizedImageBuffer = Buffer.from(payload.image, 'base64');
-      }
-
-      payload.image = resizedImageBuffer.toString('base64');
       const uploadedImage = await uploadToCloudinary(
         payload.image,
         'message',
