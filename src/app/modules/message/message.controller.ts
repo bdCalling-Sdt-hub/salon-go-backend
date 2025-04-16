@@ -16,7 +16,11 @@ const sendMessage = catchAsync(async (req: Request, res: Response) => {
     messageData.image = req.files.image[0].path;
   }
 
-  const result = await MessageService.sendMessage(req.user,messageData, chatId);
+  const result = await MessageService.sendMessage(
+    req.user,
+    messageData,
+    chatId,
+  );
 
   sendResponse(res, {
     success: true,

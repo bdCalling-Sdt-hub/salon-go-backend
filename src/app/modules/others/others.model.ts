@@ -87,6 +87,7 @@ const bannerSchema = new Schema<IBanner, BannerModel>(
     },
     link: {
       type: String,
+      default: '',
     },
     isActive: {
       type: Boolean,
