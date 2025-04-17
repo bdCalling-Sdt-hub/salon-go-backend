@@ -376,12 +376,9 @@ const forgetPasswordToDB = async (email?: string, contact?: string) => {
 
   if (email) {
     const emailValue = {
-      email: isExistUser.email,
+      email: email,
       otp,
     };
-
-    console.log(isExistUser);
-    console.log(email);
 
     //send mail
     const forgetPassword = emailTemplate.resetPassword(emailValue);
