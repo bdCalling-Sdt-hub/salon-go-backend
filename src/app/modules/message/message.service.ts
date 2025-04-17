@@ -91,6 +91,8 @@ const sendMessage = async (
     ),
   ]);
 
+  console.log(updatedChat, 'updatedChat');
+
   // Send message-related information via socket
   sendMessageRelatedInfo('getMessage', chatId, populatedResult);
 
@@ -105,6 +107,7 @@ const sendMessage = async (
     unreadCount,
   };
 
+  console.log(customizedChat);
   // Send updated chat information to the other participant
   sendMessageRelatedInfo(
     'getUnreadChat',

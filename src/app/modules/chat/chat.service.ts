@@ -35,7 +35,9 @@ const accessChat = async (
   let chat = await Chat.findOne({
     participants: { $all: [requestUserAuthId, participantAuthId] },
   })
-    .populate<{participants:[{_id:Types.ObjectId, name:string, profile:string}]}>({
+    .populate<{
+      participants: [{ _id: Types.ObjectId; name: string; profile: string }];
+    }>({
       path: 'participants',
       select: { name: 1, profile: 1 },
     })
@@ -53,7 +55,9 @@ const accessChat = async (
     chat = await Chat.findOne({
       participants: { $all: [requestUserAuthId, participantAuthId] },
     })
-      .populate<{participants:[{_id:Types.ObjectId, name:string, profile:string}]}>({
+      .populate<{
+        participants: [{ _id: Types.ObjectId; name: string; profile: string }];
+      }>({
         path: 'participants',
         select: { name: 1, profile: 1 },
       })
@@ -62,9 +66,6 @@ const accessChat = async (
         select: { message: 1 },
       })
       .lean();
-
-    
- 
 
     if (!chat) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create chat.');
@@ -75,12 +76,11 @@ const accessChat = async (
     (participant: any) => participant._id.toString() !== user.id,
   );
 
-
   const processedData = {
     _id: participantData?._id,
-    name: participantData?.name || "NA",
-    profile: participantData?.profile || ""
-  }
+    name: participantData?.name || 'NA',
+    profile: participantData?.profile || '',
+  };
 
   const latestMessageData = (chat.latestMessage as Partial<IMessage>) || {};
   const message = latestMessageData.message || ''; // Default to an empty string
@@ -88,22 +88,25 @@ const accessChat = async (
 
   //mark as read
   await Message.updateMany(
-    { chatId: chat._id, isRead: false, receiverId: new Types.ObjectId(user.id) },
+    {
+      chatId: chat._id,
+      isRead: false,
+      receiverId: new Types.ObjectId(user.id),
+    },
     { isRead: true },
   );
 
-  const returnData ={
+  const returnData = {
     chatId: chat._id,
     ...processedData,
     latestMessage: message ?? null,
     latestMessageTime: latestMessageTime,
-    unreadCount:0
-  }
-   //send newly created chat to the user
-    //@ts-ignore
-    const socket = global.io;
+    unreadCount: 0,
+  };
+  //send newly created chat to the user
+  //@ts-ignore
+  const socket = global.io;
   socket.emit(`accessChat::${user.userId}`, returnData);
-
 
   return returnData;
 };
@@ -123,7 +126,9 @@ const getChatListByUserId = async (
 
   // Fetch chats with base query and pagination
   const chats = await Chat.find(baseQuery)
-    .populate<{participants:[{_id:Types.ObjectId, name:string, profile:string}]}>({
+    .populate<{
+      participants: [{ _id: Types.ObjectId; name: string; profile: string }];
+    }>({
       path: 'participants',
       select: { name: 1, profile: 1 },
     })
@@ -131,13 +136,13 @@ const getChatListByUserId = async (
       path: 'latestMessage',
       select: {
         message: 1,
+        latestMessageTime: 1,
       },
     })
     .sort({ [sortBy]: sortOrder })
     .skip(skip)
     .limit(limit)
     .lean();
-
 
   if (!chats || chats.length === 0) {
     return {
@@ -172,13 +177,13 @@ const getChatListByUserId = async (
     const message = latestMessageData.message || ''; // Default to an empty string
     const { latestMessageTime } = chat;
 
+    console.log(latestMessageTime, 'latestMessageTime');
 
     const processedData = {
       _id: otherParticipant?._id,
-      name: otherParticipant?.name || "NA",
-      profile: otherParticipant?.profile || ""
-    }
-  
+      name: otherParticipant?.name || 'NA',
+      profile: otherParticipant?.profile || '',
+    };
 
     return {
       chatId: chat._id,
@@ -188,55 +193,54 @@ const getChatListByUserId = async (
     };
   });
 
-   // Recalculate the total based on the search filter
-   const total = await Chat.find(baseQuery)
-   .populate('participants', { name: 1, profile: 1 })
-   .lean()
-   .then(
-     (allChats) =>
-       allChats.filter((chat) =>
-         searchTerm
-           ? chat.participants.some(
-               (participant) =>
-                 'name' in participant &&
-                 participant.name
-                   .toLowerCase()
-                   .includes(searchTerm.toLowerCase()),
-             )
-           : true,
-       ).length,
-   );
+  // Recalculate the total based on the search filter
+  const total = await Chat.find(baseQuery)
+    .populate('participants', { name: 1, profile: 1 })
+    .lean()
+    .then(
+      (allChats) =>
+        allChats.filter((chat) =>
+          searchTerm
+            ? chat.participants.some(
+                (participant) =>
+                  'name' in participant &&
+                  participant.name
+                    .toLowerCase()
+                    .includes(searchTerm.toLowerCase()),
+              )
+            : true,
+        ).length,
+    );
 
- // Count unread messages for each chat and add the count to each chat
- const chatIds = result.map((chat) => chat.chatId);
+  // Count unread messages for each chat and add the count to each chat
+  const chatIds = result.map((chat) => chat.chatId);
 
- const unreadCounts = await Message.aggregate([
-   {
-     $match: {
-       chatId: { $in: chatIds },
-       receiverId: new Types.ObjectId(user.id),
-       isRead: false,
-     },
-   },
-   {
-     $group: {
-       _id: '$chatId',
-       count: { $sum: 1 },
-     },
-   },
- ]);
+  const unreadCounts = await Message.aggregate([
+    {
+      $match: {
+        chatId: { $in: chatIds },
+        receiverId: new Types.ObjectId(user.id),
+        isRead: false,
+      },
+    },
+    {
+      $group: {
+        _id: '$chatId',
+        count: { $sum: 1 },
+      },
+    },
+  ]);
 
+  // Create a map of chatId to unread message count
+  const unreadCountMap = new Map(
+    unreadCounts.map((item) => [item._id.toString(), item.count]),
+  );
 
- // Create a map of chatId to unread message count
- const unreadCountMap = new Map(
-   unreadCounts.map((item) => [item._id.toString(), item.count]),
- );
-
- // Append unread message count to each chat
- const resultWithUnreadCount = result.map((chat) => ({
-   ...chat,
-   unreadCount: unreadCountMap.get(chat.chatId.toString()) || 0,
- }));
+  // Append unread message count to each chat
+  const resultWithUnreadCount = result.map((chat) => ({
+    ...chat,
+    unreadCount: unreadCountMap.get(chat.chatId.toString()) || 0,
+  }));
 
   return {
     meta: {
@@ -246,8 +250,8 @@ const getChatListByUserId = async (
       totalPage: Math.ceil(total / limit),
     },
     data: resultWithUnreadCount,
+  };
 };
-}
 export const ChatService = {
   accessChat,
   getChatListByUserId,
