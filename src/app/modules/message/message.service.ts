@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 /* eslint-disable no-undef */
 import { JwtPayload } from 'jsonwebtoken';
 import { IMessage } from './message.interface';
@@ -85,8 +86,8 @@ const sendMessage = async (
     }),
     Message.countDocuments({ chatId, isRead: false }),
     Chat.findByIdAndUpdate(
-      payload.chatId,
-      { latestMessage: result._id, latestMessageTime: new Date() },
+      new Types.ObjectId(chatId),
+      { $set: { latestMessage: result._id, latestMessageTime: new Date() } },
       { new: true },
     ),
   ]);
