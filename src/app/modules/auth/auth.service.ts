@@ -313,6 +313,8 @@ const verifyEmailOrPhoneToDB = async (payload: IVerifyEmailOrPhone) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
+  console.log(isExistUser.authentication, oneTimeCode);
+
   if (isExistUser.authentication?.oneTimeCode !== oneTimeCode) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'You provided wrong otp');
   }
