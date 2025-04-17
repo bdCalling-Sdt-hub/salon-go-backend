@@ -312,7 +312,12 @@ const verifyEmailOrPhoneToDB = async (payload: IVerifyEmailOrPhone) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  console.log(isExistUser, isExistUser.authentication, oneTimeCode);
+  if (isExistUser.status === 'delete') {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'You don’t have permission to access this content. It looks like your account has been deactivated.',
+    );
+  }
 
   if (isExistUser.authentication?.oneTimeCode !== oneTimeCode) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'You provided wrong otp');
@@ -358,7 +363,7 @@ const verifyEmailOrPhoneToDB = async (payload: IVerifyEmailOrPhone) => {
 //forget password
 const forgetPasswordToDB = async (email?: string, contact?: string) => {
   const isExistUser = await User.findOne({
-    $or: [{ email: email }, { contact: contact }],
+    email: email,
   });
   if (!isExistUser) {
     throw new ApiError(
@@ -366,6 +371,14 @@ const forgetPasswordToDB = async (email?: string, contact?: string) => {
       `No user found with this ${email ? 'email' : 'contact'}`,
     );
   }
+
+  if (isExistUser.status === 'delete') {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'You don’t have permission to access this content. It looks like your account has been deactivated.',
+    );
+  }
+
   const otp = generateOTP();
 
   //save to DB
