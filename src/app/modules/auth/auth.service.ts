@@ -31,6 +31,7 @@ import getNextOnboardingStep from '../professional/professional.utils';
 import twilio from 'twilio';
 import { createTokens } from './auth.utils';
 import mongoose, { Types } from 'mongoose';
+import { isUidIdentifier } from 'firebase-admin/lib/auth/identifier';
 
 const accountSid = config.twilio.account_sid;
 const authToken = config.twilio.auth_token;
@@ -91,7 +92,6 @@ const loginUserFromDB = async (
 
   //create a new password hash
 
-
   // Check verified and status
   if (!isExistUser.verified) {
     throw new ApiError(
@@ -108,7 +108,7 @@ const loginUserFromDB = async (
   }
 
   // Match the password
-  if (!await bcrypt.compare(password, isExistUser.password)) {
+  if (!(await bcrypt.compare(password, isExistUser.password))) {
     if (isExistUser.wrongLoginAttempts >= 5) {
       isExistUser.status = 'restricted';
       isExistUser.restrictionLeftAt = new Date(Date.now() + 10 * 60 * 1000); // Restrict for 1 day
@@ -181,9 +181,6 @@ const refreshToken = async (
       token,
       config.jwt.jwt_refresh_secret as Secret,
     );
-
-
-
   } catch (error) {
     if (error instanceof Error && error.name === 'TokenExpiredError') {
       throw new ApiError(StatusCodes.UNAUTHORIZED, 'Refresh Token has expired');
@@ -359,10 +356,14 @@ const verifyEmailOrPhoneToDB = async (payload: IVerifyEmailOrPhone) => {
 
 //forget password
 const forgetPasswordToDB = async (email?: string, contact?: string) => {
-
-  const isExistUser = await User.findOne({ $or: [{ email: email }, { contact: contact }] });
+  const isExistUser = await User.findOne({
+    $or: [{ email: email }, { contact: contact }],
+  });
   if (!isExistUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, `No user found with this ${email ? 'email' : 'contact'}`);
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      `No user found with this ${email ? 'email' : 'contact'}`,
+    );
   }
   const otp = generateOTP();
 
@@ -375,9 +376,12 @@ const forgetPasswordToDB = async (email?: string, contact?: string) => {
 
   if (email) {
     const emailValue = {
-      otp,
       email: isExistUser.email,
+      otp,
     };
+
+    console.log(isExistUser);
+    console.log(email);
 
     //send mail
     const forgetPassword = emailTemplate.resetPassword(emailValue);
@@ -557,25 +561,49 @@ const deleteAccount = async (user: JwtPayload, password: string) => {
   return isUserExist;
 };
 
-
-const socialLogin = async (appId: string,deviceId: string) => {
+const socialLogin = async (appId: string, deviceId: string) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const isUserExist = await User.findOne({ appId: appId, status: { $in: ['active', 'restricted'] } , role: USER_ROLES.USER}).select('+appId +deviceId').session(session);
-    const isCustomerExist = await Customer.findOne({auth: isUserExist?._id }).session(session);
+    const isUserExist = await User.findOne({
+      appId: appId,
+      status: { $in: ['active', 'restricted'] },
+      role: USER_ROLES.USER,
+    })
+      .select('+appId +deviceId')
+      .session(session);
+    const isCustomerExist = await Customer.findOne({
+      auth: isUserExist?._id,
+    }).session(session);
     if (isUserExist) {
-      const tokens = createTokens(isUserExist._id, isCustomerExist?._id as Types.ObjectId);
+      const tokens = createTokens(
+        isUserExist._id,
+        isCustomerExist?._id as Types.ObjectId,
+      );
       await session.commitTransaction();
       return tokens;
     } else {
-      
-      const newUser = await User.create([{ appId: appId, role: USER_ROLES.USER, password:"hello-world!", deviceId: deviceId }], { session });
-      const newCustomer = await Customer.create([{ auth: newUser[0]._id }], { session });
-      
+      const newUser = await User.create(
+        [
+          {
+            appId: appId,
+            role: USER_ROLES.USER,
+            password: 'hello-world!',
+            deviceId: deviceId,
+          },
+        ],
+        { session },
+      );
+      const newCustomer = await Customer.create([{ auth: newUser[0]._id }], {
+        session,
+      });
+
       if (!newUser || !newCustomer) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, 'User or Customer creation failed');
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'User or Customer creation failed',
+        );
       }
 
       const tokens = createTokens(newUser[0]._id, newCustomer[0].id);
@@ -584,32 +612,28 @@ const socialLogin = async (appId: string,deviceId: string) => {
     }
   } catch (error) {
     await session.abortTransaction();
-  
+
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Social login failed');
   } finally {
-   await session.endSession();
+    await session.endSession();
   }
 };
 
-
-
 const verifyTheUserAfterOtp = async (contact: string) => {
-
   const result = await User.findOneAndUpdate(
-    { contact:contact },
+    { contact: contact },
     { $set: { verified: true } },
     { new: true },
   );
 
-  if(!result){
+  if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found!');
   }
 
-  let accessToken = "";
-  if(result.role === USER_ROLES.PROFESSIONAL){
-
+  let accessToken = '';
+  if (result.role === USER_ROLES.PROFESSIONAL) {
     const professional = await Professional.findOne({ auth: result._id });
-    if(!professional){
+    if (!professional) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional not found!');
     }
     accessToken = jwtHelper.createToken(
@@ -622,16 +646,12 @@ const verifyTheUserAfterOtp = async (contact: string) => {
       config.jwt.jwt_secret as Secret,
       config.jwt.jwt_expire_in as string,
     );
-  
   }
 
   return { accessToken, message: 'Account verification is successful.' };
 };
 
-
-const deleteUserIfFailureOccurred = async (id:Types.ObjectId) => {
-
- 
+const deleteUserIfFailureOccurred = async (id: Types.ObjectId) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -640,27 +660,35 @@ const deleteUserIfFailureOccurred = async (id:Types.ObjectId) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found');
   }
 
-  if(isUserExist.verified){
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Verified user cannot be deleted');
+  if (isUserExist.verified) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Verified user cannot be deleted',
+    );
   }
 
   try {
-
     const result = await User.findByIdAndDelete(id, { session });
     if (!result) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Delete user failed');
     }
 
-    if(result.role === USER_ROLES.PROFESSIONAL) {
-      const professionalDeleteResult = await Professional.findOneAndDelete({auth:isUserExist._id}, { session });
-      if (!professionalDeleteResult) {  
+    if (result.role === USER_ROLES.PROFESSIONAL) {
+      const professionalDeleteResult = await Professional.findOneAndDelete(
+        { auth: isUserExist._id },
+        { session },
+      );
+      if (!professionalDeleteResult) {
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Delete user failed');
       }
     }
 
-    if(result.role === USER_ROLES.USER) {
-      const customerDeleteResult = await Customer.findOneAndDelete({auth:isUserExist._id}, { session });
-      if (!customerDeleteResult) {  
+    if (result.role === USER_ROLES.USER) {
+      const customerDeleteResult = await Customer.findOneAndDelete(
+        { auth: isUserExist._id },
+        { session },
+      );
+      if (!customerDeleteResult) {
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Delete user failed');
       }
     }
@@ -678,8 +706,6 @@ const deleteUserIfFailureOccurred = async (id:Types.ObjectId) => {
   }
 };
 
-
-
 export const AuthService = {
   verifyEmailOrPhoneToDB,
   loginUserFromDB,
@@ -691,5 +717,5 @@ export const AuthService = {
   deleteAccount,
   socialLogin,
   verifyTheUserAfterOtp,
-  deleteUserIfFailureOccurred
+  deleteUserIfFailureOccurred,
 };
