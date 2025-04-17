@@ -306,13 +306,13 @@ const verifyEmailOrPhoneToDB = async (payload: IVerifyEmailOrPhone) => {
     );
   }
   const isExistUser = await User.findOne({
-    $or: [{ email: email }, { contact: contact }],
+    email: email,
   }).select('+authentication');
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  console.log(isExistUser.authentication, oneTimeCode);
+  console.log(isExistUser, isExistUser.authentication, oneTimeCode);
 
   if (isExistUser.authentication?.oneTimeCode !== oneTimeCode) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'You provided wrong otp');
