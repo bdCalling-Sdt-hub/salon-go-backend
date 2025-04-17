@@ -305,10 +305,9 @@ const verifyEmailOrPhoneToDB = async (payload: IVerifyEmailOrPhone) => {
       }.`,
     );
   }
-  const isExistUser = await User.findOne(
-    { $or: [{ email: email }, { contact: contact }] },
-    { vendor: 1, role: 1, _id: 1, email: 1, verified: 1 },
-  ).select('+authentication');
+  const isExistUser = await User.findOne({
+    $or: [{ email: email }, { contact: contact }],
+  }).select('+authentication');
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
