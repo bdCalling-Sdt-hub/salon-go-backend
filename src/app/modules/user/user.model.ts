@@ -86,6 +86,9 @@ const userSchema = new Schema<IUser, UserModel>(
   },
 );
 
+userSchema.index({ email: 1 });
+userSchema.index({ email: 1, status: 1 });
+
 //exist user check
 userSchema.statics.isExistUserById = async (id: string) => {
   const isExist = await User.findById({
@@ -113,7 +116,6 @@ userSchema.statics.isMatchPassword = async (
 
 //check user
 userSchema.pre('save', async function (next) {
-
   //password hash
   this.password = await bcrypt.hash(
     this.password,

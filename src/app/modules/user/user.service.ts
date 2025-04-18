@@ -21,7 +21,10 @@ import { JwtPayload } from 'jsonwebtoken';
 import { sendOtp } from '../../../helpers/twilio.helper';
 import { Reservation } from '../reservation/reservation.model';
 
-type IPayload = Pick<IUser & { businessName: string }, 'email' | 'password' | 'name' | 'role' | 'contact' | 'businessName'>;
+type IPayload = Pick<
+  IUser & { businessName: string },
+  'email' | 'password' | 'name' | 'role' | 'contact' | 'businessName'
+>;
 
 const createUserToDB = async (payload: IPayload): Promise<IUser> => {
   const { ...user } = payload;
@@ -31,10 +34,7 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
 
   //check if the user email exist with any active account
   const isExistUser = await User.findOne({
-    $or: [
-      { email: user.email },
-      { contact: user.contact },
-    ],
+    $or: [{ email: user.email }, { contact: user.contact }],
     status: { $in: ['active', 'restricted'] },
   });
   if (isExistUser) {
@@ -57,9 +57,12 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
     if (user.role === USER_ROLES.ADMIN) {
       createdUser = await Admin.create([{ auth: newUser[0]._id }], { session });
     } else if (user.role === USER_ROLES.PROFESSIONAL) {
-      createdUser = await Professional.create([{ auth: newUser[0]._id, businessName: user.businessName }], {
-        session,
-      });
+      createdUser = await Professional.create(
+        [{ auth: newUser[0]._id, businessName: user.businessName }],
+        {
+          session,
+        },
+      );
     } else {
       createdUser = await Customer.create([{ auth: newUser[0]._id }], {
         session,
@@ -105,7 +108,7 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
     { _id: newUserData!._id },
     { $set: { authentication } },
   );
-  
+
   return newUserData!;
 };
 
@@ -113,7 +116,12 @@ const getUserProfileFromDB = async (user: JwtPayload) => {
   let userData = null;
 
   if (user.role === USER_ROLES.ADMIN) {
-    userData = await Admin.findOne({ _id: user.userId }).lean();
+    userData = await Admin.findOne({ _id: user.userId })
+      .populate({
+        path: 'auth',
+        select: { name: 1, email: 1, role: 1, status: 1, needInformation: 1 },
+      })
+      .lean();
     if (!userData) {
       throw new ApiError(StatusCodes.NOT_FOUND, "Admin doesn't exist!");
     }
@@ -143,9 +151,9 @@ const getUserProfileFromDB = async (user: JwtPayload) => {
       Reservation.countDocuments({
         professional: user.userId,
         status: 'completed',
-      }), 
+      }),
     ]);
-    
+
     userData = { ...userData, totalReservations, totalCompletedReservations };
 
     if (!userData) {
@@ -220,7 +228,6 @@ const getAllUser = async (
 };
 
 const restrictOrUnrestrictUser = async (id: Types.ObjectId) => {
-
   const user = await User.findById(id);
   if (!user) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found');
@@ -232,7 +239,7 @@ const restrictOrUnrestrictUser = async (id: Types.ObjectId) => {
       {
         new: true,
       },
-    )
+    );
     return `${user?.name} is un-restricted`;
   }
   const result = await User.findByIdAndUpdate(
@@ -242,7 +249,6 @@ const restrictOrUnrestrictUser = async (id: Types.ObjectId) => {
       new: true,
     },
   );
-
 
   return `${result?.name} is restricted`;
 };
@@ -265,7 +271,6 @@ const approveUser = async (id: Types.ObjectId) => {
 
   return `${result?.name} is approved`;
 };
-
 
 export const UserService = {
   createUserToDB,
