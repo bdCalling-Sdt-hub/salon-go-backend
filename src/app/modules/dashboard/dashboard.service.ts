@@ -168,9 +168,21 @@ const getTopProfessionals = async () => {
   // Step 1: Fetch professionals with review count and average rating
   const professionalsWithRatings = await Professional.aggregate([
     {
+      $lookup: {
+        from: 'users',
+        localField: 'auth',
+        foreignField: '_id',
+        as: 'authDetails',
+      },
+    },
+    {
+      $unwind: '$authDetails',
+    },
+    {
       $project: {
-        name: 1,
-        image: 1,
+        name: '$authDetails.name',
+        profile: '$authDetails.profile',
+
         isFreelance: 1,
         totalReviews: 1,
         rating: 1, // Average rating
@@ -271,7 +283,7 @@ const getFreelancerVsProfessional = async () => {
       },
     },
   ]);
-    
+
   // Map data for freelancer and professional completion rates
   const freelancerData = completedReservations.find(
     (data) => data._id === true,
@@ -529,8 +541,6 @@ const generateTimeSlots = async (
   endTime: string,
   interval: number,
 ) => {
-
-
   // Helper function to convert time string (e.g., '9:30 am') to minutes from midnight
   const timeToMinutes = (time: string): number => {
     const [timePart, period] = time.split(' ');
@@ -568,7 +578,6 @@ const generateTimeSlots = async (
 };
 
 const getUserEngagement = async (year?: string) => {
-
   const startOfYear = new Date(`${year}-01-01T00:00:00.000Z`);
   const endOfYear = new Date(`${year}-12-31T23:59:59.999Z`);
   try {
