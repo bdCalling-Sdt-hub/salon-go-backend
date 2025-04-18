@@ -224,7 +224,7 @@ const getTopProfessionals = async () => {
     return professionals.map((professional) => ({
       professionalId: professional._id,
       name: professional.name,
-      image: professional.image,
+      profile: professional.profile,
       averageRating: professional.rating,
       reviewCount: professional.totalReviews,
       weightedRating: professional.weightedRating,
