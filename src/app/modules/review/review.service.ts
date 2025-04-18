@@ -1,3 +1,5 @@
+import { populate } from 'dotenv';
+import { Types } from 'mongoose';
 import mongoose from 'mongoose';
 import { IReview } from './review.interface';
 import { Review } from './review.model';
@@ -16,10 +18,12 @@ import { IService } from '../service/service.interface';
 
 const createReviewToDB = async (user: JwtPayload, payload: IReview) => {
   const session = await mongoose.startSession();
-const reservationExists = await Reservation.findById(payload.reservation).session(session);
-if (!reservationExists) {
-  throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
-}
+  const reservationExists = await Reservation.findById(
+    payload.reservation,
+  ).session(session);
+  if (!reservationExists) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Reservation not found');
+  }
   try {
     session.startTransaction();
 
@@ -52,7 +56,19 @@ if (!reservationExists) {
 
     // Create review
     payload.customer = user.userId;
-    const [result] = await Review.create([{professional: reservationExists.professional, reservation: reservationExists._id, service: reservationExists.service, rating: payload.rating, review: payload.review, customer: user.userId}], { session });
+    const [result] = await Review.create(
+      [
+        {
+          professional: reservationExists.professional,
+          reservation: reservationExists._id,
+          service: reservationExists.service,
+          rating: payload.rating,
+          review: payload.review,
+          customer: user.userId,
+        },
+      ],
+      { session },
+    );
 
     // Update service rating
     const serviceNewRating = parseFloat(
@@ -160,9 +176,9 @@ const getReviews = async (
 
   const query =
     user.role === 'customer'
-      ? { customer: user.userId }
+      ? { customer: new Types.ObjectId(user.userId) }
       : user.role === 'professional'
-      ? { professional: user.userId }
+      ? { professional: new Types.ObjectId(user.userId) }
       : {};
 
   const result = await Review.find(query)
@@ -183,6 +199,21 @@ const getReviews = async (
         select: {
           _id: 0,
           name: 1,
+        },
+      },
+    })
+    .populate({
+      path: 'reservation',
+      select: {
+        _id: 1,
+        service: 1,
+        date: 1,
+      },
+      populate: {
+        path: 'service',
+        select: {
+          _id: 0,
+          title: 1,
         },
       },
     })
