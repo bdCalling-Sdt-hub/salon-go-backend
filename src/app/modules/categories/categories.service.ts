@@ -63,14 +63,13 @@ const getAllSubSubCategories = async () => {
   }));
 };
 const createCategoryToDB = async (payload: ICategory): Promise<ICategory> => {
-
   if (payload.image) {
     const uploadedImage = await uploadToCloudinary(
       payload.image,
       'categories',
       'image',
     );
-   
+
     if (!uploadedImage) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
@@ -111,7 +110,7 @@ const updateCategoryToDB = async (
 
     payload.image = uploadedImage[0];
   }
-  
+
   const result = await Category.findOneAndUpdate(
     { _id: id },
     { $set: { ...payload } },
@@ -233,7 +232,7 @@ export const deleteSubCategoryToDB = async (id: string): Promise<string> => {
       { $pull: { subCategories: new Types.ObjectId(id) } },
       { new: true, session },
     );
-    console.log(category,"🦥👍")
+    console.log(category, '🦥👍');
 
     const subCategory = await SubCategory.findOneAndDelete(
       { _id: id },
@@ -274,14 +273,13 @@ const updateSubSubCategoryToDB = async (
   id: string,
   payload: Partial<ISubSubCategory>,
 ): Promise<ISubSubCategory | null> => {
-  
-  console.log(payload, id)
-  
-  const result = await SubSubCategory.findOneAndUpdate({ _id: new Types.ObjectId(id) }, {$set: payload}, {
-    new: true,
-  });
-
-  console.log(result)
+  const result = await SubSubCategory.findOneAndUpdate(
+    { _id: new Types.ObjectId(id) },
+    { $set: payload },
+    {
+      new: true,
+    },
+  );
 
   if (!result) {
     throw new ApiError(
@@ -307,7 +305,7 @@ export const deleteSubSubCategoryToDB = async (id: string): Promise<string> => {
       { new: true, session },
     );
 
-    console.log(subCategory,"🦥")
+    console.log(subCategory, '🦥');
 
     const subSubCategory = await SubSubCategory.findOneAndDelete(
       { _id: id },
@@ -406,13 +404,16 @@ const getCategoryForProfessionalUpdateFromDB = async (categoryId?: string) => {
 
   // Filter the categories for 'Men' and 'Women'
   const filteredResult = result.filter(
-    (item) => (item.name as string).toLowerCase() === 'men'  || (item.name as string).toLowerCase() === 'women' || (item.name as string).toLowerCase() === 'woman',
+    (item) =>
+      (item.name as string).toLowerCase() === 'men' ||
+      (item.name as string).toLowerCase() === 'women' ||
+      (item.name as string).toLowerCase() === 'woman',
   );
 
   // Sort the filtered result to ensure 'Men' comes first, then 'Woman'
   const sortedResult = filteredResult.sort((a, b) => {
-    if ((a.name).toLowerCase() === 'men') return -1; // 'Men' should come first
-    if ((b.name).toLowerCase() === 'men') return 1;
+    if (a.name.toLowerCase() === 'men') return -1; // 'Men' should come first
+    if (b.name.toLowerCase() === 'men') return 1;
     return 0; // Keep 'Woman' in place if it's the only other option
   });
 
@@ -487,7 +488,9 @@ const getSubSubCategoriesByProfessionalId = async (
 ) => {
   const professionalId = id ? id : user.userId;
 
-  const professional = await Professional.findById(professionalId).populate<{subCategories: {subSubCategories: Array<ISubSubCategory>}}>({
+  const professional = await Professional.findById(professionalId).populate<{
+    subCategories: { subSubCategories: Array<ISubSubCategory> };
+  }>({
     path: 'subCategories',
     populate: {
       path: 'subSubCategories',
@@ -501,15 +504,20 @@ const getSubSubCategoriesByProfessionalId = async (
 
   const uniqueSubSubCategories = new Set();
 
-  if (!professional.subCategories || !Array.isArray(professional.subCategories)) {
+  if (
+    !professional.subCategories ||
+    !Array.isArray(professional.subCategories)
+  ) {
     return [];
   }
 
-  professional.subCategories.forEach(subCategory => {
+  professional.subCategories.forEach((subCategory) => {
     if (subCategory.subSubCategories) {
-      subCategory.subSubCategories.forEach((subSubCategory: ISubSubCategory) => {
-        uniqueSubSubCategories.add(subSubCategory);
-      });
+      subCategory.subSubCategories.forEach(
+        (subSubCategory: ISubSubCategory) => {
+          uniqueSubSubCategories.add(subSubCategory);
+        },
+      );
     }
   });
 
@@ -524,8 +532,8 @@ const getSubSubCategoriesByProfessionalId = async (
 // ) => {
 
 //   const all = new SubCategory({
-//     _id: new Types.ObjectId("67a1e1942ecb947b28a4c857"),  
-//     name: 'All',  
+//     _id: new Types.ObjectId("67a1e1942ecb947b28a4c857"),
+//     name: 'All',
 //   });
 
 //   const id = professionalId ? professionalId : user.userId;
@@ -552,7 +560,6 @@ const getSubSubCategoriesByProfessionalId = async (
 
 //   } else if (!subCategoryId) {
 
-
 //     const categoryId = isUserExist.categories![0];
 //     const category = await Category.findById(categoryId).populate(
 //       'subCategories',
@@ -577,7 +584,6 @@ const getSubSubCategoriesByProfessionalId = async (
 //     return subCategory.subSubCategories || [];
 //   }
 // };
-
 
 const getSubCategoriesAndSubSubCategoriesForFiltering = async (
   user: JwtPayload,
@@ -641,7 +647,6 @@ const getSubCategoriesAndSubSubCategoriesForFiltering = async (
       return [];
     }
 
-
     return category.subCategories || [];
   } else {
     const subCategory = await SubCategory.findById(subCategoryId).populate(
@@ -661,7 +666,6 @@ const getSubCategoriesAndSubSubCategoriesForFiltering = async (
 };
 
 export default getSubCategoriesAndSubSubCategoriesForFiltering;
-
 
 export const CategoriesServices = {
   getAllCategories,
@@ -687,5 +691,5 @@ export const CategoriesServices = {
 
   //get category for professional update
   getSubCategoriesFromDB,
-  getSubCategoriesAndSubSubCategoriesForFiltering
+  getSubCategoriesAndSubSubCategoriesForFiltering,
 };
