@@ -27,8 +27,9 @@ const updateAdminProfile = async (
   const session = await mongoose.startSession();
   session.startTransaction();
   const { name, profile, ...adminFields } = payload;
-  const { path } = profile as any;
-
+  let path;
+  //@ts-ignore
+  if (profile) path = profile.path;
   const userExist = await Admin.findById(user.userId).populate<{
     auth: IUser;
   }>({
@@ -69,7 +70,10 @@ const updateAdminProfile = async (
       );
 
       // Rollback uploaded image if User update fails
-      if (!userUpdateResult || (profile && userUpdateResult.profile !== uploadedImageUrl)) {
+      if (
+        !userUpdateResult ||
+        (profile && userUpdateResult.profile !== uploadedImageUrl)
+      ) {
         if (uploadedImageUrl) {
           await deleteResourcesFromCloudinary(uploadedImageUrl, 'image', true);
         }
@@ -118,12 +122,13 @@ const updateAdminProfile = async (
   }
 };
 
-
 const recommendProfessional = async (id: string) => {
-  const professional = await Professional.findById(id).populate<{auth: IUser}>({
+  const professional = await Professional.findById(id).populate<{
+    auth: IUser;
+  }>({
     path: 'auth',
     select: {
-      name: 1
+      name: 1,
     },
   });
   if (!professional) {
@@ -132,10 +137,10 @@ const recommendProfessional = async (id: string) => {
   const status = !professional.recommended;
   await Professional.findByIdAndUpdate(id, { $set: { recommended: status } });
   return professional.auth.name;
-}
+};
 
 export const AdminService = {
   getAdminProfile,
   updateAdminProfile,
-  recommendProfessional
+  recommendProfessional,
 };

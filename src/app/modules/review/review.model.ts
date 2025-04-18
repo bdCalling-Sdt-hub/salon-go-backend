@@ -36,4 +36,7 @@ const reviewSchema = new Schema<IReview, ReviewModel>(
   },
 );
 
+// Compound indexes
+reviewSchema.index({ customer: 1, professional: 1, reservation: 1 }); // For existing review check
+reviewSchema.index({ professional: 1, createdAt: -1 }); // For professional's review listings
 export const Review = model<IReview, ReviewModel>('Review', reviewSchema);
