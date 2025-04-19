@@ -14,7 +14,7 @@ import { ReservationHelper } from './reservation.utils';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { JwtPayload } from 'jsonwebtoken';
-import mongoose, {  Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { DateHelper } from '../../../utils/date.helper';
 import { format, isAfter, isBefore } from 'date-fns';
 import {
@@ -25,8 +25,6 @@ import { Customer } from '../customer/customer.model';
 import { IUser } from '../user/user.interface';
 import { IService } from '../service/service.interface';
 import { Service } from '../service/service.model';
-
-
 
 const createReservationToDB = async (
   payload: IReservation,
@@ -95,6 +93,7 @@ const createReservationToDB = async (
 
   const { days } = schedule;
 
+  console.log(days, date, time, payload);
   const serviceStartDateTime = DateHelper.convertToISODate(time, date);
   const serviceEndDateTime = DateHelper.convertToISODate(
     DateHelper.calculateEndTime(time, isServiceExist.duration),
@@ -107,15 +106,13 @@ const createReservationToDB = async (
   );
   const operationEndTime = DateHelper.convertToISODate(days[0].endTime, date);
 
-
   const serviceStart = new Date(serviceStartDateTime);
   const serviceEnd = new Date(serviceEndDateTime);
- 
 
   const operationStart = new Date(operationStartTime);
   const operationEnd = new Date(operationEndTime);
 
-
+  console.log(operationStart, operationEnd, serviceStart, serviceEnd);
 
   if (
     isBefore(serviceStart, operationStart) ||
@@ -200,30 +197,33 @@ const createReservationToDB = async (
   }
 
   // Format response data
-  const formattedReservation = await ReservationHelper.getReservationFormattedData(result[0]._id);
+  const formattedReservation =
+    await ReservationHelper.getReservationFormattedData(result[0]._id);
 
   const notificationTitle = `You have a new reservation request from ${isCustomerExist.auth.name}`;
-  const notificationMessage =`${isCustomerExist.auth.name} has requested a reservation for ${
-      isServiceExist.title
-    } on ${serviceStart.toDateString()}. Please check your dashboard for more details.`;
+  const notificationMessage = `${
+    isCustomerExist.auth.name
+  } has requested a reservation for ${
+    isServiceExist.title
+  } on ${serviceStart.toDateString()}. Please check your dashboard for more details.`;
 
-  await sendNotification('getNotification', isProfessionalExists._id, {
-    userId: isProfessionalExists.auth._id,
-    title: notificationTitle,
-    message: notificationMessage,
-    type: USER_ROLES.PROFESSIONAL
-  },
-  {
-    deviceId: isProfessionalExists.auth.deviceId,
-    destination: 'reservations',
-    role: USER_ROLES.PROFESSIONAL,
-    id: isProfessionalExists._id as unknown as string,
-    icon: isCustomerExist.auth.profile ,
-  }
- 
-);
-
-
+  await sendNotification(
+    'getNotification',
+    isProfessionalExists._id,
+    {
+      userId: isProfessionalExists.auth._id,
+      title: notificationTitle,
+      message: notificationMessage,
+      type: USER_ROLES.PROFESSIONAL,
+    },
+    {
+      deviceId: isProfessionalExists.auth.deviceId,
+      destination: 'reservations',
+      role: USER_ROLES.PROFESSIONAL,
+      id: isProfessionalExists._id as unknown as string,
+      icon: isCustomerExist.auth.profile,
+    },
+  );
 
   if (formattedReservation) {
     await sendDataWithSocket(
@@ -233,7 +233,6 @@ const createReservationToDB = async (
     );
   }
 
-
   return formattedReservation;
 };
 
@@ -241,7 +240,8 @@ const getSingleReservationFromDB = async (
   id: string,
   userId: Types.ObjectId,
 ) => {
-  const isReservationExists = await ReservationHelper.getReservationFormattedData(new Types.ObjectId(id));
+  const isReservationExists =
+    await ReservationHelper.getReservationFormattedData(new Types.ObjectId(id));
 
   if (!isReservationExists) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Reservation not found');
@@ -264,7 +264,8 @@ const getReservationsForUsersFromDB = async (
   if (status) {
     if (status === 'all')
       andCondition.push({ status: { $in: ['rejected', 'completed'] } });
-    else if (status === 'present') andCondition.push({ status: { $in: ['pending', 'confirmed'] } })
+    else if (status === 'present')
+      andCondition.push({ status: { $in: ['pending', 'confirmed'] } });
     else andCondition.push({ status });
   }
   if (subSubCategory) {
@@ -289,81 +290,107 @@ const getReservationsForUsersFromDB = async (
   const reservations = await Reservation.find({
     $and: [query, ...andCondition],
   })
-  .select({
-    _id: 1,
-    amount: 1,
-    date: 1,
-    status: 1,
-    travelFee: 1,
-    serviceStartDateTime: 1,
-    serviceEndDateTime: 1,
-    serviceType: 1,
-    isStarted: 1,
-    duration: 1,
-    serviceLocation: 1,
-    address: 1,
-  })
-  .populate('review', {
-    _id: 0,
-    rating: 1,
-  })
-  .populate({
-    path: 'service',
-    select: {
+    .select({
+      _id: 1,
+      amount: 1,
+      date: 1,
+      status: 1,
+      travelFee: 1,
+      serviceStartDateTime: 1,
+      serviceEndDateTime: 1,
+      serviceType: 1,
+      isStarted: 1,
+      duration: 1,
+      serviceLocation: 1,
+      address: 1,
+    })
+    .populate('review', {
       _id: 0,
-      title: 1,
-    },
-    populate: {
-      path: 'category',
+      rating: 1,
+    })
+    .populate({
+      path: 'service',
       select: {
         _id: 0,
-        name: 1,
+        title: 1,
       },
-    },
-  })
-  .populate('subSubCategory', {
-    _id: 0,
-    name: 1,
-  })
-  .populate<{ professional: {_id:Types.ObjectId, businessName: string, address: string, location: string,  auth: { _id: Types.ObjectId, deviceId: string } }}>({
-    path: 'professional',
-    select: { businessName: 1, address: 1, location: 1, auth: 1 },
-    populate: {
-      path: 'auth',
-      select: { _id:1,deviceId: 1 },
-    },
-  })
-  .populate<{ customer: {_id:Types.ObjectId, auth: {_id:Types.ObjectId, name: string; address: string; profile: string; contact: string; deviceId: string } } }>({
-    path: 'customer',
-    select: { auth: 1 },
-    populate: {
-      path: 'auth',
-      select: { _id:1, name: 1, address: 1, profile: 1, contact: 1, deviceId: 1 },
-    },
-  })
+      populate: {
+        path: 'category',
+        select: {
+          _id: 0,
+          name: 1,
+        },
+      },
+    })
+    .populate('subSubCategory', {
+      _id: 0,
+      name: 1,
+    })
+    .populate<{
+      professional: {
+        _id: Types.ObjectId;
+        businessName: string;
+        address: string;
+        location: string;
+        auth: { _id: Types.ObjectId; deviceId: string };
+      };
+    }>({
+      path: 'professional',
+      select: { businessName: 1, address: 1, location: 1, auth: 1 },
+      populate: {
+        path: 'auth',
+        select: { _id: 1, deviceId: 1 },
+      },
+    })
+    .populate<{
+      customer: {
+        _id: Types.ObjectId;
+        auth: {
+          _id: Types.ObjectId;
+          name: string;
+          address: string;
+          profile: string;
+          contact: string;
+          deviceId: string;
+        };
+      };
+    }>({
+      path: 'customer',
+      select: { auth: 1 },
+      populate: {
+        path: 'auth',
+        select: {
+          _id: 1,
+          name: 1,
+          address: 1,
+          profile: 1,
+          contact: 1,
+          deviceId: 1,
+        },
+      },
+    })
     .sort({ [sortBy]: sortOrder })
     .skip(skip)
     .limit(limit)
     .lean();
 
-
-    if (user.role !== USER_ROLES.PROFESSIONAL) {
-      // Skip grouping for customers and return the raw filtered data
-      const total = await Reservation.countDocuments({
-        $and: [query, ...andCondition],
-      });
-      return {
-        meta: {
-          total,
-          page,
-          totalPage: Math.ceil(total / limit),
-          limit,
-        },
-        data: {
-          reservations,
-        },
-      };
-    }
+  if (user.role !== USER_ROLES.PROFESSIONAL) {
+    // Skip grouping for customers and return the raw filtered data
+    const total = await Reservation.countDocuments({
+      $and: [query, ...andCondition],
+    });
+    return {
+      meta: {
+        total,
+        page,
+        totalPage: Math.ceil(total / limit),
+        limit,
+      },
+      data: {
+        reservations,
+      },
+    };
+  }
 
   // Group reservations by date and calculate totals
   const formatDate = (date: Date): string => {
@@ -403,7 +430,6 @@ const getReservationsForUsersFromDB = async (
       months[date.getMonth()]
     } ${date.getDate()}`;
   };
-
 
   const groupedData = groupBy(reservations, (res) =>
     formatDate(new Date(res.serviceStartDateTime)),
@@ -463,8 +489,6 @@ const updateReservationStatusToDB = async (
   payload: { status: string; amount?: number },
   user: JwtPayload,
 ) => {
-
-
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
@@ -480,8 +504,6 @@ const updateReservationStatusToDB = async (
     const { status } = payload;
 
     if (status === 'confirmed') {
-
-
       if (!reservation.professional._id.equals(user.userId)) {
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
@@ -623,8 +645,6 @@ const updateReservationStatusToDB = async (
       );
     }
 
-
-
     reservation.status = result.status;
     reservation.amount = result.amount || reservation.amount;
 
@@ -632,7 +652,7 @@ const updateReservationStatusToDB = async (
       `reservation${
         payload.status.charAt(0).toUpperCase() + status.substring(1)
       }`,
-      reservation.customer._id, 
+      reservation.customer._id,
       {
         reservation,
       },
@@ -654,24 +674,36 @@ const updateReservationStatusToDB = async (
         ? USER_ROLES.PROFESSIONAL
         : USER_ROLES.USER;
 
-    const notificationDeviceId = status === "canceled" && user.role === USER_ROLES.USER ? reservation.professional.auth.deviceId : reservation.customer.auth.deviceId
+    const notificationDeviceId =
+      status === 'canceled' && user.role === USER_ROLES.USER
+        ? reservation.professional.auth.deviceId
+        : reservation.customer.auth.deviceId;
 
     const notificationTitle = `Your reservation for ${title} has been ${status} by ${businessName}.`;
-    const notificationMessage =`${status === 'confirmed' || status === 'completed' || status === 'rejected' ? 'Your' : 'Your reservation for'} ${title} at ${DateHelper.convertISOTo12HourFormat(serviceStartDateTime.toString())} has been ${status} by ${businessName}.`;
+    const notificationMessage = `${
+      status === 'confirmed' || status === 'completed' || status === 'rejected'
+        ? 'Your'
+        : 'Your reservation for'
+    } ${title} at ${DateHelper.convertISOTo12HourFormat(
+      serviceStartDateTime.toString(),
+    )} has been ${status} by ${businessName}.`;
 
     //TODO: check if the bug fix works or not
-    await sendNotification('getNotification', reservation.customer._id, {
+    await sendNotification(
+      'getNotification',
+      reservation.customer._id,
+      {
         userId: notificationUserId,
         title: notificationTitle,
         message: notificationMessage,
-        type: notificationUserRole
+        type: notificationUserRole,
       },
       {
         deviceId: notificationDeviceId,
         destination: 'reservations',
         role: USER_ROLES.PROFESSIONAL,
         id: reservation.professional._id as unknown as string,
-      }
+      },
     );
 
     await session.commitTransaction();
@@ -684,10 +716,17 @@ const updateReservationStatusToDB = async (
   }
 };
 
-
-
 const startReservationTracking = async (id: string) => {
-  const isReservationExist = await Reservation.findById({ _id: id, status: 'ongoing' }).populate<{customer: {_id:Types.ObjectId,auth: {_id: Types.ObjectId, profile: string, deviceId: string }}, professional: Types.ObjectId}>({
+  const isReservationExist = await Reservation.findById({
+    _id: id,
+    status: 'ongoing',
+  }).populate<{
+    customer: {
+      _id: Types.ObjectId;
+      auth: { _id: Types.ObjectId; profile: string; deviceId: string };
+    };
+    professional: Types.ObjectId;
+  }>({
     path: 'customer',
     select: {
       _id: 0,
@@ -716,15 +755,15 @@ const startReservationTracking = async (id: string) => {
   if (professionalExist) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'You already have an order in delivery process'
+      'You already have an order in delivery process',
     );
   }
 
   const result = await Reservation.findOneAndUpdate(
     { _id: id, status: 'confirmed' },
     { $set: { status: 'started' } },
-    { new: true }
-  ).populate<{service: IService}>({
+    { new: true },
+  ).populate<{ service: IService }>({
     path: 'service',
     select: {
       _id: 0,
@@ -735,36 +774,45 @@ const startReservationTracking = async (id: string) => {
   if (!result) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'Failed to change the order status'
+      'Failed to change the order status',
     );
   }
 
-
-
   const notificationTitle = `Live tracking for ${result.service.title} has been started.`;
-  const notificationMessage =`The professional is on the way to your location for ${result.service.title} on ${DateHelper.convertISOTo12HourFormat(
-    result.serviceStartDateTime.toString())}. Please be on time.`;
+  const notificationMessage = `The professional is on the way to your location for ${
+    result.service.title
+  } on ${DateHelper.convertISOTo12HourFormat(
+    result.serviceStartDateTime.toString(),
+  )}. Please be on time.`;
 
   //TODO: check if the bug fix works or not
-  await sendNotification('getNotification', result.customer as Types.ObjectId, {
+  await sendNotification(
+    'getNotification',
+    result.customer as Types.ObjectId,
+    {
       userId: result.customer as Types.ObjectId,
       title: notificationTitle,
       message: notificationMessage,
-      type: USER_ROLES.USER
+      type: USER_ROLES.USER,
     },
     {
-      deviceId: isReservationExist.customer.auth.deviceId || 'fa-JVHQxTXm24r6NBoI1uQ:APA91bFhG2FTjMA547cuirYKvIOSYEnLpS9gpMlQ84y7kiNaF71-Azn_e64GWMYrB3NzTWUDeKyAh37eWQTmNiOGpRfNr0W80xntui5i90Q9EgROCZZVVkI',
+      deviceId:
+        isReservationExist.customer.auth.deviceId ||
+        'fa-JVHQxTXm24r6NBoI1uQ:APA91bFhG2FTjMA547cuirYKvIOSYEnLpS9gpMlQ84y7kiNaF71-Azn_e64GWMYrB3NzTWUDeKyAh37eWQTmNiOGpRfNr0W80xntui5i90Q9EgROCZZVVkI',
       destination: 'reservations',
       role: USER_ROLES.PROFESSIONAL,
       id: isReservationExist.professional as unknown as string,
-        icon: isReservationExist.customer.auth.profile ,
-      }
+      icon: isReservationExist.customer.auth.profile,
+    },
   );
 
-
-  await sendDataWithSocket('startedReservation', result.customer as Types.ObjectId, {
-    ...result,
-  });
+  await sendDataWithSocket(
+    'startedReservation',
+    result.customer as Types.ObjectId,
+    {
+      ...result,
+    },
+  );
 
   return result;
 };
