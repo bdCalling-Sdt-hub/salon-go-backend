@@ -93,7 +93,7 @@ const createReservationToDB = async (
 
   const { days } = schedule;
 
-  console.log(days, date, time, payload);
+  console.log(date, time, payload);
   const serviceStartDateTime = DateHelper.convertToISODate(time, date);
   const serviceEndDateTime = DateHelper.convertToISODate(
     DateHelper.calculateEndTime(time, isServiceExist.duration),
