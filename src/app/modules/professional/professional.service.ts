@@ -91,7 +91,6 @@ const updateProfessionalProfile = async (
         'professional/kbis',
         'image',
       );
-
     }
     if (ID) {
       updatedData.ID = await uploadImageAndHandleRollback(
@@ -154,8 +153,11 @@ const getBusinessInformationForProfessional = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Professional not found!');
   }
 
-  if(payload.targetAudience) {
-    payload.targetAudience = payload?.targetAudience.toLowerCase() as 'men' | 'woman' | 'women' ;
+  if (payload.targetAudience) {
+    payload.targetAudience = payload?.targetAudience.toLowerCase() as
+      | 'men'
+      | 'woman'
+      | 'women';
   }
   const result = await Professional.findByIdAndUpdate(
     { _id: user.userId },
@@ -179,9 +181,7 @@ const getBusinessInformationForProfessional = async (
   };
 };
 
-const getProfessionalProfile = async (
-  user: JwtPayload,
-) => {
+const getProfessionalProfile = async (user: JwtPayload) => {
   const result = await Professional.findById({
     _id: user.userId,
   })
@@ -217,11 +217,10 @@ const getProfessionalProfile = async (
     Reservation.countDocuments({
       professional: result._id,
       status: 'completed',
-    }), 
+    }),
   ]);
-  
 
- return{ ...result, totalReservations, totalCompletedReservations };
+  return { ...result, totalReservations, totalCompletedReservations };
 
   // return result as unknown as IProfessional;
 };
@@ -271,8 +270,6 @@ const getAllProfessional = async (
   paginationOptions: IPaginationOptions,
   user: JwtPayload,
 ) => {
-
-
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
 
@@ -288,16 +285,14 @@ const getAllProfessional = async (
     city,
   } = filterOptions;
 
-  const anyCondition: any[] = []; 
-
-
+  const anyCondition: any[] = [];
 
   if (city) {
-
     // Ensure the regex matches the city as a whole word (surrounded by word boundaries)
-    anyCondition.push({ $and: [{ address: { $regex: `\\b${city}\\b`, $options: 'i' } }] });
+    anyCondition.push({
+      $and: [{ address: { $regex: `\\b${city}\\b`, $options: 'i' } }],
+    });
   }
-  
 
   if (searchTerm) {
     const regex = new RegExp(searchTerm, 'i');
@@ -339,15 +334,10 @@ const getAllProfessional = async (
     if (subCategory) filterConditions.push({ subCategory });
     if (subSubCategory) filterConditions.push({ subSubCategory });
 
-    
-
-
     const servicesWithConditions = await Service.find(
       { $and: filterConditions },
       { createdBy: 1 },
-
     ).distinct('createdBy');
-
 
     anyCondition.push({ _id: { $in: servicesWithConditions } });
   }
@@ -376,7 +366,7 @@ const getAllProfessional = async (
 
   //check whether the date is valid or not
 
-  if (date && !(isNaN(new Date(date).getTime()))) {
+  if (date && !isNaN(new Date(date).getTime())) {
     const requestedDay = parse(
       date,
       'dd/MM/yyyy',
@@ -425,8 +415,13 @@ const getAllProfessional = async (
   });
 
   const [bookmarkedProfessionals, schedules] = await Promise.all([
-    Bookmark.find({ customer: user.userId, professional: { $in: activeProfessionals } }).distinct('professional'),
-    Schedule.find({ professional: { $in: professionals.map((p) => p._id) } }).lean(),
+    Bookmark.find({
+      customer: user.userId,
+      professional: { $in: activeProfessionals },
+    }).distinct('professional'),
+    Schedule.find({
+      professional: { $in: professionals.map((p) => p._id) },
+    }).lean(),
   ]);
 
   // Create a map for quick lookup
@@ -503,9 +498,7 @@ const managePortfolio = async (
         { _id: user.userId, 'portfolio.path': updatedImage.url },
         { 'portfolio.$.link': updatedImage.link || undefined },
       );
- 
     } else {
-
       let uploadedImage: { path: string; link?: string } | null = null;
       if (portfolioImage?.path) {
         const uploadedImages = await uploadToCloudinary(
@@ -566,7 +559,6 @@ const managePortfolio = async (
     await session.commitTransaction();
     return 'Portfolio updated successfully';
   } catch (error) {
-
     await session.abortTransaction();
     if (portfolioImage) {
       await deleteResourcesFromCloudinary(portfolioImage.path, 'image', true);
@@ -589,10 +581,26 @@ const getProfessionalMetrics = async (user: JwtPayload, range: string) => {
       const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
       return days[index % 7];
     } else if (range === 'monthly') {
-      const dayRanges = ['1-4', '5-8', '9-12', '13-16', '17-20', '21-24', '25-30'];
+      const dayRanges = [
+        '1-4',
+        '5-8',
+        '9-12',
+        '13-16',
+        '17-20',
+        '21-24',
+        '25-30',
+      ];
       return dayRanges[index];
     } else if (range === 'yearly') {
-      const dayRanges = ['Jan-Feb', 'Mar-Apr', 'May-Jun', 'Jul-Aug', 'Sep-Oct', 'Nov','Dec'];
+      const dayRanges = [
+        'Jan-Feb',
+        'Mar-Apr',
+        'May-Jun',
+        'Jul-Aug',
+        'Sep-Oct',
+        'Nov',
+        'Dec',
+      ];
       return dayRanges[index];
     } else {
       return `S-${index + 1}`; // Default key for "all"
@@ -630,50 +638,96 @@ const getProfessionalMetrics = async (user: JwtPayload, range: string) => {
   ]);
 
   // Helper to create segments
-  const createSegments = (callback: { (index: any, matchingReservation: any): { key: string; value: any; }; (index: any, matchingReservation: any): { key: string; value: number; }; (index: any, matchingReservation: any): { key: string; value: any; }; (arg0: number, arg1: any, arg2: Date, arg3: Date): any; }) => {
+  const createSegments = (callback: {
+    (index: any, matchingReservation: any): { key: string; value: any };
+    (index: any, matchingReservation: any): { key: string; value: number };
+    (index: any, matchingReservation: any): { key: string; value: any };
+    (arg0: number, arg1: any, arg2: Date, arg3: Date): any;
+  }) => {
     return Array.from({ length: segmentCount }, (_, index) => {
-      const segmentStartDate = new Date(startDate.getTime() + index * segmentMilliseconds);
-      const segmentEndDate = new Date(segmentStartDate.getTime() + segmentMilliseconds);
+      const segmentStartDate = new Date(
+        startDate.getTime() + index * segmentMilliseconds,
+      );
+      const segmentEndDate = new Date(
+        segmentStartDate.getTime() + segmentMilliseconds,
+      );
       const matchingReservation = reservations.find((r) => r._id === index);
 
-      return callback(index, matchingReservation, segmentStartDate, segmentEndDate);
+      return callback(
+        index,
+        matchingReservation,
+        segmentStartDate,
+        segmentEndDate,
+      );
     });
   };
 
   // Process revenue data
-  const revenueData = createSegments((index: any, matchingReservation: { totalRevenue: any; }) => {
-    const totalRevenue = matchingReservation ? matchingReservation.totalRevenue : 0;
-    return {
-      key: getKeyForRange(index),
-      value: totalRevenue,
-    };
-  });
+  const revenueData = createSegments(
+    (index: any, matchingReservation: { totalRevenue: any }) => {
+      const totalRevenue = matchingReservation
+        ? matchingReservation.totalRevenue
+        : 0;
+      return {
+        key: getKeyForRange(index),
+        value: totalRevenue,
+      };
+    },
+  );
 
   // Process engagement data
-  const engagementData = createSegments((index: any, matchingReservation: { totalReservations: any; completedReservations: any; }) => {
-    const totalReservations = matchingReservation ? matchingReservation.totalReservations : 0;
-    const completedReservations = matchingReservation ? matchingReservation.completedReservations : 0;
-    const engagementRate = totalReservations > 0 ? (completedReservations / totalReservations) * 100 : 0;
+  const engagementData = createSegments(
+    (
+      index: any,
+      matchingReservation: {
+        totalReservations: any;
+        completedReservations: any;
+      },
+    ) => {
+      const totalReservations = matchingReservation
+        ? matchingReservation.totalReservations
+        : 0;
+      const completedReservations = matchingReservation
+        ? matchingReservation.completedReservations
+        : 0;
+      const engagementRate =
+        totalReservations > 0
+          ? (completedReservations / totalReservations) * 100
+          : 0;
 
-    return {
-      key: getKeyForRange(index),
-      value: Number(engagementRate.toFixed(2)),
-    };
-  });
+      return {
+        key: getKeyForRange(index),
+        value: Number(engagementRate.toFixed(2)),
+      };
+    },
+  );
 
   // Process reservation count data
-  const reservationData = createSegments((index: any, matchingReservation: { totalReservations: any; }) => {
-    const reservationCount = matchingReservation ? matchingReservation.totalReservations : 0;
-    return {
-      key: getKeyForRange(index),
-      value: reservationCount,
-    };
-  });
+  const reservationData = createSegments(
+    (index: any, matchingReservation: { totalReservations: any }) => {
+      const reservationCount = matchingReservation
+        ? matchingReservation.totalReservations
+        : 0;
+      return {
+        key: getKeyForRange(index),
+        value: reservationCount,
+      };
+    },
+  );
 
   // Calculate totals
-  const totalRevenueSum = revenueData.reduce((sum, item) => sum + item.value, 0);
-  const totalEngagement = engagementData.reduce((sum, item) => sum + item.value, 0);
-  const totalReservationCount = reservationData.reduce((sum, item) => sum + item.value, 0);
+  const totalRevenueSum = revenueData.reduce(
+    (sum, item) => sum + item.value,
+    0,
+  );
+  const totalEngagement = engagementData.reduce(
+    (sum, item) => sum + item.value,
+    0,
+  );
+  const totalReservationCount = reservationData.reduce(
+    (sum, item) => sum + item.value,
+    0,
+  );
 
   // Return formatted results
   return {
@@ -697,9 +751,6 @@ const getProfessionalMetrics = async (user: JwtPayload, range: string) => {
   };
 };
 
-
-
-
 export const ProfessionalService = {
   updateProfessionalProfile,
   getBusinessInformationForProfessional,
@@ -708,7 +759,5 @@ export const ProfessionalService = {
   getSingleProfessional,
   managePortfolio,
   getProfessionalPortfolio,
-  getProfessionalMetrics
+  getProfessionalMetrics,
 };
-
-    

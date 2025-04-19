@@ -565,16 +565,18 @@ const generateTimeSlots = async (
   const startMinutes = timeToMinutes(startTime);
   const endMinutes = timeToMinutes(endTime);
 
-  const slots: string[] = [];
+  // Use a Set to track unique time slots
+  const uniqueSlots = new Set<string>();
   let current = startMinutes;
 
   // Loop through and create slots with the interval, no gap
   while (current + interval <= endMinutes) {
-    slots.push(minutesToTime(current)); // Add slot at current time
+    uniqueSlots.add(minutesToTime(current)); // Add slot at current time
     current += interval; // Add interval for the next slot
   }
 
-  return slots;
+  // Convert Set back to array
+  return Array.from(uniqueSlots);
 };
 
 const getUserEngagement = async (year?: string) => {
