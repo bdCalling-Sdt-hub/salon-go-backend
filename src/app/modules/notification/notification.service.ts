@@ -6,6 +6,7 @@ import { JwtPayload } from 'jsonwebtoken';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IGenericResponse } from '../../../types/response';
+import { USER_ROLES } from '../../../enums/user';
 
 const storeNotificationToDB = async (
   data: INotification,
@@ -23,17 +24,26 @@ const storeNotificationToDB = async (
 const getNotifications = async (
   user: JwtPayload,
   paginationOptions: IPaginationOptions,
-): Promise<IGenericResponse<{result:INotification[]} & {count:number}>> => {
+): Promise<
+  IGenericResponse<{ result: INotification[] } & { count: number }>
+> => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
-  const result = await Notification.find({ userId: user.id })
-    .sort({ [sortBy]: sortOrder })
-;
+  const query =
+    user.role === USER_ROLES.ADMIN
+      ? { type: USER_ROLES.ADMIN }
+      : { userId: user.id };
+  const result = await Notification.find(query).sort({
+    [sortBy]: sortOrder,
+  });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get notifications');
   }
   const total = await Notification.countDocuments({ userId: user.id });
-  const count = await Notification.countDocuments({ userId: user.id, isRead: false });
+  const count = await Notification.countDocuments({
+    userId: user.id,
+    isRead: false,
+  });
 
   return {
     meta: {
@@ -44,20 +54,23 @@ const getNotifications = async (
     },
     data: {
       result,
-      count:count,
+      count: count,
     },
   };
 };
 
 const getSingleNotification = async (id: string) => {
-  const result = await Notification.findByIdAndUpdate(id, { isRead: true }, { new: true });
+  const result = await Notification.findByIdAndUpdate(
+    id,
+    { isRead: true },
+    { new: true },
+  );
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get notification');
   }
   return result;
 };
-
 
 const makeCountTrueToDB = async () => {
   const result = await Notification.updateMany(
