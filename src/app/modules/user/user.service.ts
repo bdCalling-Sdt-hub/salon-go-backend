@@ -20,6 +20,8 @@ import { Professional } from '../professional/professional.model';
 import { JwtPayload } from 'jsonwebtoken';
 import { sendOtp } from '../../../helpers/twilio.helper';
 import { Reservation } from '../reservation/reservation.model';
+import { sendNotification } from '../../../helpers/sendNotificationHelper';
+import { logger } from '../../../shared/logger';
 
 type IPayload = Pick<
   IUser & { businessName: string },
@@ -104,10 +106,25 @@ const createUserToDB = async (payload: IPayload): Promise<IUser> => {
     const onboarding = emailTemplate.onboardingNewProfessional(emailValue);
     emailHelper.sendEmail(onboarding);
   }
-  await User.findOneAndUpdate(
-    { _id: newUserData!._id },
-    { $set: { authentication } },
-  );
+
+  const [admin, _] = await Promise.all([
+    Admin.findOne({}),
+    User.findOneAndUpdate(
+      { _id: newUserData!._id },
+      { $set: { authentication } },
+    ),
+  ]);
+
+  if (!admin) {
+    logger.error('Admin not found');
+  }
+
+  await sendNotification('getNotification', admin!._id, {
+    title: 'New User Registration',
+    message: `${newUserData?.name} has registered as a ${user.role}`,
+    userId: admin!._id,
+    type: USER_ROLES.ADMIN,
+  });
 
   return newUserData!;
 };
