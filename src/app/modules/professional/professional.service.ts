@@ -23,9 +23,8 @@ import {
 
 import { Types } from 'mongoose';
 import { Bookmark } from '../bookmark/bookmark.model';
-import { ICategory, ISubCategory } from '../categories/categories.interface';
+import { ICategory } from '../categories/categories.interface';
 import { Reservation } from '../reservation/reservation.model';
-import { Review } from '../review/review.model';
 
 const updateProfessionalProfile = async (
   user: JwtPayload,
