@@ -19,41 +19,51 @@ const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
   }
   const isScheduleExist = await Schedule.findOne({ professional: user.userId });
 
-
   try {
     // Filter out the days where `check` is false
     const validDays = data.days
       .filter((day) => day.check) // Keep only days where check is true
       .map((day) => {
         const { check, ...rest } = day; // Remove the check field from the payload
+
+        // Deduplicate time slots based on time value
+        const uniqueTimeSlots: Array<{ time: string; timeCode: number }> = [];
+        const timeSet = new Set();
+
+        day.timeSlots.forEach((time) => {
+          // Skip if we've already processed this time
+          if (timeSet.has(time)) return;
+
+          timeSet.add(time);
+          //@ts-ignore
+          const timeCode = DateHelper.parseTimeTo24Hour(time); // Adjusted for plain string `time`
+          uniqueTimeSlots.push({
+            time: typeof time === 'string' ? time : time.time, // Original time in 12-hour format
+            timeCode: timeCode, // ISO 24-hour format
+          });
+        });
+
         return {
           ...rest,
-          timeSlots: day.timeSlots.map((time) => {
-            //@ts-ignore
-            const timeCode = DateHelper.parseTimeTo24Hour(time); // Adjusted for plain string `time`
-            return {
-              time: time, // Original time in 12-hour format
-              timeCode: timeCode, // ISO 24-hour format
-            };
-          }),
+          timeSlots: uniqueTimeSlots,
         };
       });
 
-      if (!isScheduleExist) {
-        const result = await Schedule.create({
-          professional: user.userId,
-          days: validDays,
-        });
+    if (!isScheduleExist) {
+      const result = await Schedule.create({
+        professional: user.userId,
+        days: validDays,
+      });
 
-        const professional = await Professional.findOneAndUpdate(
-          { _id: user.userId },
-          { scheduleId: result._id },
-          { new: true },
-        );
-        const nextStep = getNextOnboardingStep(professional as IProfessional);
+      const professional = await Professional.findOneAndUpdate(
+        { _id: user.userId },
+        { scheduleId: result._id },
+        { new: true },
+      );
+      const nextStep = getNextOnboardingStep(professional as IProfessional);
 
-        return { result, nextStep };
-      }
+      return { result, nextStep };
+    }
 
     const result = await Schedule.findOneAndUpdate(
       { professional: user.userId },
@@ -73,20 +83,17 @@ const createScheduleToDB = async (user: JwtPayload, data: ISchedule) => {
     );
 
     const nextStep = getNextOnboardingStep(professional as IProfessional);
-  
 
-    return {result, nextStep};
+    return { result, nextStep };
   } catch (error) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create schedule');
   }
 };
 
-
 const updateScheduleForDaysInDB = async (
   user: JwtPayload,
   updates: Partial<ISchedule>,
 ) => {
-
   try {
     // Validate the input
     if (!Array.isArray(updates.days)) {
@@ -140,16 +147,38 @@ const updateScheduleForDaysInDB = async (
       }
 
       if (updateDay.timeSlots) {
-        dayToUpdate.timeSlots = updateDay.timeSlots.map((time) => {
+        // Deduplicate time slots based on time value
+        const uniqueTimeSlots: Array<{
+          time: string;
+          timeCode: number;
+          isAvailable: boolean;
+          discount: Number;
+        }> = [];
+        const timeSet = new Set();
+
+        updateDay.timeSlots.forEach((time) => {
+          // Use time or time.time depending on the structure
+          const timeValue = typeof time === 'string' ? time : time.time;
+
+          // Skip if we've already processed this time
+          if (timeSet.has(timeValue)) return;
+
+          timeSet.add(timeValue);
+
           //@ts-ignore
-          const timeCode = DateHelper.parseTimeTo24Hour(time); // Adjusted for plain string `time`
-          return {
+          const timeCode = DateHelper.parseTimeTo24Hour(timeValue); // Adjusted for plain string `time`
+          uniqueTimeSlots.push({
             ...time, // Spread the original TimeSlots properties
             timeCode: timeCode, // Add timeCode property
             isAvailable: time.isAvailable ?? false, // Default value for isAvailable
-            discount: time.discount ?? [], // Default value for discounts
-          };
+            discount: time.discount ?? 0, // Default value for discount percentage
+          });
         });
+
+        dayToUpdate.timeSlots = uniqueTimeSlots.map((slot) => ({
+          ...slot,
+          discount: Number(slot.discount) || 0, // Convert discount to Number type
+        }));
       }
 
       schedule.days[dayIndex] = dayToUpdate;
@@ -217,12 +246,11 @@ const getTimeScheduleFromDBForProfessional = async (user: JwtPayload) => {
   };
 };
 
-
 const getTimeScheduleForCustomer = async (
   id: Types.ObjectId,
   user: JwtPayload,
   date?: string,
-  serviceDuration?: string // in minutes
+  serviceDuration?: string, // in minutes
 ) => {
   const defaultDays = [
     'Sunday',
@@ -256,7 +284,7 @@ const getTimeScheduleForCustomer = async (
     defaultDays.map((day) => [
       day,
       { day, check: false, timeSlots: [], startTime: '', endTime: '' },
-    ])
+    ]),
   );
 
   const isTimeSlotReserved = (timeCode: number, targetDay: string) => {
@@ -277,16 +305,24 @@ const getTimeScheduleForCustomer = async (
   }
 
   // Convert serviceDuration to minutes
-  const serviceDurationMinutes = serviceDuration ? parseInt(serviceDuration) : 0;
+  const serviceDurationMinutes = serviceDuration
+    ? parseInt(serviceDuration)
+    : 0;
 
   // Helper function to check if a time slot conflicts with unavailable slots
-  const hasConflictWithUnavailableSlots = (startTimeCode: number, duration: number, dayTimeSlots: any[]) => {
-    const startTimeInMinutes = Math.floor(startTimeCode / 100) * 60 + (startTimeCode % 100);
+  const hasConflictWithUnavailableSlots = (
+    startTimeCode: number,
+    duration: number,
+    dayTimeSlots: any[],
+  ) => {
+    const startTimeInMinutes =
+      Math.floor(startTimeCode / 100) * 60 + (startTimeCode % 100);
     const endTimeInMinutes = startTimeInMinutes + duration;
 
     // Check each time slot within the duration
-    return dayTimeSlots.some(slot => {
-      const slotTimeInMinutes = Math.floor(slot.timeCode / 100) * 60 + (slot.timeCode % 100);
+    return dayTimeSlots.some((slot) => {
+      const slotTimeInMinutes =
+        Math.floor(slot.timeCode / 100) * 60 + (slot.timeCode % 100);
       return (
         slotTimeInMinutes >= startTimeInMinutes &&
         slotTimeInMinutes < endTimeInMinutes &&
@@ -298,27 +334,36 @@ const getTimeScheduleForCustomer = async (
   for (const day of schedule.days) {
     if (selectedDay && day.day !== selectedDay) continue;
 
-    const timeSlots = day.timeSlots.map(timeSlot => {
+    const timeSlots = day.timeSlots.map((timeSlot) => {
       const timeCode = timeSlot.timeCode;
       const startHour = Math.floor(timeCode / 100);
       const startMinute = timeCode % 100;
       const startTimeInMinutes = startHour * 60 + startMinute;
-      
+
       let isSlotAvailable = timeSlot.isAvailable ?? false;
 
       if (customerId) {
-        isSlotAvailable = isSlotAvailable && !isTimeSlotReserved(timeCode, day.day);
+        isSlotAvailable =
+          isSlotAvailable && !isTimeSlotReserved(timeCode, day.day);
       }
 
       if (serviceDurationMinutes > 0 && isSlotAvailable) {
         // Check if service would go beyond closing time (20:00)
         const endTimeInMinutes = startTimeInMinutes + serviceDurationMinutes;
-        if (endTimeInMinutes > 20 * 60) { // 20:00 in minutes
+        if (endTimeInMinutes > 20 * 60) {
+          // 20:00 in minutes
           isSlotAvailable = false;
         }
 
         // Check for conflicts with unavailable slots
-        if (isSlotAvailable && hasConflictWithUnavailableSlots(timeCode, serviceDurationMinutes, day.timeSlots)) {
+        if (
+          isSlotAvailable &&
+          hasConflictWithUnavailableSlots(
+            timeCode,
+            serviceDurationMinutes,
+            day.timeSlots,
+          )
+        ) {
           isSlotAvailable = false;
         }
       }
@@ -331,7 +376,6 @@ const getTimeScheduleForCustomer = async (
       };
     });
 
-    
     daysMap.set(day.day, {
       ...day,
       check: true,
@@ -340,14 +384,15 @@ const getTimeScheduleForCustomer = async (
     });
   }
 
-  const populatedDays = Array.from(daysMap.values()).filter(day => !selectedDay || day.day === selectedDay);
+  const populatedDays = Array.from(daysMap.values()).filter(
+    (day) => !selectedDay || day.day === selectedDay,
+  );
 
   return {
     ...schedule,
     days: populatedDays,
   };
 };
-
 
 const deleteScheduleFromDB = async (id: string) => {
   const schedule = await Schedule.findByIdAndDelete(id);
@@ -357,11 +402,16 @@ const deleteScheduleFromDB = async (id: string) => {
   return schedule;
 };
 
-const setDiscount = async (user: JwtPayload, payload: { timeCode: number, discount: number, day: string }) => {
-
+const setDiscount = async (
+  user: JwtPayload,
+  payload: { timeCode: number; discount: number; day: string },
+) => {
   // Validate the discount value
   if (payload.discount < 0 || payload.discount > 100) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Discount must be between 0 and 100.');
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Discount must be between 0 and 100.',
+    );
   }
 
   // Find the schedule for the professional
@@ -371,16 +421,23 @@ const setDiscount = async (user: JwtPayload, payload: { timeCode: number, discou
   }
 
   // Find the day in the schedule
-  const dayIndex = schedule.days.findIndex(day => day?.day === payload.day);
+  const dayIndex = schedule.days.findIndex((day) => day?.day === payload.day);
   if (dayIndex === -1) {
-    throw new ApiError(StatusCodes.NOT_FOUND, `Schedule for ${payload.day} not found!`);
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      `Schedule for ${payload.day} not found!`,
+    );
   }
 
-
   // Find the time slot in the day
-  const timeSlotIndex = schedule.days[dayIndex].timeSlots.findIndex(timeSlot => timeSlot.timeCode === payload.timeCode);
+  const timeSlotIndex = schedule.days[dayIndex].timeSlots.findIndex(
+    (timeSlot) => timeSlot.timeCode === payload.timeCode,
+  );
   if (timeSlotIndex === -1) {
-    throw new ApiError(StatusCodes.NOT_FOUND, `Time slot ${payload.timeCode} not found!`);
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      `Time slot ${payload.timeCode} not found!`,
+    );
   }
 
   // Update the discount for the time slot
@@ -398,5 +455,5 @@ export const ScheduleServices = {
   getTimeScheduleFromDBForProfessional,
   deleteScheduleFromDB,
   getTimeScheduleForCustomer,
-  setDiscount
+  setDiscount,
 };
