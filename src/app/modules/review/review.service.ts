@@ -175,9 +175,9 @@ const getReviews = async (
     paginationHelper.calculatePagination(paginationOptions);
 
   const query =
-    user.role === 'customer'
+    user.role === USER_ROLES.USER
       ? { customer: new Types.ObjectId(user.userId) }
-      : user.role === 'professional'
+      : user.role === USER_ROLES.PROFESSIONAL
       ? { professional: new Types.ObjectId(user.userId) }
       : {};
 
