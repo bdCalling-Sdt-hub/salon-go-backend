@@ -100,6 +100,7 @@ const createReservationToDB = async (
     date,
   );
 
+  console.log(serviceStartDateTime, serviceEndDateTime);
   const operationStartTime = DateHelper.convertToISODate(
     days[0].startTime,
     date,
