@@ -9,17 +9,47 @@ import {
 } from 'date-fns';
 
 function convertToISODate(time: string, isoDate: Date): string {
-  // Parse the time string into hours and minutes
-  const parsedTime = parse(time, 'h:mm a', new Date());
-  const hours = parsedTime.getHours();
-  const minutes = parsedTime.getMinutes();
+  try {
+    // More robust time parsing using regex
+    const timeRegex = /(\d+):(\d+)\s*(am|pm)/i;
+    const match = time.match(timeRegex);
 
-  // Convert the provided ISO date into a Date object
-  const baseDate = new Date(isoDate); // Use UTC date
-  baseDate.setUTCHours(hours, minutes, 0, 0); // Set hours and minutes in UTC
+    if (!match) {
+      throw new Error(`Invalid time format: ${time}`);
+    }
 
-  // Return the ISO string in UTC
-  return baseDate.toISOString();
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const meridian = match[3].toLowerCase();
+
+    // Convert to 24-hour format
+    if (meridian === 'pm' && hours !== 12) {
+      hours += 12;
+    } else if (meridian === 'am' && hours === 12) {
+      hours = 0;
+    }
+
+    // Validate hours and minutes
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      throw new Error(
+        `Invalid time values: hours=${hours}, minutes=${minutes}`,
+      );
+    }
+
+    // Create a new Date object based on the input date
+    const baseDate = new Date(isoDate);
+
+    // Set hours and minutes
+    baseDate.setUTCHours(hours, minutes, 0, 0);
+
+    // Return the ISO string
+    return baseDate.toISOString();
+  } catch (error) {
+    console.error(`Error converting time "${time}" to ISO date:`, error);
+    // Fallback to current time if there's an error
+    const fallbackDate = new Date(isoDate);
+    return fallbackDate.toISOString();
+  }
 }
 // Function to calculate end time
 function calculateEndTime(startTime: string, duration: number): string {
