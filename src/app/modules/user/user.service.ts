@@ -1,3 +1,4 @@
+import { populate } from 'dotenv';
 /* eslint-disable @typescript-eslint/no-non-null-asserted-optional-chain */
 import { StatusCodes } from 'http-status-codes';
 import { USER_ROLES } from '../../../enums/user';
@@ -279,12 +280,37 @@ const approveUser = async (id: Types.ObjectId) => {
     },
   );
 
+  const populatedResult = await Professional.findOne({ auth: result?._id });
+
   const emailValue = {
     email: result!.email,
     name: result!.name,
   };
   const onboarding = emailTemplate.welcomeNewVerifiedProfessional(emailValue);
   emailHelper.sendEmail(onboarding);
+
+  if (!populatedResult) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Admin not found');
+  }
+
+  const title = `Hello ${result?.name}, Your account has been approved by the admin`;
+  const message = `Hello ${result?.name}, Your professional account with name ${populatedResult?.businessName} has been approved by the admin. Now you can login to your account.`;
+
+  sendNotification(
+    'getNotification',
+    result!._id,
+    {
+      title,
+      message,
+      userId: result!._id,
+      type: USER_ROLES.PROFESSIONAL,
+    },
+    {
+      deviceId: result?.deviceId!,
+      destination: '',
+      role: USER_ROLES.PROFESSIONAL,
+    },
+  );
 
   return `${result?.name} is approved`;
 };
