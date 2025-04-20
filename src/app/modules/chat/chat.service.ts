@@ -46,8 +46,9 @@ const accessChat = async (
       select: { message: 1 },
     })
     .lean();
-
+  let newChatFlag = false;
   if (!chat) {
+    newChatFlag = true;
     await Chat.create({
       participants: [requestUserAuthId, participantAuthId],
     });
@@ -104,9 +105,11 @@ const accessChat = async (
     unreadCount: 0,
   };
   //send newly created chat to the user
-  //@ts-ignore
-  const socket = global.io;
-  socket.emit(`accessChat::${user.userId}`, returnData);
+  if (newChatFlag) {
+    //@ts-ignore
+    const socket = global.io;
+    socket.emit(`accessChat::${user.userId}`, returnData);
+  }
 
   return returnData;
 };
