@@ -592,9 +592,9 @@ const getTimeScheduleForCustomer = async (
       }
 
       let isSlotAvailable = timeSlot.isAvailable ?? false; // Start with schedule availability
-      console.log(
-        `Time slot ${timeSlot.time} initial availability: ${isSlotAvailable}`,
-      );
+      // console.log(
+      //   `Time slot ${timeSlot.time} initial availability: ${isSlotAvailable}`,
+      // );
 
       // Check if the slot is in the past
       // For today's date or if a specific date in the past was requested
@@ -623,10 +623,42 @@ const getTimeScheduleForCustomer = async (
         const startTimeInMinutes = startHour * 60 + startMinute;
         const endTimeInMinutes = startTimeInMinutes + serviceDurationMinutes;
 
+        console.log(
+          `Service time check: start=${startTimeInMinutes}min, end=${endTimeInMinutes}min, duration=${serviceDurationMinutes}min`,
+        );
+
+        // Get the closing time for this day from the schedule
+        let closingTimeInMinutes = 20 * 60; // Default to 8:00 PM
+
+        if (day.endTime) {
+          // Parse the day's end time if available
+          const endTimeMatch = day.endTime.match(/(\d+):(\d+)\s*(am|pm)/i);
+          if (endTimeMatch) {
+            let [_, hours, minutes, period] = endTimeMatch;
+            let endHour = parseInt(hours, 10);
+
+            // Convert to 24-hour format
+            if (period.toLowerCase() === 'pm' && endHour < 12) {
+              endHour += 12;
+            } else if (period.toLowerCase() === 'am' && endHour === 12) {
+              endHour = 0;
+            }
+
+            closingTimeInMinutes = endHour * 60 + parseInt(minutes, 10);
+            console.log(
+              `Closing time for ${day.day}: ${closingTimeInMinutes} minutes (${day.endTime})`,
+            );
+          }
+        }
+
         // Check if service would go beyond closing time
-        if (endTimeInMinutes > 20 * 60) {
+        if (endTimeInMinutes > closingTimeInMinutes) {
           console.log(
-            `Time slot ${timeSlot.time} would go beyond closing time`,
+            `Time slot ${
+              timeSlot.time
+            } would go beyond closing time (${Math.floor(
+              closingTimeInMinutes / 60,
+            )}:${(closingTimeInMinutes % 60).toString().padStart(2, '0')})`,
           );
           isSlotAvailable = false;
         }
