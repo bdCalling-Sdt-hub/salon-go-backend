@@ -385,6 +385,13 @@ const getTimeScheduleForCustomer = async (
   date?: string, // Expected format: dd/MM/yyyy
   serviceDuration?: string, // in minutes
 ) => {
+  console.log('Function called with params:', {
+    id,
+    user: user.userId,
+    date,
+    serviceDuration,
+  });
+
   const defaultDays = [
     'Sunday',
     'Monday',
@@ -397,6 +404,8 @@ const getTimeScheduleForCustomer = async (
   const ALGERIA_TIMEZONE = 'Africa/Algiers'; // Define the target timezone
 
   const customerId = user.role === USER_ROLES.USER ? user.userId : null;
+  console.log('Customer ID:', customerId);
+
   const [schedule, customerReservations] = await Promise.all([
     Schedule.findOne({ professional: id }).lean(),
     customerId
@@ -409,6 +418,8 @@ const getTimeScheduleForCustomer = async (
           .lean()
       : [],
   ]);
+
+  console.log('Found reservations:', customerReservations.length);
 
   if (!schedule) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
@@ -423,40 +434,54 @@ const getTimeScheduleForCustomer = async (
 
   // Get current time in Algeria
   const nowInAlgeria = DateTime.now().setZone(ALGERIA_TIMEZONE);
+  console.log('Current time in Algeria:', nowInAlgeria.toISO());
+
   let targetDateLuxon: DateTime | null = null;
   let selectedDay: string | undefined;
   let isToday = false;
 
   if (date) {
     try {
+      console.log('Processing date:', date);
+
       // Parse the date string (dd/MM/yyyy) into a Luxon DateTime object in Algeria timezone
-      // First, normalize the date format to ensure it has leading zeros
       const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
       const match = date.match(dateRegex);
 
       if (!match) {
+        console.error('Date regex did not match:', date);
         throw new Error(`Invalid date format: ${date}. Expected dd/MM/yyyy.`);
       }
 
-      // Extract day, month, and year with proper padding
-      const day = match[1].padStart(2, '0');
-      const month = match[2].padStart(2, '0');
-      const year = match[3];
+      // Extract components and convert to numbers
+      const day = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10);
+      const year = parseInt(match[3], 10);
 
-      // Create a properly formatted date string
-      const formattedDate = `${day}/${month}/${year}`;
+      console.log('Parsed date components:', { day, month, year });
 
-      targetDateLuxon = DateTime.fromFormat(formattedDate, 'dd/MM/yyyy', {
-        zone: ALGERIA_TIMEZONE,
-      });
+      // Create DateTime object directly from components
+      targetDateLuxon = DateTime.fromObject(
+        { day, month, year },
+        { zone: ALGERIA_TIMEZONE },
+      );
+
+      console.log('Created DateTime object:', targetDateLuxon.toISO());
 
       if (!targetDateLuxon.isValid) {
+        console.error(
+          'Invalid DateTime object:',
+          targetDateLuxon.invalidExplanation,
+        );
         throw new Error(`Invalid date: ${date}. Please provide a valid date.`);
       }
 
       selectedDay = defaultDays[targetDateLuxon.weekday % 7]; // Luxon weekday: 1 (Mon) - 7 (Sun)
+      console.log('Selected day:', selectedDay);
+
       // Check if the requested date is today in Algeria
       isToday = targetDateLuxon.hasSame(nowInAlgeria, 'day');
+      console.log('Is today:', isToday);
     } catch (error) {
       console.error('Error parsing date:', error);
       throw new ApiError(
@@ -465,15 +490,16 @@ const getTimeScheduleForCustomer = async (
       );
     }
   } else {
-    // If no date is provided, default to today
+    // If no date is provided, default to today but don't filter by day
+    console.log('No date provided, showing all days');
     targetDateLuxon = nowInAlgeria;
-    selectedDay = defaultDays[targetDateLuxon.weekday % 7];
+    selectedDay = undefined; // Don't filter by day
     isToday = true;
   }
 
   const isTimeSlotReserved = (timeCode: number, targetDay: string) => {
-    return customerReservations.some((reservation) => {
-      // Convert reservation start time (assumed stored as local Algerian time) to Luxon DateTime
+    const isReserved = customerReservations.some((reservation) => {
+      // Convert reservation start time to Luxon DateTime
       const reservationStart = DateTime.fromJSDate(
         reservation.serviceStartDateTime,
         { zone: ALGERIA_TIMEZONE },
@@ -483,12 +509,19 @@ const getTimeScheduleForCustomer = async (
         reservationStart.hour * 100 + reservationStart.minute;
       return reservationDay === targetDay && reservationTimeCode === timeCode;
     });
+
+    if (isReserved) {
+      console.log(`Time slot ${timeCode} on ${targetDay} is reserved`);
+    }
+
+    return isReserved;
   };
 
   // Convert serviceDuration to minutes
   const serviceDurationMinutes = serviceDuration
     ? parseInt(serviceDuration)
     : 0;
+  console.log('Service duration in minutes:', serviceDurationMinutes);
 
   // Helper function to check if a time slot conflicts with unavailable slots
   const hasConflictWithUnavailableSlots = (
@@ -504,70 +537,118 @@ const getTimeScheduleForCustomer = async (
     return dayTimeSlots.some((slot) => {
       const slotTimeInMinutes =
         Math.floor(slot.timeCode / 100) * 60 + (slot.timeCode % 100);
-      return (
+      const hasConflict =
         slotTimeInMinutes >= startTimeInMinutes &&
         slotTimeInMinutes < endTimeInMinutes &&
-        !slot.isAvailable // Check against the original availability from the schedule
-      );
+        !slot.isAvailable;
+
+      if (hasConflict) {
+        console.log(
+          `Conflict detected for time ${startTimeCode} with slot ${slot.timeCode}`,
+        );
+      }
+
+      return hasConflict;
     });
   };
 
+  console.log('Processing days from schedule:', schedule.days.length);
   for (const day of schedule.days) {
-    if (selectedDay && day.day !== selectedDay) continue; // Skip if a specific date is requested and it's not this day
+    // Only filter by day if a specific date was requested
+    if (selectedDay && day.day !== selectedDay) {
+      console.log(
+        `Skipping day ${day.day} as it's not the selected day ${selectedDay}`,
+      );
+      continue;
+    }
 
+    console.log(
+      `Processing day: ${day.day}, time slots: ${day.timeSlots.length}`,
+    );
     const timeSlots = day.timeSlots.map((timeSlot) => {
       const timeCode = timeSlot.timeCode;
       const startHour = Math.floor(timeCode / 100);
       const startMinute = timeCode % 100;
 
-      // Create a Luxon DateTime for the specific slot on the target date in Algeria timezone
-      const slotDateTime = targetDateLuxon!.set({
-        hour: startHour,
-        minute: startMinute,
-        second: 0,
-        millisecond: 0,
-      });
+      // Create a Luxon DateTime for the specific slot
+      let slotDateTime;
+      if (selectedDay) {
+        // If a specific date was requested, use that date with the slot's time
+        slotDateTime = targetDateLuxon!.set({
+          hour: startHour,
+          minute: startMinute,
+          second: 0,
+          millisecond: 0,
+        });
+      } else {
+        // If no date was specified, use today's date for past time checks
+        // but understand we're showing availability for any day
+        slotDateTime = nowInAlgeria.set({
+          hour: startHour,
+          minute: startMinute,
+          second: 0,
+          millisecond: 0,
+        });
+      }
 
       let isSlotAvailable = timeSlot.isAvailable ?? false; // Start with schedule availability
+      console.log(
+        `Time slot ${timeSlot.time} initial availability: ${isSlotAvailable}`,
+      );
 
-      // --- Check if the slot is in the past (only if the requested date is today) ---
-      if (isToday && slotDateTime < nowInAlgeria) {
+      // Check if the slot is in the past (only if the requested date is today)
+      if (selectedDay && isToday && slotDateTime < nowInAlgeria) {
+        console.log(`Time slot ${timeSlot.time} is in the past`);
         isSlotAvailable = false;
       }
-      // --- End past time check ---
 
-      // Check if already reserved by the customer (only if availability hasn't been set to false yet)
+      // Check if already reserved by the customer
       if (isSlotAvailable && customerId) {
-        isSlotAvailable = !isTimeSlotReserved(timeCode, day.day);
+        const reserved = isTimeSlotReserved(timeCode, day.day);
+        if (reserved) {
+          console.log(
+            `Time slot ${timeSlot.time} is already reserved by customer`,
+          );
+          isSlotAvailable = false;
+        }
       }
 
-      // Check duration related constraints (only if availability hasn't been set to false yet)
+      // Check duration related constraints
       if (isSlotAvailable && serviceDurationMinutes > 0) {
         const startTimeInMinutes = startHour * 60 + startMinute;
         const endTimeInMinutes = startTimeInMinutes + serviceDurationMinutes;
 
-        // Check if service would go beyond closing time (assuming 20:00 based on previous logic)
+        // Check if service would go beyond closing time
         if (endTimeInMinutes > 20 * 60) {
+          console.log(
+            `Time slot ${timeSlot.time} would go beyond closing time`,
+          );
           isSlotAvailable = false;
         }
 
-        // Check for conflicts with originally unavailable slots within the duration
+        // Check for conflicts with unavailable slots
         if (
           isSlotAvailable &&
           hasConflictWithUnavailableSlots(
             timeCode,
             serviceDurationMinutes,
-            day.timeSlots, // Pass the original slots from the schedule for conflict check
+            day.timeSlots,
           )
         ) {
+          console.log(
+            `Time slot ${timeSlot.time} conflicts with unavailable slots`,
+          );
           isSlotAvailable = false;
         }
       }
 
+      console.log(
+        `Time slot ${timeSlot.time} final availability: ${isSlotAvailable}`,
+      );
       return {
         time: timeSlot.time,
         timeCode: timeCode,
-        isAvailable: isSlotAvailable, // Final calculated availability
+        isAvailable: isSlotAvailable,
         discount: timeSlot.discount ?? 0,
       };
     });
@@ -580,10 +661,13 @@ const getTimeScheduleForCustomer = async (
     });
   }
 
+  // If a specific day was requested, only return that day
+  // Otherwise, return all days
   const populatedDays = Array.from(daysMap.values()).filter(
     (day) => !selectedDay || day.day === selectedDay,
   );
 
+  console.log(`Returning ${populatedDays.length} days`);
   return {
     ...schedule,
     days: populatedDays,
