@@ -430,12 +430,30 @@ const getTimeScheduleForCustomer = async (
   if (date) {
     try {
       // Parse the date string (dd/MM/yyyy) into a Luxon DateTime object in Algeria timezone
-      targetDateLuxon = DateTime.fromFormat(date, 'dd/MM/yyyy', {
-        zone: ALGERIA_TIMEZONE,
-      });
-      if (!targetDateLuxon.isValid) {
+      // First, normalize the date format to ensure it has leading zeros
+      const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+      const match = date.match(dateRegex);
+
+      if (!match) {
         throw new Error(`Invalid date format: ${date}. Expected dd/MM/yyyy.`);
       }
+
+      // Extract day, month, and year with proper padding
+      const day = match[1].padStart(2, '0');
+      const month = match[2].padStart(2, '0');
+      const year = match[3];
+
+      // Create a properly formatted date string
+      const formattedDate = `${day}/${month}/${year}`;
+
+      targetDateLuxon = DateTime.fromFormat(formattedDate, 'dd/MM/yyyy', {
+        zone: ALGERIA_TIMEZONE,
+      });
+
+      if (!targetDateLuxon.isValid) {
+        throw new Error(`Invalid date: ${date}. Please provide a valid date.`);
+      }
+
       selectedDay = defaultDays[targetDateLuxon.weekday % 7]; // Luxon weekday: 1 (Mon) - 7 (Sun)
       // Check if the requested date is today in Algeria
       isToday = targetDateLuxon.hasSame(nowInAlgeria, 'day');
