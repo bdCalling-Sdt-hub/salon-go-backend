@@ -130,59 +130,47 @@ const updateScheduleForDaysInDB = async (
     // Update the days in the schedule
     validUpdates.forEach((updateDay) => {
       const dayIndex = schedule.days.findIndex((d) => d.day === updateDay.day);
+
+      // If day doesn't exist in schedule, create it
       if (dayIndex === -1) {
-        throw new ApiError(
-          StatusCodes.NOT_FOUND,
-          `Schedule for ${updateDay.day} not found!`,
-        );
+        // Create a new day entry with default values
+        const newDay = {
+          day: updateDay.day,
+          startTime: updateDay.startTime || '',
+          endTime: updateDay.endTime || '',
+          timeSlots: [],
+        };
+        schedule.days.push(newDay);
+        // Get the index of the newly added day
+        const newDayIndex = schedule.days.length - 1;
+
+        // Process time slots for the new day
+        if (updateDay.timeSlots && updateDay.timeSlots.length > 0) {
+          // Create completely new time slots for this day
+          const processedTimeSlots = processTimeSlots(updateDay.timeSlots);
+          schedule.days[newDayIndex].timeSlots = processedTimeSlots;
+        }
+      } else {
+        // Update existing day
+        const dayToUpdate = schedule.days[dayIndex];
+
+        // Update startTime and endTime if provided
+        if (updateDay.startTime) {
+          dayToUpdate.startTime = updateDay.startTime;
+        }
+        if (updateDay.endTime) {
+          dayToUpdate.endTime = updateDay.endTime;
+        }
+
+        // If time slots are provided, completely replace them
+        if (updateDay.timeSlots && updateDay.timeSlots.length > 0) {
+          // Process and replace all time slots for this day
+          const processedTimeSlots = processTimeSlots(updateDay.timeSlots);
+          dayToUpdate.timeSlots = processedTimeSlots;
+        }
+
+        schedule.days[dayIndex] = dayToUpdate;
       }
-
-      const dayToUpdate = schedule.days[dayIndex];
-
-      // Update startTime and endTime if provided
-      if (updateDay.startTime) {
-        dayToUpdate.startTime = updateDay.startTime;
-      }
-      if (updateDay.endTime) {
-        dayToUpdate.endTime = updateDay.endTime;
-      }
-
-      if (updateDay.timeSlots) {
-        // Deduplicate time slots based on time value
-        const uniqueTimeSlots: Array<{
-          time: string;
-          timeCode: number;
-          isAvailable: boolean;
-          discount: Number;
-        }> = [];
-        const timeSet = new Set();
-
-        updateDay.timeSlots.forEach((time) => {
-          // Use time or time.time depending on the structure
-          const timeValue = typeof time === 'string' ? time : time.time;
-
-          // Skip if we've already processed this time
-          if (timeSet.has(timeValue)) return;
-
-          timeSet.add(timeValue);
-
-          //@ts-ignore
-          const timeCode = DateHelper.parseTimeTo24Hour(timeValue); // Adjusted for plain string `time`
-          uniqueTimeSlots.push({
-            ...time, // Spread the original TimeSlots properties
-            timeCode: timeCode, // Add timeCode property
-            isAvailable: time.isAvailable ?? false, // Default value for isAvailable
-            discount: time.discount ?? 0, // Default value for discount percentage
-          });
-        });
-
-        dayToUpdate.timeSlots = uniqueTimeSlots.map((slot) => ({
-          ...slot,
-          discount: Number(slot.discount) || 0, // Convert discount to Number type
-        }));
-      }
-
-      schedule.days[dayIndex] = dayToUpdate;
     });
 
     // Save the updated schedule
@@ -197,6 +185,150 @@ const updateScheduleForDaysInDB = async (
     );
   }
 };
+
+// Helper function to process time slots with deduplication
+const processTimeSlots = (timeSlots: any[]) => {
+  const uniqueTimeSlots: Array<{
+    time: string;
+    timeCode: number;
+    isAvailable: boolean;
+    discount: number;
+  }> = [];
+  const timeSet = new Set();
+
+  timeSlots.forEach((time) => {
+    // Extract the time value consistently
+    const timeValue = typeof time === 'string' ? time : time.time;
+
+    // Skip if we've already processed this time
+    if (timeSet.has(timeValue)) return;
+
+    timeSet.add(timeValue);
+
+    //@ts-ignore
+    const timeCode = DateHelper.parseTimeTo24Hour(timeValue);
+    uniqueTimeSlots.push({
+      time: timeValue,
+      timeCode: timeCode,
+      isAvailable: typeof time === 'string' ? false : time.isAvailable ?? false,
+      discount: typeof time === 'string' ? 0 : time.discount ?? 0,
+    });
+  });
+
+  return uniqueTimeSlots.map((slot) => ({
+    ...slot,
+    discount: Number(slot.discount) || 0, // Convert discount to Number type
+  }));
+};
+
+// const updateScheduleForDaysInDB = async (
+//   user: JwtPayload,
+//   updates: Partial<ISchedule>,
+// ) => {
+//   try {
+//     // Validate the input
+//     if (!Array.isArray(updates.days)) {
+//       throw new ApiError(
+//         StatusCodes.BAD_REQUEST,
+//         'Invalid input: days should be an array',
+//       );
+//     }
+
+//     // Find the professional and their existing schedule
+//     const professional = await Professional.findOne({ _id: user.userId });
+//     if (!professional || !professional.scheduleId) {
+//       throw new ApiError(
+//         StatusCodes.NOT_FOUND,
+//         'Professional or schedule not found!',
+//       );
+//     }
+
+//     // Find the schedule
+//     const schedule = await Schedule.findById(professional.scheduleId);
+//     if (!schedule) {
+//       throw new ApiError(StatusCodes.NOT_FOUND, 'Schedule not found!');
+//     }
+
+//     // Filter out the days where `check` is false
+//     const validUpdates = updates.days
+//       .filter((updateDay) => updateDay.check) // Only include days where check is true
+//       .map((updateDay) => {
+//         const { check, ...rest } = updateDay; // Remove the check field
+//         return rest;
+//       });
+
+//     // Update the days in the schedule
+//     validUpdates.forEach((updateDay) => {
+//       const dayIndex = schedule.days.findIndex((d) => d.day === updateDay.day);
+//       if (dayIndex === -1) {
+//         throw new ApiError(
+//           StatusCodes.NOT_FOUND,
+//           `Schedule for ${updateDay.day} not found!`,
+//         );
+//       }
+
+//       const dayToUpdate = schedule.days[dayIndex];
+
+//       // Update startTime and endTime if provided
+//       if (updateDay.startTime) {
+//         dayToUpdate.startTime = updateDay.startTime;
+//       }
+//       if (updateDay.endTime) {
+//         dayToUpdate.endTime = updateDay.endTime;
+//       }
+
+//       if (updateDay.timeSlots) {
+//         // Deduplicate time slots based on time value
+//         const uniqueTimeSlots: Array<{
+//           time: string;
+//           timeCode: number;
+//           isAvailable: boolean;
+//           discount: Number;
+//         }> = [];
+//         const timeSet = new Set();
+
+//         updateDay.timeSlots.forEach((time) => {
+//           // Extract the time value consistently
+//           const timeValue = typeof time === 'string' ? time : time.time;
+
+//           // Skip if we've already processed this time
+//           if (timeSet.has(timeValue)) return;
+
+//           timeSet.add(timeValue);
+
+//           //@ts-ignore
+//           const timeCode = DateHelper.parseTimeTo24Hour(timeValue);
+//           uniqueTimeSlots.push({
+//             ...(typeof time === 'string' ? { time: timeValue } : time), // Preserve original properties
+//             time: timeValue, // Ensure time property is set
+//             timeCode: timeCode, // Add timeCode property
+//             isAvailable:
+//               typeof time === 'string' ? false : time.isAvailable ?? false, // Default value for isAvailable
+//             discount: typeof time === 'string' ? 0 : time.discount ?? 0, // Default value for discount percentage
+//           });
+//         });
+
+//         dayToUpdate.timeSlots = uniqueTimeSlots.map((slot) => ({
+//           ...slot,
+//           discount: Number(slot.discount) || 0, // Convert discount to Number type
+//         }));
+//       }
+
+//       schedule.days[dayIndex] = dayToUpdate;
+//     });
+
+//     // Save the updated schedule
+//     const updatedSchedule = await schedule.save();
+
+//     return updatedSchedule;
+//   } catch (error) {
+//     console.error('Error updating schedule for days:', error);
+//     throw new ApiError(
+//       StatusCodes.BAD_REQUEST,
+//       'Failed to update schedule for one or more days',
+//     );
+//   }
+// };
 
 const getTimeScheduleFromDBForProfessional = async (user: JwtPayload) => {
   const defaultDays = [
