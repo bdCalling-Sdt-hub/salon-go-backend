@@ -596,8 +596,13 @@ const getTimeScheduleForCustomer = async (
         `Time slot ${timeSlot.time} initial availability: ${isSlotAvailable}`,
       );
 
-      // Check if the slot is in the past (only if the requested date is today)
-      if (selectedDay && isToday && slotDateTime < nowInAlgeria) {
+      // Check if the slot is in the past
+      // For today's date or if a specific date in the past was requested
+      if (
+        (isToday ||
+          (targetDateLuxon && targetDateLuxon < nowInAlgeria.startOf('day'))) &&
+        slotDateTime < nowInAlgeria
+      ) {
         console.log(`Time slot ${timeSlot.time} is in the past`);
         isSlotAvailable = false;
       }

@@ -569,10 +569,14 @@ const generateTimeSlots = async (
   const uniqueSlots = new Set<string>();
   let current = startMinutes;
 
-  // Loop through and create slots with the interval, no gap
-  while (current + interval <= endMinutes) {
-    uniqueSlots.add(minutesToTime(current)); // Add slot at current time
-    current += interval; // Add interval for the next slot
+  // Loop through and create slots with the interval
+  // Only add slots that start within the range and end before or at the endTime
+  while (current < endMinutes) {
+    // Only add the slot if the entire slot (including its duration) fits within the range
+    if (current + interval <= endMinutes) {
+      uniqueSlots.add(minutesToTime(current));
+    }
+    current += interval; // Move to the next potential slot
   }
 
   // Convert Set back to array
